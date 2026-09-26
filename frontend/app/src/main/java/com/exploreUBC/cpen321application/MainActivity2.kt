@@ -39,7 +39,7 @@ class MainActivity2 : ComponentActivity() {
 @PreviewScreenSizes
 @Composable
 fun CPEN321ApplicationApp() {
-    var currentDestination by rememberSaveable { mutableStateOf(AppDestinations.HOME) }
+    var currentDestination by rememberSaveable { mutableStateOf(AppDestinations.NOTIFICATIONS) }
     NavigationSuiteScaffold(
         navigationSuiteItems = {
             AppDestinations.entries.forEach {
@@ -70,8 +70,10 @@ enum class AppDestinations(
     val label: String,
     val icon: Int,
 ) {
-    HOME("Home", R.drawable.ic_home),
-    FAVORITES("Favorites", R.drawable.ic_favorite),
+    NOTIFICATIONS("Notifications", R.drawable.notifications_24px),
+    TRIPS("Trips", R.drawable.trip_24px),
+    MAP("Map", R.drawable.map_24px),
+    CALCULATOR("Calculator", R.drawable.calculate_24px),
     PROFILE("Profile", R.drawable.ic_account_box),
 }
 
