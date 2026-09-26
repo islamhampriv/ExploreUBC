@@ -1,4 +1,4 @@
-package com.example.cpen321application
+package com.exploreUBC.cpen321application
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -15,7 +15,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import com.example.cpen321application.ui.theme.CPEN321ApplicationTheme
+import com.exploreUBC.cpen321application.ui.theme.CPEN321ApplicationTheme
 import java.net.HttpURLConnection
 import java.net.URL
 import kotlinx.coroutines.Dispatchers

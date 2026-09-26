@@ -18,11 +18,11 @@ fun localProperty(name: String, default: String = ""): String =
     localProperties.getProperty(name)?.trim()?.removeSurrounding("\"") ?: default
 
 android {
-    namespace = "com.example.cpen321application"
+    namespace = "com.exploreUBC.cpen321application"
     compileSdk = libs.versions.compileSdk.get().toInt()
 
     defaultConfig {
-        applicationId = "com.example.cpen321application"
+        applicationId = "com.exploreUBC.cpen321application"
         minSdk = libs.versions.minSdk.get().toInt()
         targetSdk = libs.versions.targetSdk.get().toInt()
         versionCode = 1
