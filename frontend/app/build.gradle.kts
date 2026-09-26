@@ -71,6 +71,7 @@ kotlin {
 }
 
 dependencies {
+    implementation(libs.androidx.compose.material3.adaptive.navigation.suite)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
@@ -86,4 +87,7 @@ dependencies {
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
+    implementation("androidx.credentials:credentials:1.7.0-alpha03")
+    implementation("androidx.credentials:credentials-play-services-auth:1.7.0-alpha03")
+    implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")
 }
