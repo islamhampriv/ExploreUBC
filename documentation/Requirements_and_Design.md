@@ -29,9 +29,9 @@
 ### **3.4. Use Case Description**
 #### Use Cases for Feature 1: Itinerary Recommendation
 
-1. **Generate Itineraries**: The user enters a starting location, available time, transportation mode, and optional interests or constraints. The system combines these inputs with the user's profile, generates candidate activities, verifies their locations, calculates travel and transportation costs, and returns four ranked itineraries. Generating a new set replaces the user's previous recommendation set only after generation succeeds.
-2. **Review Recommendations**: The user reviews the latest generated itineraries and compares their activities, schedules, transportation segments, estimated costs, and ranking explanations. The latest recommendation set remains available after the user closes and reopens the application.
-3. **Save a Recommendation**: The user selects a generated recommendation to save. The system copies it into the user's saved itineraries, after which the itinerary can be edited through Itinerary Management.
+1. **Generate Itineraries**: The user can generate four ranked itinerary recommendations based on trip constraints and profile preferences.
+2. **Review Recommendations**: The user reviews the latest generated itineraries and compares their activities, schedules, transportation segments, estimated costs, and ranking explanations.
+3. **Save a Recommendation**: The user selects a generated recommendation to save.
 
 #### Use Cases for Feature 2: Itinerary Management
 
@@ -40,7 +40,7 @@
 3. **Add Activities or Transportation Segments**: The user adds an activity or transportation segment to a saved itinerary.
 4. **Remove Activities or Transportation Segments**: The user removes an activity or transportation segment from a saved itinerary.
 5. **Reorder Activities or Transportation Segments**: The user changes the order of activities and their associated transportation segments.
-6. **Edit Activities or Transportation Segments**: The user changes details such as an activity's name, description, location, or time, or a transportation segment's mode and timing. The system recalculates affected travel information and itinerary totals when necessary.
+6. **Edit Activities or Transportation Segments**: The user changes details such as an activity's name, description, location, or time, or a transportation segment's mode and timing.
 7. **Delete an Itinerary**: The user permanently removes a saved itinerary.
 8. **View an Itinerary on the Map**: The user views the itinerary's activity locations and transportation routes on a map.
 
@@ -69,22 +69,18 @@
 1. The user opens the itinerary-generation screen.
 2. The user enters a starting location, available time, budget, transportation mode, and any request-specific interests or constraints.
 3. The user selects **Generate Itineraries**.
-4. The system loads the user's saved profile preferences and validates the trip request.
-5. The system generates candidate activities and resolves them into verified places.
-6. The system obtains travel times and distances, estimates transportation costs, and removes candidates that violate the user's constraints.
-7. The system ranks the feasible itineraries and saves the four highest-ranked candidates as the user's latest recommendation set.
-8. The system displays the four recommendations with their activities, transportation segments, estimated costs, and ranking explanations.
+4. The system displays the four recommendations with their activities, transportation segments, estimated costs, and ranking explanations.
 
 **Failure scenario(s)**:
-- 4a. One or more required trip inputs are missing or invalid.
-    - 4a1. The system identifies the invalid fields.
-    - 4a2. The user corrects the inputs and submits the request again.
-- 5a. An external generation or place-resolution service is unavailable or returns invalid data.
-    - 5a1. The system does not replace the user's previous recommendation set.
-    - 5a2. The system informs the user that recommendations could not be generated and allows another attempt.
-- 7a. Fewer than four feasible itineraries satisfy the user's constraints.
-    - 7a1. The system displays the feasible itineraries that were found.
-    - 7a2. The system suggests relaxing the time, transportation, or interest constraints.
+- 3a. One or more required trip inputs are missing or invalid.
+    - 3a1. The system identifies the invalid fields.
+    - 3a2. The user corrects the inputs and submits the request again.
+- 4a. An external generation or place-resolution service is unavailable or returns invalid data.
+    - 4a1. The system does not replace the user's previous recommendation set.
+    - 4b2. The system informs the user that recommendations could not be generated and allows another attempt.
+- 4b. Fewer than four feasible itineraries satisfy the user's constraints.
+    - 4b1. The system displays the feasible itineraries that were found.
+    - 4b2. The system suggests relaxing the time, transportation, or interest constraints.
 
 <a name="uc2"></a>
 
@@ -101,8 +97,7 @@
 2. The system displays the user's current preferences.
 3. The user changes one or more transportation, budget, or interest preferences.
 4. The user saves the changes.
-5. The system validates and stores the updated preferences.
-6. The system confirms the update and uses the new preferences for future itinerary and live-event recommendations.
+5. The system confirms the update.
 
 **Failure scenario(s)**:
 - 3a. The user enters an invalid budget value.
@@ -126,20 +121,16 @@
 1. The user selects **Sign In with Google**.
 2. The application opens the Google authentication flow.
 3. The user selects a Google account and grants the requested authentication permissions.
-4. Google returns proof of the authenticated identity to the application.
-5. The application sends the Google identity token to the ExploreUBC backend.
-6. The backend validates the token and finds the associated ExploreUBC account.
-7. The backend establishes an ExploreUBC session.
-8. The application opens the authenticated home screen.
+4. The application opens the authenticated home screen.
 
 **Failure scenario(s)**:
 - 3a. The user cancels Google authentication.
     - 3a1. The application returns to the authentication screen without creating a session.
 - 4a. Google authentication fails.
     - 4a1. The application displays an authentication error and allows the user to try again.
-- 6a. The backend rejects an invalid or expired Google identity token.
-    - 6a1. The application does not create a session.
-    - 6a2. The application asks the user to restart the Google sign-in flow.
+- 4b. The backend rejects an invalid or expired Google identity token.
+    - 4b1. The application does not create a session.
+    - 4b2. The application asks the user to restart the Google sign-in flow.
 
 ### **3.6. Screen Mock-ups**
 
