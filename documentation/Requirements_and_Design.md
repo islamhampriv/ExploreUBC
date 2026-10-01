@@ -10,7 +10,17 @@
 
 ## 2. Project Description
 
-[WRITE_PROJECT_DESCRIPTION_HERE]
+Our project is called Explore UBC - a travel itinerary planner for UBC exchange students who want to explore British Columbia. It is an Android application built with Kotlin and JetPack Compose for the front-end, Node.js for the backend, MongoDB for the database and uses Vercel for deployment.
+
+Planning a trip often means finding ideas, checking routes, and building a schedule. Travellers can sign up to create a profile with their interests, budget preference, and preferred transportation mode. They can also update their profile at any time. Our application uses Google Credential manager for authentication and session management.
+
+The central use case is creating an itinerary. Travellers can add activities and transportation to their itinerary. At any time, they can also edit, remove and reorder these activities and transportation segments when those plans change. They can also request AI itinerary recommendations based on their profile. External LLMs provide the ideas, but our backend owns the final recommendation logic. This is the technical highlight of our project.
+
+After adding activities, travellers can view activity locations on a map and see routes between them. The map also features pins for popular destinations nearby. Google Maps SDK supports these features. The app also includes a transportation cost calculator, helping travellers consider their budget. The calculator takes in vehicle type, fuel efficiency, fuel price, and distance to calculate the total cost.
+
+Finally, travellers can view live event recommendations. Local events are retrieved from an external event service API and are matched to the user’s location and profile preferences. WebSockets allow new or modified live event updates to appear without refreshing. 
+
+The features in this app will facilitate the entire trip planning process for UBC Exchange students, from choosing where to go and to getting there, leaving little room for unwanted surprises and making the journey a breeze.
 
 ---
 
