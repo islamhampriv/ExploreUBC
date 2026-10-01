@@ -1,4 +1,4 @@
-package com.example.cpen321application
+package com.exploreUBC.cpen321application
 
 import org.junit.Test
 
