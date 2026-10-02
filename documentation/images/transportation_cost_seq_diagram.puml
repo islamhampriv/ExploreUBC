@@ -1,0 +1,77 @@
+@startuml
+title Use Case 3: Calculate Transportation Cost
+
+skinparam ArrowFontStyle plain
+skinparam ParticipantStyle rectangle
+skinparam Shadowing false
+skinparam DefaultTextAlignment center
+skinparam SequenceMessageAlign center
+skinparam SequenceBoxFontSize 15
+skinparam SequenceBoxPadding 0
+skinparam FontName Arial
+hide footbox
+
+box "User"
+participant "u:User" as User
+end box
+
+box "User Interface"
+participant ":ExploreUBCApp" as App
+end box
+
+box "Application Logic"
+participant ":BackendAPI" as Backend
+end box
+
+box "Storage"
+participant "db:MongoDB" as DB
+end box
+
+box "External Service"
+participant ":FuelPriceService" as FuelPriceService
+end box
+
+User -> App : openCostCalculator(itineraryId)
+activate App
+App -> Backend : getStoredRoutes(itineraryId)
+activate Backend
+Backend -> DB : findStoredRoutes(itineraryId)
+activate DB
+DB --> Backend : routes
+deactivate DB
+Backend --> App : routes
+deactivate Backend
+App --> User : displayTransportationModes()
+deactivate App
+
+User -> App : selectMode(mode, vehicleType)
+activate App
+App -> Backend : calculateTransportationCost(routeId, mode, vehicleType)
+activate Backend
+
+alt car selected
+    Backend -> DB : getCarPricingInputs(routeId, vehicleType)
+    activate DB
+    DB --> Backend : routeDistance, fuelEfficiency
+    deactivate DB
+    Backend -> FuelPriceService : getCurrentFuelPrice()
+    activate FuelPriceService
+    FuelPriceService --> Backend : fuelPrice
+    deactivate FuelPriceService
+else public transport selected
+    Backend -> DB : getPublicTransportPricingInputs(routeId)
+    activate DB
+    DB --> Backend : routeFare
+    deactivate DB
+end
+
+Backend -> Backend : calculateCost(mode, pricingInputs)
+activate Backend
+Backend --> Backend : calculatedAmount
+deactivate Backend
+Backend --> App : calculatedAmount
+deactivate Backend
+App --> User : displayEstimatedCost(calculatedAmount)
+deactivate App
+
+@enduml

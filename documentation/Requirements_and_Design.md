@@ -109,24 +109,26 @@
   - 8a1. The system tells the user the event can no longer be added.
   - 8a2. The system leaves the itinerary unchanged and lets the user choose another event.
 
+<a name="uc3"></a>
+
 #### Use Case 3: Calculate Transportation Cost
 
 **Description**: The user selects car or public transport for their itinerary. The system uses route information previously generated using Google Maps and stored with the itinerary to calculate and display the estimated transportation cost. For a car journey, the system uses the selected vehicle type or an average car.
 
 **Primary actor**: User
 
-**Supporting actor**: External fuel-price data source
+**Supporting actor**: External fuel price data source
 
 **Preconditions**:
 
 - The user has created an itinerary containing activities with locations.
-- The system has attempted to generate car and public-transport routes for the itinerary.
+- The system has attempted to generate car and public transport routes for the itinerary.
 
 **Main success scenario**:
 
 1. The user opens the transportation cost calculator for the itinerary.
 2. The system retrieves the car and public-transport routes stored with the itinerary.
-3. The user selects car or public transport. If the user selects car, they choose a vehicle type or the average-car option.
+3. The user selects car or public transport. If the user selects car, they choose a vehicle type or the average car option.
 4. The system retrieves the required cost information for the selected mode. For a car, it uses the stored fuel-efficiency value for the selected vehicle type and the latest available fuel price. For public transport, it uses the fare stored with the route or the backend's configured fare table.
 5. The system calculates the estimated transportation cost.
 6. The system displays the estimated cost.
@@ -203,6 +205,8 @@
    [SEQUENCE_DIAGRAM_HERE]
 2. [**View Event Recommendations**](#uc2)\
    ![View Event Recommendations sequence diagram](images/view_events_seq_diagram.png)
+3. [**Calculate Transportation Cost**](#uc3)\
+   ![Calculate Transportation Cost sequence diagram](images/transportation_cost_seq_diagram.png)
 
 ### **4.7. Design of Non-Functional Requirements**
 
