@@ -91,16 +91,23 @@
 2. The system displays events matching the user’s interests and location.
 3. The user selects an event.
 4. The system displays the event’s details.
-5. The user adds the event to an itinerary.
-6. The system stores the event in the itinerary.
+5. The user chooses to add the event to an itinerary.
+6. The system displays the user's itineraries.
+7. The user selects an itinerary.
+8. The system verifies that the event is still available and stores it in the selected itinerary.
 
 **Failure scenario(s)**:
 
 - 2a. No events match the user’s interests and location.
   - 2a1. The system shows that no events are available at the moment.
-- 6a. The user selects an event that is no longer available.
-  - 6a1. The system tells the user the event can no longer be added.
-  - 6a2. The system leaves the itinerary unchanged and lets the user choose another event.
+- 6a. The user does not have a saved itinerary.
+  - 6a1. The system informs the user that no itinerary is available and offers the option to create one.
+  - 6a2. The user chooses to create an itinerary and enters its required details.
+  - 6a3. The system creates the itinerary.
+  - 6a4. The flow continues at step 8 using the newly created itinerary.
+- 8a. The selected event is no longer available.
+  - 8a1. The system tells the user the event can no longer be added.
+  - 8a2. The system leaves the itinerary unchanged and lets the user choose another event.
 
 #### Use Case 3: Calculate Transportation Cost
 
@@ -188,7 +195,8 @@
 
 1. [**[WRITE_NAME_HERE]**](#uc1)\
    [SEQUENCE_DIAGRAM_HERE]
-2. ...
+2. [**View Event Recommendations**](#uc2)\
+   ![View Event Recommendations sequence diagram](images/view_events_seq_diagram.png)
 
 ### **4.7. Design of Non-Functional Requirements**
 
