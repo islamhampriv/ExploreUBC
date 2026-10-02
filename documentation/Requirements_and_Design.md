@@ -102,31 +102,39 @@
   - 6a1. The system tells the user the event can no longer be added.
   - 6a2. The system leaves the itinerary unchanged and lets the user choose another event.
 
-#### Use Case 5: [WRITE_USE_CASE_5_NAME_HERE]
+#### Use Case 3: Calculate Transportation Cost
 
-**Description**: ...
+**Description**: The user selects car or public transport for their itinerary. The system uses route information from Google Maps and the relevant cost data to calculate and display the estimated transportation cost. For a car journey, the system uses the vehicle type saved in the user’s profile.
 
-**Primary actor(s)**: ...
+**Primary actor**: User
+
+**Supporting actors**: Google Maps, External fuel-price data source
+
+**Preconditions**:
+
+- The user has created an itinerary containing activities with locations.
+- The user’s profile contains a vehicle type if they want a car-cost estimate.
 
 **Main success scenario**:
 
-1. ...
-2. ...
+1. The user opens the transportation cost calculator for the itinerary.
+2. The system retrieves the itinerary’s locations and route information from Google Maps.
+3. The user selects car or public transport and, if they choose car, optionally enters their vehicle type. If they don’t provide one, the system uses an average car for the estimate.
+4. If the user selects car, the system offers the choice of entering a vehicle type or using an average car.
+5. The user makes a selection.
+6. The system calculates the estimated cost using the selected transportation mode and the required route and cost information.
+7. The system displays the estimated transportation cost.
 
-**Failure scenario(s)**:
+**Failure scenario**:
 
-- 1a. ...
-  - 1a1. ...
-  - 1a2. ...
+- 3a. The system cannot identify the vehicle type entered by the user.
+  - 3a1. The system informs the user that it could not find that vehicle type.
+  - 3a2. The user can enter another vehicle type or continue with the average car estimate.
+- 4a. Google Maps cannot provide a route or the required cost information for the selected mode.
+  - 4a1. The system informs the user that it cannot calculate the cost for that mode.
+  - 4a2. The user can select the other transportation mode.
 
-- 1b. ...
-  - 1b1. ...
-  - 1b2. ...
-- 2a. ...
-  - 2a1. ...
-  - 2a2. ...
-
-...
+**Postcondition:** The system displays the estimated cost for the selected mode, or informs the user when it cannot calculate the cost.
 
 ### **3.6. Screen Mock-ups**
 
