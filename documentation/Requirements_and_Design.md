@@ -111,35 +111,41 @@
 
 #### Use Case 3: Calculate Transportation Cost
 
-**Description**: The user selects car or public transport for their itinerary. The system uses route information from Google Maps and the relevant cost data to calculate and display the estimated transportation cost. For a car journey, the system uses the vehicle type saved in the user’s profile.
+**Description**: The user selects car or public transport for their itinerary. The system uses route information previously generated using Google Maps and stored with the itinerary to calculate and display the estimated transportation cost. For a car journey, the system uses the selected vehicle type or an average car.
 
 **Primary actor**: User
 
-**Supporting actors**: Google Maps, External fuel-price data source
+**Supporting actor**: External fuel-price data source
 
 **Preconditions**:
 
 - The user has created an itinerary containing activities with locations.
-- The user’s profile contains a vehicle type if they want a car-cost estimate.
+- The system has attempted to generate car and public-transport routes for the itinerary.
 
 **Main success scenario**:
 
 1. The user opens the transportation cost calculator for the itinerary.
-2. The system retrieves the itinerary’s locations and route information from Google Maps.
-3. The user selects car or public transport and, if they choose car, optionally enters their vehicle type. If they don’t provide one, the system uses an average car for the estimate.
-4. If the user selects car, the system offers the choice of entering a vehicle type or using an average car.
-5. The user makes a selection.
-6. The system calculates the estimated cost using the selected transportation mode and the required route and cost information.
-7. The system displays the estimated transportation cost.
+2. The system retrieves the car and public-transport routes stored with the itinerary.
+3. The user selects car or public transport. If the user selects car, they choose a vehicle type or the average-car option.
+4. The system retrieves the required cost information for the selected mode. For a car, it uses the stored fuel-efficiency value for the selected vehicle type and the latest available fuel price. For public transport, it uses the fare stored with the route or the backend's configured fare table.
+5. The system calculates the estimated transportation cost.
+6. The system displays the estimated cost.
 
 **Failure scenario**:
 
+- 2a. The itinerary does not contain stored route information for one or both transportation modes.
+  - 2a1. The system identifies the modes for which route information is unavailable.
+  - 2a2. The user can select a mode with available route information.
+  - 2a3. If neither mode has route information, the system informs the user that it cannot calculate a transportation cost.
 - 3a. The system cannot identify the vehicle type entered by the user.
   - 3a1. The system informs the user that it could not find that vehicle type.
-  - 3a2. The user can enter another vehicle type or continue with the average car estimate.
-- 4a. Google Maps cannot provide a route or the required cost information for the selected mode.
-  - 4a1. The system informs the user that it cannot calculate the cost for that mode.
-  - 4a2. The user can select the other transportation mode.
+  - 3a2. The user can enter another vehicle type or continue with the average-car estimate.
+- 4a. The external fuel-price data source cannot provide current fuel-price data.
+  - 4a1. The system informs the user that it cannot calculate a car-cost estimate at the moment.
+  - 4a2. The user can retry or select public transport.
+- 4b. Fare information is unavailable for the public-transport route.
+  - 4b1. The system informs the user that it cannot calculate a public-transport cost estimate.
+  - 4b2. The user can select car instead.
 
 **Postcondition:** The system displays the estimated cost for the selected mode, or informs the user when it cannot calculate the cost.
 
