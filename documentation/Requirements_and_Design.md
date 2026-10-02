@@ -72,7 +72,59 @@
 
 <a name="uc2"></a>
 
-#### Use Case 2: [WRITE_USE_CASE_2_NAME_HERE]
+#### Use Case 2: View Event Recommendations
+
+**Description**: The user views event recommendations personalised to their interests and location. The system periodically retrieves event listings from an external event service to keep the recommendations current. The user can view an event’s details and add it to an itinerary.
+
+**Primary actor(s)**: User
+
+**Secondary actor(s)**: External Event Service
+
+**Preconditions:**
+
+- The user has saved interests and a location in their profile.
+- The system has retrieved and stored event listings during a periodic check.
+
+**Main success scenario**:
+
+1. The user opens the live-events feature.
+2. The system displays events matching the user’s interests and location.
+3. The user selects an event.
+4. The system displays the event’s details.
+5. The user adds the event to an itinerary.
+6. The system stores the event in the itinerary.
+
+**Failure scenario(s)**:
+
+- 2a. No events match the user’s interests and location.
+  - 2a1. The system shows that no events are available at the moment.
+- 6a. The user selects an event that is no longer available.
+  - 6a1. The system tells the user the event can no longer be added.
+  - 6a2. The system leaves the itinerary unchanged and lets the user choose another event.
+
+#### Use Case 5: [WRITE_USE_CASE_5_NAME_HERE]
+
+**Description**: ...
+
+**Primary actor(s)**: ...
+
+**Main success scenario**:
+
+1. ...
+2. ...
+
+**Failure scenario(s)**:
+
+- 1a. ...
+  - 1a1. ...
+  - 1a2. ...
+
+- 1b. ...
+  - 1b1. ...
+  - 1b2. ...
+- 2a. ...
+  - 2a1. ...
+  - 2a2. ...
 
 ...
 
