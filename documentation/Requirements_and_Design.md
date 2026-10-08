@@ -175,7 +175,11 @@ The five specifications below are the major use cases for Feature Sets 2 and 3.
 
 
 ### **4.6. Use Case Sequence Diagram (5 Most Major Use Cases)**
-1. [**[Use Case 1: Browse Popular Location]**](#uc1)
+
+1. [**[Use Case 1: View itinerary on map]**](#uc1)
+   ![Browse Popular Location sequence diagram](images/view_itinerary_on_map.png)
+
+2. [**[Use Case 2: Browse Popular Location]**](#uc2)
    ![Browse Popular Location sequence diagram](images/browse_popular_locations.png)
 
 ### **4.7. Design of Non-Functional Requirements**
