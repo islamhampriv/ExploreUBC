@@ -111,9 +111,9 @@
 
 <a name="uc3"></a>
 
-#### Use Case 3: Calculate Transportation Cost
+#### Use Case 3: View Transportation Cost Estimate
 
-**Description**: The user selects car or public transport for their itinerary. The system uses route information previously generated using Google Maps and stored with the itinerary to calculate and display the estimated transportation cost. For a car journey, the system uses the selected vehicle type or an average car.
+**Description**: When an itinerary is created or modified, the system automatically calculates and stores a transportation cost estimate based on its transportation segments. The system uses the transportation mode and route information stored with each segment. For a car segment, it uses the vehicle type specified by the itinerary or, if none is specified, the vehicle type saved in the user's profile. The itinerary card displays the total estimated transportation cost, and the user can select it to open a detailed cost breakdown without first opening the itinerary.
 
 **Primary actor**: User
 
@@ -121,35 +121,31 @@
 
 **Preconditions**:
 
-- The user has created an itinerary containing activities with locations.
-- The system has attempted to generate car and public transport routes for the itinerary.
+- An itinerary containing transportation segments with route information has been created or modified.
+- The system has attempted to calculate and store its total transportation cost and per-segment breakdown.
 
 **Main success scenario**:
 
-1. The user opens the transportation cost calculator for the itinerary.
-2. The system retrieves the car and public-transport routes stored with the itinerary.
-3. The user selects car or public transport. If the user selects car, they choose a vehicle type or the average car option.
-4. The system retrieves the required cost information for the selected mode. For a car, it uses the stored fuel-efficiency value for the selected vehicle type and the latest available fuel price. For public transport, it uses the fare stored with the route or the backend's configured fare table.
-5. The system calculates the estimated transportation cost.
-6. The system displays the estimated cost.
+1. The user views a screen containing an itinerary card.
+2. The system retrieves the itinerary's stored total transportation cost estimate.
+3. The system displays the total estimated transportation cost on the itinerary card.
+4. The user selects the transportation cost on the card.
+5. The system retrieves the stored per-segment cost breakdown.
+6. The system displays a pop-up containing the estimated cost for each transportation segment, including the mode and the pricing information used.
 
 **Failure scenario**:
 
-- 2a. The itinerary does not contain stored route information for one or both transportation modes.
-  - 2a1. The system identifies the modes for which route information is unavailable.
-  - 2a2. The user can select a mode with available route information.
-  - 2a3. If neither mode has route information, the system informs the user that it cannot calculate a transportation cost.
-- 3a. The system cannot identify the vehicle type entered by the user.
-  - 3a1. The system informs the user that it could not find that vehicle type.
-  - 3a2. The user can enter another vehicle type or continue with the average-car estimate.
-- 4a. The external fuel-price data source cannot provide current fuel-price data.
-  - 4a1. The system informs the user that it cannot calculate a car-cost estimate at the moment.
-  - 4a2. The user can retry or select public transport.
-- 4b. Fare information is unavailable for the public-transport route.
-  - 4b1. The system informs the user that it cannot calculate a public-transport cost estimate.
-  - 4b2. The user can select car instead.
+- 2a. The system could not calculate a total because route or pricing information was unavailable for one or more transportation segments.
+  - 2a1. The itinerary card identifies the transportation cost as unavailable.
+  - 2a2. The system identifies the affected segments when breakdown information is available.
+- 2b. The system could not calculate a car segment because neither the itinerary nor the user's profile specified a vehicle type.
+  - 2b1. The itinerary card identifies the transportation cost as unavailable.
+  - 2b2. The system informs the user that a vehicle type must be added to the itinerary or their profile before the total can be estimated.
+- 5a. The cost breakdown cannot be loaded because of a server or network error.
+  - 5a1. The system keeps the itinerary card visible.
+  - 5a2. The system informs the user that the breakdown is temporarily unavailable and allows another attempt.
 
-**Postcondition:** The system displays the estimated cost for the selected mode, or informs the user when it cannot calculate the cost.
+**Postcondition:** The itinerary card displays its total estimated transportation cost and makes a per-segment breakdown available, or clearly indicates that the estimate is unavailable.
 
 ### **3.6. Screen Mock-ups**
 
