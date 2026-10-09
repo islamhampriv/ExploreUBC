@@ -1,0 +1,66 @@
+@startuml
+title Use Case 2: View Event Recommendations (Simplified)
+
+skinparam ArrowFontStyle plain
+skinparam ParticipantStyle rectangle
+skinparam Shadowing false
+skinparam DefaultTextAlignment center
+skinparam SequenceMessageAlign center
+skinparam SequenceBoxFontSize 15
+skinparam SequenceBoxPadding 0
+skinparam FontName Arial
+skinparam NoteBackgroundColor white
+skinparam NoteBorderColor black
+hide footbox
+
+actor User
+
+box "User Interface"
+participant ":ExploreUBCApp" as App
+end box
+
+box "Application Logic"
+participant ":EventRecommendation" as EventRecommendation
+end box
+
+box "Storage"
+participant "db:MongoDB" as DB
+end box
+
+note over EventRecommendation, DB
+Current event listings have already been
+periodically retrieved and stored.
+end note
+
+User -> App : Open Live Events
+activate App
+App -> EventRecommendation : getRecommendedEvents(userId: UserId): Event[]
+activate EventRecommendation
+
+EventRecommendation -> DB : getUserProfile(userId: UserId): UserProfile
+activate DB
+DB --> EventRecommendation : profile: UserProfile
+deactivate DB
+
+EventRecommendation -> DB : findCandidateEvents(location: GeoPoint): Event[]
+activate DB
+DB --> EventRecommendation : events: Event[]
+deactivate DB
+
+EventRecommendation --> App : recommendedEvents: Event[]
+deactivate EventRecommendation
+
+alt recommendations found
+    App --> User : Display event recommendations
+    deactivate App
+
+    User -> App : Select event
+    activate App
+    App --> User : Display event details and ticket link
+    deactivate App
+else no recommendations
+    App --> User : Display no-events message
+    deactivate App
+end
+
+@enduml
