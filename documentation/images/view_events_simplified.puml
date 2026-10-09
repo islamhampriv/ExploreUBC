@@ -13,76 +13,53 @@ skinparam NoteBackgroundColor white
 skinparam NoteBorderColor black
 hide footbox
 
-box "User"
-participant "u:User" as User
-end box
+actor User
 
 box "User Interface"
 participant ":ExploreUBCApp" as App
 end box
 
 box "Application Logic"
-participant ":BackendAPI" as Backend
+participant ":EventRecommendation" as EventRecommendation
 end box
 
 box "Storage"
 participant "db:MongoDB" as DB
 end box
 
-note over Backend, DB
+note over EventRecommendation, DB
 Current event listings have already been
 periodically retrieved and stored.
 end note
 
-User -> App : openLiveEvents()
+User -> App : Open Live Events
 activate App
-App -> Backend : getEventRecommendations()
-activate Backend
-Backend -> DB : findMatchingEventsForUser()
+App -> EventRecommendation : getRecommendedEvents(userId: UserId): Event[]
+activate EventRecommendation
+
+EventRecommendation -> DB : getUserProfile(userId: UserId): UserProfile
 activate DB
-DB --> Backend : matchingEvents
+DB --> EventRecommendation : profile: UserProfile
 deactivate DB
 
-alt matching events found
-    Backend --> App : matchingEvents
-    deactivate Backend
-    App --> User : displayRecommendations(matchingEvents)
+EventRecommendation -> DB : findCandidateEvents(location: GeoPoint): Event[]
+activate DB
+DB --> EventRecommendation : events: Event[]
+deactivate DB
+
+EventRecommendation --> App : recommendedEvents: Event[]
+deactivate EventRecommendation
+
+alt recommendations found
+    App --> User : Display event recommendations
     deactivate App
 
-    User -> App : selectEvent(eventId)
+    User -> App : Select event
     activate App
-    App --> User : displayEventDetails(eventId)
+    App --> User : Display event details and ticket link
     deactivate App
-
-    User -> App : addToItinerary(eventId)
-    activate App
-    App -> Backend : getUserItineraries()
-    activate Backend
-    Backend -> DB : findUserItineraries()
-    activate DB
-    DB --> Backend : itineraries
-    deactivate DB
-    Backend --> App : itineraries
-    deactivate Backend
-    App --> User : displayItineraryChoices(itineraries)
-    deactivate App
-
-    User -> App : selectItinerary(itineraryId)
-    activate App
-    App -> Backend : addEventToItinerary(eventId, itineraryId)
-    activate Backend
-    Backend -> DB : addEvent(eventId, itineraryId)
-    activate DB
-    DB --> Backend : updateConfirmed
-    deactivate DB
-    Backend --> App : additionSuccessful
-    deactivate Backend
-    App --> User : displayConfirmation()
-    deactivate App
-else no matching events
-    Backend --> App : emptyEventList
-    deactivate Backend
-    App --> User : displayNoEventsMessage()
+else no recommendations
+    App --> User : Display no-events message
     deactivate App
 end
 
