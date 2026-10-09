@@ -1,5 +1,5 @@
 @startuml
-title Use Case 3: Calculate Transportation Cost
+title Use Case 3: Calculate and Store Transportation Cost
 
 skinparam ArrowFontStyle plain
 skinparam ParticipantStyle rectangle
@@ -11,67 +11,63 @@ skinparam SequenceBoxPadding 0
 skinparam FontName Arial
 hide footbox
 
-box "User"
-participant "u:User" as User
-end box
+actor User
 
 box "User Interface"
 participant ":ExploreUBCApp" as App
 end box
 
 box "Application Logic"
-participant ":BackendAPI" as Backend
+participant ":ItineraryService" as ItineraryService
+participant ":TransportCalculator" as Calculator
 end box
 
 box "Storage"
-participant "db:MongoDB" as DB
+participant "db:MongoDB" as Database
 end box
 
 box "External Service"
-participant ":FuelPriceService" as FuelPriceService
+participant ":ExternalPricingService" as ExternalService
 end box
 
-User -> App : openCostCalculator(itineraryId)
+User -> App : Update itinerary
 activate App
-App -> Backend : getStoredRoutes(itineraryId)
-activate Backend
-Backend -> DB : findStoredRoutes(itineraryId)
-activate DB
-DB --> Backend : routes
-deactivate DB
-Backend --> App : routes
-deactivate Backend
-App --> User : displayTransportationModes()
-deactivate App
+App -> ItineraryService : updateItinerary(itinerary: Itinerary): Itinerary
+activate ItineraryService
 
-User -> App : selectMode(mode, vehicleType)
-activate App
-App -> Backend : calculateTransportationCost(routeId, mode, vehicleType)
-activate Backend
+ItineraryService -> Calculator : calculateTransportationCost(itinerary: Itinerary): CostSummary
+activate Calculator
 
-alt car selected
-    Backend -> DB : getCarPricingInputs(routeId, vehicleType)
-    activate DB
-    DB --> Backend : routeDistance, fuelEfficiency
-    deactivate DB
-    Backend -> FuelPriceService : getCurrentFuelPrice()
-    activate FuelPriceService
-    FuelPriceService --> Backend : fuelPrice
-    deactivate FuelPriceService
-else public transport selected
-    Backend -> DB : getPublicTransportPricingInputs(routeId)
-    activate DB
-    DB --> Backend : routeFare
-    deactivate DB
+opt itinerary contains car segments
+    Calculator -> Database : getUserVehicleDetails(userId: UserId): VehicleDetails
+    activate Database
+    Database --> Calculator : vehicleDetails: VehicleDetails
+    deactivate Database
+
+    Calculator -> ExternalService : getCarPricingData(itinerary: Itinerary, vehicleDetails: VehicleDetails): CarPricingData
+    activate ExternalService
+    ExternalService --> Calculator : carPricingData: CarPricingData
+    deactivate ExternalService
 end
 
-Backend -> Backend : calculateCost(mode, pricingInputs)
-activate Backend
-Backend --> Backend : calculatedAmount
-deactivate Backend
-Backend --> App : calculatedAmount
-deactivate Backend
-App --> User : displayEstimatedCost(calculatedAmount)
+opt itinerary contains public transport segments
+    Calculator -> ExternalService : getPublicTransportPricingData(itinerary: Itinerary): PublicTransportPricingData
+    activate ExternalService
+    ExternalService --> Calculator : publicTransportPricingData: PublicTransportPricingData
+    deactivate ExternalService
+end
+
+Calculator --> ItineraryService : costSummary: CostSummary
+deactivate Calculator
+
+ItineraryService -> Database : saveTransportationCost(itineraryId: ItineraryId, costSummary: CostSummary): Itinerary
+activate Database
+Database --> ItineraryService : updatedItinerary: Itinerary
+deactivate Database
+
+ItineraryService --> App : updatedItinerary: Itinerary
+deactivate ItineraryService
+App --> User : Display updated itinerary
 deactivate App
 
 @enduml
