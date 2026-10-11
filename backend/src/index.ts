@@ -1,6 +1,10 @@
 import { MongoClient } from 'mongodb';
 
 import { createApp } from './app';
+import {
+  connectToDatabase,
+  disconnectFromDatabase,
+} from './config/database';
 import { env } from './config/env';
 import { ItineraryDao } from './itineraries/itineraryDao';
 import { UserDao } from './users/userDao';
@@ -8,6 +12,7 @@ import { UserDao } from './users/userDao';
 async function start(): Promise<void> {
   const mongoClient = new MongoClient(env.mongodbUri);
   await mongoClient.connect();
+  await connectToDatabase();
 
   const userDao = new UserDao(mongoClient.db());
   const itineraryDao = new ItineraryDao(mongoClient.db());
@@ -22,9 +27,9 @@ async function start(): Promise<void> {
   for (const signal of ['SIGINT', 'SIGTERM'] as const) {
     process.on(signal, () => {
       server.close(() => {
-        void mongoClient.close().finally(() => {
-          process.exit(0);
-        });
+        void Promise.all([mongoClient.close(), disconnectFromDatabase()]).then(
+          () => process.exit(0),
+        );
       });
     });
   }
