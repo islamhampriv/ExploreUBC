@@ -7,4 +7,13 @@
     <color name="teal_700">#FF018786</color>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+    <color name="ubc_blue">#FF002145</color>
+    <color name="ubc_blue_mid">#FF0055B7</color>
+    <color name="ubc_gold">#FFC4B581</color>
+    <color name="surface">#FFF7F4EE</color>
+    <color name="surface_card">#FFFFFFFF</color>
+    <color name="text_primary">#FF12263A</color>
+    <color name="text_secondary">#FF5C6B7A</color>
+    <color name="ripple_light">#33FFFFFF</color>
+    <color name="ripple_dark">#22002145</color>
 </resources>

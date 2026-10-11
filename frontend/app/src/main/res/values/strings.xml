@@ -1,4 +1,22 @@
 <resources>
     <string name="app_name">CPEN321 Application</string>
     <string name="title_activity_main2">MainActivity2</string>
+    <string name="main_title">ExploreUBC</string>
+    <string name="main_subtitle">Plan trips around campus and the city</string>
+    <string name="open_compose_activity">Open Compose-based activity</string>
+    <string name="grant_location_permissions">Grant location permissions</string>
+    <string name="open_google_maps">Open Google Maps</string>
+    <string name="title_activity_maps">ExploreUBC Map</string>
+    <string name="map_overlay_title">Campus itinerary</string>
+    <string name="map_legend_activities">Itinerary stops</string>
+    <string name="map_legend_popular">Popular places</string>
+    <string name="map_show_popular">Show popular pins</string>
+    <string name="map_loading_routes">Drawing routes…</string>
+    <string name="map_routes_ready">Routes drawn between itinerary stops</string>
+    <string name="map_routes_fallback">Could not fetch turn-by-turn routes; showing direct paths</string>
+    <string name="map_popular_ready">Popular locations are pinned nearby</string>
+    <string name="map_popular_fallback">Showing curated popular UBC-area places</string>
+    <string name="map_no_activities">This itinerary has no mappable activities</string>
+    <string name="map_add_popular_soon">Saved to trip is coming in a later feature</string>
+    <string name="maps_unavailable">The map could not be loaded</string>
 </resources>
