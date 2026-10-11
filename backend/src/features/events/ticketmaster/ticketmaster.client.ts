@@ -3,7 +3,7 @@
 import { env } from "../../../config/env";
 import type { LiveEvent } from "../event.types";
 
-export interface TicketmasterEvent {
+interface TicketmasterEvent {
   id?: string;
   name?: string;
   url?: string;
@@ -40,7 +40,7 @@ interface TicketmasterResponse {
   };
 }
 
-export interface TicketmasterEventPage {
+interface TicketmasterEventPage {
   events: TicketmasterEvent[];
   page: number;
   totalPages: number;
@@ -53,7 +53,7 @@ export interface TicketmasterEventPage {
  * @returns Raw events and pagination details.
  * @throws If configuration is invalid or the request fails.
  */
-export async function fetchTicketmasterEventPage(
+async function fetchTicketmasterEventPage(
   page = 0,
 ): Promise<TicketmasterEventPage> {
   if (env.ticketmaster.apiKey === undefined || env.ticketmaster.apiKey === "") {
@@ -150,10 +150,18 @@ function mapTicketmasterEvent(event: TicketmasterEvent): LiveEvent | null {
  * @param events Raw Ticketmaster events.
  * @returns Successfully mapped LiveEvents.
  */
-export function mapTicketmasterEvents(
-  events: TicketmasterEvent[],
-): LiveEvent[] {
+function mapTicketmasterEvents(events: TicketmasterEvent[]): LiveEvent[] {
   return events
     .map(mapTicketmasterEvent)
     .filter((event): event is LiveEvent => event !== null);
+}
+
+/**
+ * Fetches one page of Ticketmaster events as LiveEvents.
+ * @param page Zero-based Ticketmaster page number.
+ * @returns Valid events mapped to the internal type.
+ */
+export async function fetchLiveEvents(page = 0): Promise<LiveEvent[]> {
+  const ticketmasterPage = await fetchTicketmasterEventPage(page);
+  return mapTicketmasterEvents(ticketmasterPage.events);
 }
