@@ -85,7 +85,28 @@
 
 <a name="uc2"></a>
 
-#### Use Case 2: [ ] (Feature 2)
+#### Use Case 2: Edit an Activity (Feature 2)
+
+**Description**: The user changes an activity's name, description, location, or duration.
+
+**Primary actor(s)**: User
+
+**Main success scenario**:
+1. The user opens a saved itinerary.
+2. The user selects an activity.
+3. The system displays the activity's details.
+4. The user selects `Edit`.
+5. The user edits the activity's name, duration, location, or description.
+6. The user selects `Save`.
+7. The system saves and displays the updated activity.
+
+**Failure scenario(s)**:
+- 5a. The user enters an invalid start or end time.
+    - 5a1. The system disables **Save**.
+    - 5a2. The system displays an error message.
+- 6a. The activity update cannot be stored because of a server or network error.
+    - 6a1. The system leaves the previously saved activity unchanged.
+    - 6a2. The system informs the user that the update failed and allows another attempt.
 
 #### Use Case 3: Update Profile Preferences (Feature 3)
 
@@ -149,13 +170,83 @@
 
 ## 4. Designs Specification
 ### **4.1. Main Components**
-1. **[WRITE_NAME_HERE]**
-    - **Purpose**: ...
+1. **Itineraries**
+    - **Purpose**: Manages saved itineraries and their activities.
+    - **Interfaces**:
+        1. `Itinerary createItinerary(String userId, ItineraryDetails details)`
+            - **Purpose [3.4.2.1]**: Creates a saved itinerary for a user.
+        2. `Itinerary insertItinerary(String userId, ItineraryDetails details)`
+            - **Purpose [3.4.2.1]**: Stores a new itinerary in MongoDB.
+        3. `Itinerary getItinerary(String userId, String itineraryId)`
+            - **Purpose [3.4.2.2, 3.4.2.8]**: Retrieves a user's saved itinerary.
+        4. `Itinerary findItinerary(String userId, String itineraryId)`
+            - **Purpose [3.4.2.2, 3.4.2.8]**: Retrieves an itinerary document from MongoDB.
+        5. `Itinerary updateItineraryDetails(String userId, String itineraryId, ItineraryDetails details)`
+            - **Purpose [3.4.2.2]**: Updates the details of a saved itinerary.
+        6. `bool updateItineraryDetails(String userId, String itineraryId, ItineraryDetails details)`
+            - **Purpose [3.4.2.2]**: Stores updated itinerary details in MongoDB.
+        7. `Activity addActivity(String userId, String itineraryId, ActivityInput activity)`
+            - **Purpose [3.4.2.3]**: Adds an activity to a saved itinerary.
+        8. `bool insertEmbeddedActivity(String userId, String itineraryId, Activity activity)`
+            - **Purpose [3.4.2.3]**: Stores an activity in an itinerary document in MongoDB.
+        9. `TransportationSegment addTransportationSegment(String userId, String itineraryId, TransportationSegmentInput segment)`
+            - **Purpose [3.4.2.3]**: Adds a transportation segment to a saved itinerary.
+        10. `bool insertEmbeddedTransportationSegment(String userId, String itineraryId, TransportationSegment segment)`
+            - **Purpose [3.4.2.3]**: Stores a transportation segment in an itinerary document in MongoDB.
+        11. `bool removeActivity(String userId, String itineraryId, String activityId)`
+            - **Purpose [3.4.2.4]**: Removes an activity from a saved itinerary.
+        12. `bool removeEmbeddedActivity(String userId, String itineraryId, String activityId)`
+            - **Purpose [3.4.2.4]**: Removes an activity from an itinerary document in MongoDB.
+        13. `bool removeTransportationSegment(String userId, String itineraryId, String segmentId)`
+            - **Purpose [3.4.2.4]**: Removes a transportation segment from a saved itinerary.
+        14. `bool removeEmbeddedTransportationSegment(String userId, String itineraryId, String segmentId)`
+            - **Purpose [3.4.2.4]**: Removes a transportation segment from an itinerary document in MongoDB.
+        15. `Itinerary reorderActivities(String userId, String itineraryId, String[] orderedActivityIds)`
+            - **Purpose [3.4.2.5]**: Reorders activities and their associated transportation segments.
+        16. `bool updateItineraryOrder(String userId, String itineraryId, String[] orderedActivityIds, TransportationSegment[] segments)`
+            - **Purpose [3.4.2.5]**: Stores an updated itinerary order in MongoDB.
+        17. `Activity updateActivity(String userId, String itineraryId, String activityId, ActivityUpdate update)`
+            - **Purpose [3.4.2.6]**: Updates an activity in a saved itinerary.
+        18. `bool updateEmbeddedActivity(String userId, String itineraryId, String activityId, ActivityUpdate update)`
+            - **Purpose [3.4.2.6]**: Stores an updated activity in MongoDB.
+        19. `TransportationSegment updateTransportationSegment(String userId, String itineraryId, String segmentId, TransportationSegmentUpdate update)`
+            - **Purpose [3.4.2.6]**: Updates a transportation segment in a saved itinerary.
+        20. `bool updateEmbeddedTransportationSegment(String userId, String itineraryId, String segmentId, TransportationSegmentUpdate update)`
+            - **Purpose [3.4.2.6]**: Stores an updated transportation segment in MongoDB.
+        21. `bool deleteItinerary(String userId, String itineraryId)`
+            - **Purpose [3.4.2.7]**: Deletes a user's saved itinerary.
+        22. `bool removeItinerary(String userId, String itineraryId)`
+            - **Purpose [3.4.2.7]**: Removes an itinerary document from MongoDB.
+2. **Users**
+     - **Purpose**: It represents ExploreUBC accounts and persistent traveler preferences. It supports CRUD operations on the account. It provides profile data to the `Recommendation` and `LiveEvents` components. It exchanges a verified external identity for an ExploreUBC session.
+    - **Interfaces**:
+        1. `UserPreferences getPreferences(String userId)`
+            - **Purpose**: Retrieves a user's saved preferences.
+        2. `UserPreferences findPreferences(String userId)`
+            - **Purpose**: Retrieves a user's preferences from MongoDB.
+        3. `UserPreferences updatePreferences(String userId, PreferencesUpdate update)`
+            - **Purpose**: Updates a user's profile preferences.
+        4. `bool updatePreferences(String userId, PreferencesUpdate update)`
+            - **Purpose**: Stores updated preferences in MongoDB.
+2. **LiveEvents**
+     - **Purpose**: ...
     - **Interfaces**: 
         1. ...
             - **Purpose**: ...
         2. ...
-2. ...
+2. **Recommendations**
+     - **Purpose**: It owns itinerary generation, rank calculation, and the create and read of latest recommendation set. It's responsible for requesting the LLM for itineraries, persisting the latest recommendation set.
+    - **Interfaces**:
+        1. `RecommendationSet findLatestRecommendations(String userId)`
+            - **Purpose [3.4.1.2]**: Retrieves a user's latest recommendation set from MongoDB.
+        2. `RecommendationSet generateRecommendations(String userId, TripRequest tripRequest)`
+            - **Purpose [3.4.1.1]**: Generates itinerary recommendations for a user.
+        3. `String generateItineraries(TripRequest tripRequest, UserPreferences preferences)`
+            - **Purpose [3.4.1.1]**: Requests generated itinerary JSON from the LLM Service.
+        4. `Itinerary[] parseItineraries(String itineraryJson)`
+            - **Purpose [3.4.1.1]**: Converts generated itinerary JSON into itinerary objects.
+        5. `bool replaceLatestRecommendations(String userId, Itinerary[] rankedItineraries)`
+            - **Purpose [3.4.1.1]**: Stores a user's latest recommendation set in MongoDB.
 
 
 ### **4.2. Databases**
@@ -181,9 +272,118 @@
 
 
 ### **4.6. Use Case Sequence Diagram (5 Most Major Use Cases)**
-1. [**[WRITE_NAME_HERE]**](#uc1)\
-[SEQUENCE_DIAGRAM_HERE]
-2. ...
+#### 4.6.1. [**Generate Itineraries**](#uc1)
+
+```mermaid
+sequenceDiagram
+    actor User
+    participant Frontend
+    participant Recommendations
+    participant Users
+    participant Itineraries
+    participant LLM as LLM Service
+    participant MongoDB
+
+    User->>Frontend: void openGenerationScreen()
+    Frontend-->>User: TripRequestForm getTripRequestForm()
+
+    User->>Frontend: void submitTripRequest(TripRequest tripRequest)
+    Frontend->>Frontend: ValidationResult validateTripRequest(TripRequest tripRequest)
+
+    alt ValidationResult.isValid() == false
+        Frontend-->>User: void displayValidationErrors(FieldError[] errors)
+
+    else ValidationResult.isValid() == true
+        Frontend->>Recommendations: RecommendationSet generateRecommendations(String userId, TripRequest tripRequest)
+
+        Recommendations->>Users: UserPreferences getPreferences(String userId)
+        Users-->>Recommendations: UserPreferences
+
+        Recommendations->>LLM: String generateItineraries(TripRequest tripRequest, UserPreferences preferences)
+        LLM-->>Recommendations: String itineraryJson
+
+        alt LLM response and itinerary JSON are valid
+            Recommendations->>Itineraries: Itinerary[] parseItineraries(String itineraryJson)
+            Itineraries-->>Recommendations: Itinerary[] itineraries
+
+            Recommendations->>Itineraries: Itinerary[] calculateCosts(Itinerary[] itineraries)
+            Itineraries-->>Recommendations: Itinerary[] costedItineraries
+
+            Recommendations->>Recommendations: Itinerary[] rankItineraries(Itinerary[] itineraries, UserPreferences preferences)
+
+            Recommendations->>MongoDB: bool replaceLatestRecommendations(String userId, Itinerary[] rankedItineraries)
+            MongoDB-->>Recommendations: bool stored
+
+            Recommendations-->>Frontend: RecommendationSet
+            Frontend-->>User: void displayRecommendations(RecommendationSet recommendations)
+
+        else LLM response or itinerary JSON is invalid
+            Note over Recommendations,MongoDB: Previous recommendations remain unchanged
+            Recommendations-->>Frontend: GenerationError
+            Frontend-->>User: void displayGenerationError(GenerationError error)
+        end
+    end
+```
+
+#### 4.6.2. [**Edit Activities**](#uc2)
+
+```mermaid
+sequenceDiagram
+    actor User
+    participant Frontend
+    participant Itineraries
+    participant MongoDB
+
+    User->>Frontend: void openItinerary(String itineraryId)
+    Frontend->>Itineraries: Itinerary getItinerary(String userId, String itineraryId)
+    Itineraries->>MongoDB: Itinerary findItinerary(String userId, String itineraryId)
+    MongoDB-->>Itineraries: Itinerary
+    Itineraries-->>Frontend: Itinerary
+    Frontend-->>User: void displayItinerary(Itinerary itinerary)
+
+    User->>Frontend: void selectActivity(String activityId)
+    Frontend->>Frontend: Activity findActivity(Itinerary itinerary, String activityId)
+    Frontend-->>User: void displayActivityDetails(Activity activity)
+
+    User->>Frontend: void openActivityEditor(String activityId)
+    Frontend-->>User: ActivityForm getActivityForm(Activity activity)
+
+    User->>Frontend: void updateActivityForm(ActivityUpdate update)
+    Frontend->>Frontend: ValidationResult validateActivityUpdate(ActivityUpdate update)
+
+    alt ValidationResult.isValid() == false
+        Frontend-->>User: void disableSave()
+        Frontend-->>User: void displayValidationErrors(FieldError[] errors)
+
+    else ValidationResult.isValid() == true
+        Frontend-->>User: void enableSave()
+        User->>Frontend: void saveActivity()
+
+        Frontend->>Itineraries: Activity updateActivity(String userId, String itineraryId, String activityId, ActivityUpdate update)
+        Itineraries->>Itineraries: ValidationResult validateActivityUpdate(ActivityUpdate update)
+
+        alt ValidationResult.isValid() == false
+            Itineraries-->>Frontend: ValidationError
+            Frontend-->>User: void displayValidationErrors(FieldError[] errors)
+
+        else ValidationResult.isValid() == true
+            Itineraries->>MongoDB: bool updateEmbeddedActivity(String userId, String itineraryId, String activityId, ActivityUpdate update)
+
+            alt stored == true
+                MongoDB-->>Itineraries: bool stored
+                Itineraries-->>Frontend: Activity updatedActivity
+                Frontend->>Frontend: void replaceActivity(Itinerary itinerary, Activity updatedActivity)
+                Frontend-->>User: void displayActivityDetails(Activity updatedActivity)
+
+            else stored == false
+                MongoDB-->>Itineraries: StorageError
+                Note over Itineraries,MongoDB: Previously stored itinerary remains unchanged
+                Itineraries-->>Frontend: StorageError
+                Frontend-->>User: void displaySaveError(StorageError error)
+            end
+        end
+    end
+```
 
 
 ### **4.7. Design of Non-Functional Requirements**
