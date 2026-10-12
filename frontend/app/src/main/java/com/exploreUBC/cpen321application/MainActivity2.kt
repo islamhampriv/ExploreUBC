@@ -12,15 +12,16 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.tooling.preview.PreviewParameter
-import androidx.compose.ui.tooling.preview.PreviewScreenSizes
+import com.exploreUBC.cpen321application.data.users.UsersApi
+import com.exploreUBC.cpen321application.data.users.UsersRepository
+import com.exploreUBC.cpen321application.ui.profile.ProfileRoute
 import com.exploreUBC.cpen321application.ui.theme.CPEN321ApplicationTheme
 
 class MainActivity2 : ComponentActivity() {
@@ -29,16 +30,23 @@ class MainActivity2 : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             CPEN321ApplicationTheme {
-                val displayName = intent.getStringExtra("displayName")
-                CPEN321ApplicationApp()
+                val usersRepository = remember { UsersApi(BuildConfig.API_BASE_URL) }
+                CPEN321ApplicationApp(
+                    userId = intent.getStringExtra("userId"),
+                    displayName = intent.getStringExtra("displayName"),
+                    usersRepository = usersRepository,
+                )
             }
         }
     }
 }
 
-@PreviewScreenSizes
 @Composable
-fun CPEN321ApplicationApp() {
+fun CPEN321ApplicationApp(
+    userId: String?,
+    displayName: String?,
+    usersRepository: UsersRepository,
+) {
     var currentDestination by rememberSaveable { mutableStateOf(AppDestinations.NOTIFICATIONS) }
     NavigationSuiteScaffold(
         navigationSuiteItems = {
@@ -58,10 +66,20 @@ fun CPEN321ApplicationApp() {
         }
     ) {
         Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-            Greeting2(
-                name = "Android",
-                modifier = Modifier.padding(innerPadding)
-            )
+            if (currentDestination == AppDestinations.PROFILE) {
+                ProfileRoute(
+                    userId = userId,
+                    displayName = displayName,
+                    startLocation = null,
+                    usersRepository = usersRepository,
+                    modifier = Modifier.padding(innerPadding),
+                )
+            } else {
+                Greeting2(
+                    name = currentDestination.label,
+                    modifier = Modifier.padding(innerPadding),
+                )
+            }
         }
     }
 }

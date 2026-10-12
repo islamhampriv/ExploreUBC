@@ -156,7 +156,7 @@ suspend fun signIn(request: GetCredentialRequest, context: Context): Any? {
 
         // start new activity
         val intent = Intent(context, MainActivity2::class.java)
-        intent.putExtra("displayName", displayName.toString());
+        displayName?.let { intent.putExtra("displayName", it) }
         context.startActivity(intent)
 
     } catch (e: GoogleIdTokenParsingException) {
