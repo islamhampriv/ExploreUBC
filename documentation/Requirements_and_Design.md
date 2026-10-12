@@ -250,9 +250,159 @@
 
 
 ### **4.2. Databases**
-1. **[WRITE_NAME_HERE]**
-    - **Purpose**: ...
-2. ...
+1. **Users**
+    - **Purpose**: Represents an application user in ExploreUBC
+    ```javascript
+        "googleSubject",
+        "email",
+        "displayName",
+        "start_location",
+        "preferences":{
+            "transportation":{
+                "mode": "'walking' | 'cycling' | 'transit' | 'driving' | 'other'"
+            }
+        "budget": "'economical' | 'balanced' | 'premium'",
+        "interest": "'food' | 'art' | 'outdoors' | 'markets' | 'live_music' | 'gaming'",
+        "create_at",
+        "updated_at"
+      },
+    ```
+2. **Itineraries**
+    - **Purpose**: Represents a saved itinerary
+    ```javascript
+        type Itinerary = {
+            id: string;
+            ownerId: string;
+            name: string;
+            description?: string;
+            startingLocation?: PlaceSnapshot;
+            items: ItineraryItem[]:{
+                type ActivityItem = {
+                    id: string;
+                    name: string;
+                    image: string;
+                    description?: string;
+                    category?: string;
+                    location: string;
+                    startTime: string;
+                    endTime: string;
+                    };
+
+                    type TransportationItem = {
+                    id: string;
+                    mode: 'walking' | 'cycling' | 'transit' | 'driving' | 'other';
+                    startLocation: PlaceSnapshot;
+                    endLocation: PlaceSnapshot;
+                    distance_m: number;
+                    startTime: string;
+                    endTime: string;
+                    };
+            };
+            createdAt: string;
+            updatedAt: string;
+            saved: boolean;
+            inRecommendation: boolean;
+            score: {
+                // fields that contribute to the score calculation
+            }
+        };
+    ```
+
+<!-- 1. **Users**
+    - **Purpose**: Represents an application user in ExploreUBC
+    ```ts
+    type TransportationMode =
+        | 'walking'
+        | 'cycling'
+        | 'transit'
+        | 'driving'
+        | 'other';
+
+    type BudgetPreference = 'economical' | 'balanced' | 'premium';
+
+    type InterestPreference =
+        | 'food'
+        | 'art'
+        | 'outdoors'
+        | 'markets'
+        | 'live_music'
+        | 'gaming';
+
+    type UserPreferences = {
+        transportation: {
+            mode: TransportationMode;
+        };
+        budget: BudgetPreference;
+        interest: InterestPreference;
+    };
+
+    type User = {
+        id: string;
+        googleSubject: string;
+        email: string;
+        displayName: string;
+        startLocation?: PlaceSnapshot;
+        preferences: UserPreferences;
+        createdAt: string;
+        updatedAt: string;
+    };
+    ```
+2. **Itineraries**
+    - **Purpose**: Represents a saved itinerary
+    ```ts
+    type Coordinates = {
+        latitude: number;
+        longitude: number;
+    };
+
+    type PlaceSnapshot = {
+        providerPlaceId?: string;
+        name: string;
+        address?: string;
+        coordinates: Coordinates;
+    };
+
+    type ActivityItem = {
+        id: string;
+        type: 'activity';
+        name: string;
+        image: string;
+        description?: string;
+        category?: string;
+        location: PlaceSnapshot;
+        startTime: string;
+        endTime: string;
+    };
+
+    type TransportationItem = {
+        id: string;
+        type: 'transportation';
+        mode: TransportationMode;
+        startLocation: PlaceSnapshot;
+        endLocation: PlaceSnapshot;
+        distanceMeters: number;
+        startTime: string;
+        endTime: string;
+    };
+
+    type ItineraryItem = ActivityItem | TransportationItem;
+
+    type ItineraryScore = Record<string, number>;
+
+    type Itinerary = {
+        id: string;
+        ownerId: string;
+        name: string;
+        description?: string;
+        startingLocation?: PlaceSnapshot;
+        items: ItineraryItem[];
+        createdAt: string;
+        updatedAt: string;
+        saved: boolean;
+        inRecommendation: boolean;
+        score: ItineraryScore;
+    };
+    ``` -->
 
 
 ### **4.3. External Modules**
