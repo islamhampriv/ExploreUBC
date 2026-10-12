@@ -23,6 +23,7 @@ import com.exploreUBC.cpen321application.data.users.UsersApi
 import com.exploreUBC.cpen321application.data.users.UsersRepository
 import com.exploreUBC.cpen321application.data.itineraries.ItinerariesApi
 import com.exploreUBC.cpen321application.data.itineraries.ItinerariesRepository
+import com.exploreUBC.cpen321application.features.events.LiveEventsScreen
 import com.exploreUBC.cpen321application.ui.profile.ProfileRoute
 import com.exploreUBC.cpen321application.ui.trips.TripsRoute
 import com.exploreUBC.cpen321application.ui.theme.CPEN321ApplicationTheme
@@ -86,6 +87,10 @@ fun CPEN321ApplicationApp(
                     itinerariesRepository = itinerariesRepository,
                     modifier = Modifier.padding(innerPadding),
                 )
+                AppDestinations.EVENTS -> LiveEventsScreen(
+                    apiBaseUrl = BuildConfig.API_BASE_URL,
+                    modifier = Modifier.padding(innerPadding),
+                )
                 else -> Greeting2(
                     name = currentDestination.label,
                     modifier = Modifier.padding(innerPadding),
@@ -100,6 +105,7 @@ enum class AppDestinations(
     val icon: Int,
 ) {
     NOTIFICATIONS("Notifications", R.drawable.notifications_24px),
+    EVENTS("Events", R.drawable.notifications_24px),
     TRIPS("Trips", R.drawable.trip_24px),
     MAP("Map", R.drawable.map_24px),
     CALCULATOR("Calculator", R.drawable.calculate_24px),
