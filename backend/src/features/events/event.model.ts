@@ -11,6 +11,10 @@ const liveEventSchema = new Schema<LiveEvent>({
   startDateTime: { type: Date, required: true },
   venueName: { type: String, required: true, trim: true },
   city: { type: String, required: true, trim: true },
+  location: {
+    type: { type: String, enum: ["Point"], required: true },
+    coordinates: { type: [Number], required: true },
+  },
   category: { type: String, required: true, trim: true },
   ticketUrl: { type: String, required: true, trim: true },
   priceMin: { type: Number, min: 0 },
@@ -21,5 +25,6 @@ const liveEventSchema = new Schema<LiveEvent>({
 
 liveEventSchema.index({ startDateTime: 1 });
 liveEventSchema.index({ category: 1, startDateTime: 1 });
+liveEventSchema.index({ location: "2dsphere" });
 
 export const LiveEventModel = model<LiveEvent>("LiveEvent", liveEventSchema);

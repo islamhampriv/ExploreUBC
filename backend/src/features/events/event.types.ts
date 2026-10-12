@@ -7,10 +7,22 @@ export interface LiveEvent {
   startDateTime: Date;
   venueName: string;
   city: string;
+  location: {
+    type: "Point";
+    coordinates: [number, number];
+  };
   category: string;
   ticketUrl: string;
   priceMin?: number;
   priceMax?: number;
   currency?: string;
   lastSyncedAt: Date;
+}
+
+export interface LiveEventCandidate extends LiveEvent {
+  distanceKm: number;
+}
+
+export interface RecommendedLiveEvent extends LiveEventCandidate {
+  recommendationScore: number;
 }

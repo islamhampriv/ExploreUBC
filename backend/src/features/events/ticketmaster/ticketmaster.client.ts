@@ -27,6 +27,10 @@ interface TicketmasterEvent {
     venues?: Array<{
       name?: string;
       city?: { name?: string };
+      location?: {
+        longitude?: string;
+        latitude?: string;
+      };
     }>;
   };
 }
@@ -104,6 +108,8 @@ function mapTicketmasterEvent(event: TicketmasterEvent): LiveEvent | null {
     event.images?.find((image) => image.ratio === "16_9")?.url ??
     event.images?.[0]?.url;
   const rawStartDateTime = event.dates?.start?.dateTime;
+  const rawLongitude = venue?.location?.longitude;
+  const rawLatitude = venue?.location?.latitude;
   const classification =
     event.classifications?.find((item) => item.primary) ??
     event.classifications?.[0];
@@ -115,13 +121,21 @@ function mapTicketmasterEvent(event: TicketmasterEvent): LiveEvent | null {
     imageUrl === undefined ||
     rawStartDateTime === undefined ||
     venue?.name === undefined ||
-    venue.city?.name === undefined
+    venue.city?.name === undefined ||
+    rawLongitude === undefined ||
+    rawLatitude === undefined
   ) {
     return null;
   }
 
   const startDateTime = new Date(rawStartDateTime);
   if (Number.isNaN(startDateTime.getTime())) {
+    return null;
+  }
+
+  const longitude = Number(rawLongitude);
+  const latitude = Number(rawLatitude);
+  if (!Number.isFinite(longitude) || !Number.isFinite(latitude)) {
     return null;
   }
 
@@ -134,6 +148,10 @@ function mapTicketmasterEvent(event: TicketmasterEvent): LiveEvent | null {
     startDateTime,
     venueName: venue.name,
     city: venue.city.name,
+    location: {
+      type: "Point",
+      coordinates: [longitude, latitude],
+    },
     category: classification?.segment?.name ?? "Other",
     ticketUrl: event.url,
     ...(priceRange?.min === undefined ? {} : { priceMin: priceRange.min }),
