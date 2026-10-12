@@ -1,5 +1,6 @@
 import express, { type Express } from 'express';
 
+import { eventRouter } from './features/events/event.routes';
 import type { ItineraryRepository } from './itineraries/itineraryRepository';
 import { createItineraryRouter } from './itineraries/itineraryRouter';
 import { ItineraryService } from './itineraries/itineraryService';
@@ -35,6 +36,8 @@ export function createApp(dependencies: AppDependencies = {}): Express {
       createItineraryRouter(itineraryService),
     );
   }
+
+  app.use('/events', eventRouter);
 
   app.use((_req, res) => {
     res.status(404).json({ error: 'Not Found' });
