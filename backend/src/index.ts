@@ -2,6 +2,7 @@ import { MongoClient } from 'mongodb';
 
 import { createApp } from './app';
 import { env } from './config/env';
+import { ItineraryDao } from './itineraries/itineraryDao';
 import { UserDao } from './users/userDao';
 
 async function start(): Promise<void> {
@@ -9,7 +10,11 @@ async function start(): Promise<void> {
   await mongoClient.connect();
 
   const userDao = new UserDao(mongoClient.db());
-  const app = createApp({ userRepository: userDao });
+  const itineraryDao = new ItineraryDao(mongoClient.db());
+  const app = createApp({
+    itineraryRepository: itineraryDao,
+    userRepository: userDao,
+  });
   const server = app.listen(env.port, () => {
     console.log(`Server listening on port ${env.port}`);
   });

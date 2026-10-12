@@ -1,4 +1,4 @@
-import type { PreferencesUpdate, UserPreferences } from './userTypes';
+import type { PreferencesUpdate, UserPreferences, User } from './userTypes';
 
 export interface UserRepository {
   findPreferences(userId: string): Promise<UserPreferences | null>;
@@ -6,4 +6,5 @@ export interface UserRepository {
     userId: string,
     update: PreferencesUpdate,
   ): Promise<boolean>;
+  findUser(userId: string): Promise<User | null>;
 }

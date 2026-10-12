@@ -49,6 +49,15 @@ export function createUserRouter(userService: UserService): Router {
     }
   });
 
+  router.get('/:userId', async (request, response) => {
+    try {
+      const user = await userService.getUser(request.params.userId);
+      response.json({ user });
+    } catch (error: unknown) {
+      sendError(response, error);
+    }
+  });
+
   router.patch('/:userId/preferences', async (request, response) => {
     try {
       const update = parsePreferencesUpdate(request.body);

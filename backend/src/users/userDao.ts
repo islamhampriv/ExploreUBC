@@ -66,6 +66,21 @@ export class UserDao implements UserRepository {
     return result.matchedCount === 1;
   }
 
+  async findUser(userId: string): Promise<User | null> {
+
+    const objectId = this.parseUserId(userId);
+    if (objectId === null) {
+      return null;
+    }
+
+    const user = await this.users.findOne(
+      { _id: objectId },
+      { projection: { preferences: 1 } },
+    );
+
+    return user || null;
+  }
+
   private parseUserId(userId: string): ObjectId | null {
     return ObjectId.isValid(userId) ? new ObjectId(userId) : null;
   }

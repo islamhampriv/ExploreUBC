@@ -1,6 +1,6 @@
 import { UserNotFoundError } from './userErrors';
 import type { UserRepository } from './userRepository';
-import type { PreferencesUpdate, UserPreferences } from './userTypes';
+import type { PreferencesUpdate, UserPreferences, User } from './userTypes';
 
 export class UserService {
   constructor(private readonly repository: UserRepository) {}
@@ -12,6 +12,15 @@ export class UserService {
     }
 
     return preferences;
+  }
+
+  async getUser(userId: string): Promise<User> {
+    const user = await this.repository.findUser(userId);
+    if (user === null) {
+      throw new UserNotFoundError(userId);
+    }
+
+    return user;
   }
 
   async updatePreferences(
