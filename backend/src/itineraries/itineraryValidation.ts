@@ -2,6 +2,7 @@ import { TRANSPORTATION_MODES } from '../users/userTypes';
 import {
   InvalidItineraryDetailsError,
   InvalidItineraryFiltersError,
+  InvalidItineraryItemError,
 } from './itineraryErrors';
 import type {
   CreateActivityInput,
@@ -89,10 +90,9 @@ function validateTimeOrder(
 
 function parseActivity(
   value: Record<string, unknown>,
-  index: number,
+  path: string,
   details: string[],
 ): CreateActivityInput | undefined {
-  const path = `items[${index}].`;
   addUnexpectedFields(
     value,
     ['type', 'name', 'image', 'description', 'category', 'location', 'startTime', 'endTime'],
@@ -128,10 +128,9 @@ function parseActivity(
 
 function parseTransportation(
   value: Record<string, unknown>,
-  index: number,
+  path: string,
   details: string[],
 ): CreateTransportationInput | undefined {
-  const path = `items[${index}].`;
   addUnexpectedFields(
     value,
     ['type', 'mode', 'startLocation', 'endLocation', 'distanceMeters', 'startTime', 'endTime'],
@@ -193,13 +192,50 @@ function parseItems(
     }
 
     let parsed: CreateItineraryItemInput | undefined;
-    if (item.type === 'activity') parsed = parseActivity(item, index, details);
-    else if (item.type === 'transportation') parsed = parseTransportation(item, index, details);
+    const path = `items[${index}].`;
+    if (item.type === 'activity') parsed = parseActivity(item, path, details);
+    else if (item.type === 'transportation') parsed = parseTransportation(item, path, details);
     else details.push(`items[${index}].type must be 'activity' or 'transportation'.`);
 
     if (parsed !== undefined) items.push(parsed);
   });
   return items;
+}
+
+export function parseActivityInput(value: unknown): CreateActivityInput {
+  if (!isObject(value)) {
+    throw new InvalidItineraryItemError(['Request body must be an activity object.']);
+  }
+
+  const details: string[] = [];
+  if (value.type !== 'activity') {
+    details.push("type must be 'activity'.");
+  }
+  const activity = parseActivity(value, '', details);
+  if (details.length > 0 || activity === undefined) {
+    throw new InvalidItineraryItemError(details);
+  }
+  return activity;
+}
+
+export function parseTransportationSegmentInput(
+  value: unknown,
+): CreateTransportationInput {
+  if (!isObject(value)) {
+    throw new InvalidItineraryItemError([
+      'Request body must be a transportation segment object.',
+    ]);
+  }
+
+  const details: string[] = [];
+  if (value.type !== 'transportation') {
+    details.push("type must be 'transportation'.");
+  }
+  const segment = parseTransportation(value, '', details);
+  if (details.length > 0 || segment === undefined) {
+    throw new InvalidItineraryItemError(details);
+  }
+  return segment;
 }
 
 function parseScore(value: unknown, details: string[]): ItineraryScore {

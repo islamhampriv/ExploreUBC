@@ -1,11 +1,17 @@
+import { randomUUID } from 'node:crypto';
+
 import type { ItineraryRepository } from './itineraryRepository';
 import { ItineraryNotFoundError } from './itineraryErrors';
 import type {
+  ActivityItem,
+  CreateActivityInput,
   CreateItineraryInput,
+  CreateTransportationInput,
   Itinerary,
   ItineraryDetails,
   ItineraryDetailsUpdate,
   ItineraryFilters,
+  TransportationItem,
 } from './itineraryTypes';
 
 export class ItineraryService {
@@ -61,6 +67,46 @@ export class ItineraryService {
       throw new ItineraryNotFoundError(itineraryId);
     }
     return this.getItinerary(userId, itineraryId);
+  }
+
+  async addActivity(
+    userId: string,
+    itineraryId: string,
+    activityInput: CreateActivityInput,
+  ): Promise<ActivityItem> {
+    const activity: ActivityItem = {
+      ...activityInput,
+      id: randomUUID(),
+    };
+    const inserted = await this.repository.insertEmbeddedActivity(
+      userId,
+      itineraryId,
+      activity,
+    );
+    if (!inserted) {
+      throw new ItineraryNotFoundError(itineraryId);
+    }
+    return activity;
+  }
+
+  async addTransportationSegment(
+    userId: string,
+    itineraryId: string,
+    segmentInput: CreateTransportationInput,
+  ): Promise<TransportationItem> {
+    const segment: TransportationItem = {
+      ...segmentInput,
+      id: randomUUID(),
+    };
+    const inserted = await this.repository.insertEmbeddedTransportationSegment(
+      userId,
+      itineraryId,
+      segment,
+    );
+    if (!inserted) {
+      throw new ItineraryNotFoundError(itineraryId);
+    }
+    return segment;
   }
 
   async deleteItinerary(

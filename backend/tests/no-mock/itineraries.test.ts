@@ -3,15 +3,41 @@ import request from 'supertest';
 import { createApp } from '../../src/app';
 import type { ItineraryRepository } from '../../src/itineraries/itineraryRepository';
 import type {
+  ActivityItem,
+  CreateActivityInput,
   CreateItineraryInput,
+  CreateTransportationInput,
   Itinerary,
   ItineraryDetails,
   ItineraryDetailsUpdate,
   ItineraryFilters,
+  ItineraryItem,
+  TransportationItem,
 } from '../../src/itineraries/itineraryTypes';
 
 const USER_ID = '6705f0000000000000000001';
 const ITINERARY_ID = '6705f1000000000000000001';
+
+const ACTIVITY_INPUT: CreateActivityInput = {
+  type: 'activity',
+  name: 'Nitobe Memorial Garden',
+  image: 'https://example.com/nitobe.jpg',
+  description: 'Walk through the Japanese garden.',
+  category: 'outdoors',
+  location: '1895 Lower Mall, Vancouver, BC',
+  startTime: '2026-10-17T21:00:00.000Z',
+  endTime: '2026-10-17T22:00:00.000Z',
+};
+
+const TRANSPORTATION_INPUT: CreateTransportationInput = {
+  type: 'transportation',
+  mode: 'walking',
+  startLocation: '6804 SW Marine Drive, Vancouver, BC',
+  endLocation: '1895 Lower Mall, Vancouver, BC',
+  distanceMeters: 3100,
+  startTime: '2026-10-17T20:30:00.000Z',
+  endTime: '2026-10-17T21:00:00.000Z',
+};
 
 const COMPLETE_ITINERARY: CreateItineraryInput = {
   ownerId: USER_ID,
@@ -152,6 +178,22 @@ class TestItineraryRepository implements ItineraryRepository {
     return true;
   }
 
+  async insertEmbeddedActivity(
+    userId: string,
+    itineraryId: string,
+    activity: ActivityItem,
+  ): Promise<boolean> {
+    return this.insertEmbeddedItem(userId, itineraryId, activity);
+  }
+
+  async insertEmbeddedTransportationSegment(
+    userId: string,
+    itineraryId: string,
+    segment: TransportationItem,
+  ): Promise<boolean> {
+    return this.insertEmbeddedItem(userId, itineraryId, segment);
+  }
+
   async removeItinerary(
     userId: string,
     itineraryId: string,
@@ -160,6 +202,23 @@ class TestItineraryRepository implements ItineraryRepository {
       return false;
     }
     this.storedItinerary = null;
+    return true;
+  }
+
+  private async insertEmbeddedItem(
+    userId: string,
+    itineraryId: string,
+    item: ItineraryItem,
+  ): Promise<boolean> {
+    const itinerary = await this.findItinerary(userId, itineraryId);
+    if (itinerary === null || !itinerary.saved) {
+      return false;
+    }
+    this.storedItinerary = {
+      ...itinerary,
+      items: [...itinerary.items, item],
+      updatedAt: '2026-10-12T14:00:00.000Z',
+    };
     return true;
   }
 }
@@ -270,6 +329,99 @@ describe('Unmocked: GET /api/v1/users/:userId/itineraries/:itineraryId/details',
     expect(response.status).toBe(404);
     expect(response.body.error.code).toBe('ITINERARY_NOT_FOUND');
   });
+});
+
+describe('Unmocked: add itinerary activities and transportation', () => {
+  test('adds an activity with a server-generated ID', async () => {
+    const { app } = createTestApp();
+
+    const response = await request(app)
+      .post(`/api/v1/users/${USER_ID}/itineraries/${ITINERARY_ID}/activities`)
+      .send(ACTIVITY_INPUT);
+
+    expect(response.status).toBe(201);
+    expect(response.body.activity).toMatchObject(ACTIVITY_INPUT);
+    expect(response.body.activity.id).toEqual(expect.any(String));
+    expect(response.body.activity.id).not.toHaveLength(0);
+
+    const itineraryResponse = await request(app).get(
+      `/api/v1/users/${USER_ID}/itineraries/${ITINERARY_ID}`,
+    );
+    expect(itineraryResponse.body.itinerary.items).toContainEqual(
+      response.body.activity,
+    );
+  });
+
+  test('adds a transportation segment with a server-generated ID', async () => {
+    const { app } = createTestApp();
+
+    const response = await request(app)
+      .post(
+        `/api/v1/users/${USER_ID}/itineraries/${ITINERARY_ID}/transportation-segments`,
+      )
+      .send(TRANSPORTATION_INPUT);
+
+    expect(response.status).toBe(201);
+    expect(response.body.transportationSegment).toMatchObject(
+      TRANSPORTATION_INPUT,
+    );
+    expect(response.body.transportationSegment.id).toEqual(expect.any(String));
+
+    const itineraryResponse = await request(app).get(
+      `/api/v1/users/${USER_ID}/itineraries/${ITINERARY_ID}`,
+    );
+    expect(itineraryResponse.body.itinerary.items).toContainEqual(
+      response.body.transportationSegment,
+    );
+  });
+
+  test.each([
+    [
+      'activities',
+      { ...ACTIVITY_INPUT, id: 'client-generated-id' },
+      "Unexpected field 'id'.",
+    ],
+    [
+      'activities',
+      { ...ACTIVITY_INPUT, endTime: ACTIVITY_INPUT.startTime },
+      'startTime must be earlier than endTime.',
+    ],
+    [
+      'transportation-segments',
+      { ...TRANSPORTATION_INPUT, mode: 'flying' },
+      'mode must be one of: walking, cycling, transit, driving, other.',
+    ],
+  ])('rejects invalid input for %s', async (path, body, expectedDetail) => {
+    const { app } = createTestApp();
+
+    const response = await request(app)
+      .post(`/api/v1/users/${USER_ID}/itineraries/${ITINERARY_ID}/${path}`)
+      .send(body);
+
+    expect(response.status).toBe(400);
+    expect(response.body.error).toMatchObject({
+      code: 'INVALID_ITINERARY_ITEM',
+      message: 'The itinerary item is invalid.',
+    });
+    expect(response.body.error.details).toContain(expectedDetail);
+  });
+
+  test.each(['activities', 'transportation-segments'])(
+    'does not add %s to another user\'s itinerary',
+    async (path) => {
+      const { app } = createTestApp();
+      const body = path === 'activities' ? ACTIVITY_INPUT : TRANSPORTATION_INPUT;
+
+      const response = await request(app)
+        .post(
+          `/api/v1/users/6705f0000000000000000099/itineraries/${ITINERARY_ID}/${path}`,
+        )
+        .send(body);
+
+      expect(response.status).toBe(404);
+      expect(response.body.error.code).toBe('ITINERARY_NOT_FOUND');
+    },
+  );
 });
 
 describe('Unmocked: itinerary retrieval, update, and deletion', () => {

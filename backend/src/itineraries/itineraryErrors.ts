@@ -18,6 +18,16 @@ export class InvalidItineraryFiltersError extends Error {
   }
 }
 
+export class InvalidItineraryItemError extends Error {
+  readonly details: string[];
+
+  constructor(details: string[]) {
+    super('The itinerary item is invalid.');
+    this.name = 'InvalidItineraryItemError';
+    this.details = details;
+  }
+}
+
 export class InvalidItineraryOwnerError extends Error {
   constructor(userId: string) {
     super(`User ID '${userId}' is not valid.`);

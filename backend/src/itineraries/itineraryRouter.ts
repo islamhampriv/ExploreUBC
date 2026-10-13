@@ -3,6 +3,7 @@ import { Router, type Response } from 'express';
 import {
   InvalidItineraryDetailsError,
   InvalidItineraryFiltersError,
+  InvalidItineraryItemError,
   InvalidItineraryOwnerError,
   ItineraryNotFoundError,
 } from './itineraryErrors';
@@ -11,6 +12,8 @@ import {
   parseItinerary,
   parseItineraryDetailsUpdate,
   parseItineraryFilters,
+  parseActivityInput,
+  parseTransportationSegmentInput,
 } from './itineraryValidation';
 
 function sendError(response: Response, error: unknown): void {
@@ -29,6 +32,17 @@ function sendError(response: Response, error: unknown): void {
     response.status(400).json({
       error: {
         code: 'INVALID_ITINERARY_FILTERS',
+        message: error.message,
+        details: error.details,
+      },
+    });
+    return;
+  }
+
+  if (error instanceof InvalidItineraryItemError) {
+    response.status(400).json({
+      error: {
+        code: 'INVALID_ITINERARY_ITEM',
         message: error.message,
         details: error.details,
       },
@@ -139,6 +153,40 @@ export function createItineraryRouter(
       sendError(response, error);
     }
   });
+
+  router.post('/:itineraryId/activities', async (request, response) => {
+    try {
+      const { userId, itineraryId } = getRouteIds(request.params);
+      const activityInput = parseActivityInput(request.body);
+      const activity = await itineraryService.addActivity(
+        userId,
+        itineraryId,
+        activityInput,
+      );
+      response.status(201).json({ activity });
+    } catch (error: unknown) {
+      sendError(response, error);
+    }
+  });
+
+  router.post(
+    '/:itineraryId/transportation-segments',
+    async (request, response) => {
+      try {
+        const { userId, itineraryId } = getRouteIds(request.params);
+        const segmentInput = parseTransportationSegmentInput(request.body);
+        const transportationSegment =
+          await itineraryService.addTransportationSegment(
+            userId,
+            itineraryId,
+            segmentInput,
+          );
+        response.status(201).json({ transportationSegment });
+      } catch (error: unknown) {
+        sendError(response, error);
+      }
+    },
+  );
 
   router.patch('/:itineraryId', async (request, response) => {
     try {

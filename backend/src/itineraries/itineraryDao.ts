@@ -1,8 +1,11 @@
+import { randomUUID } from 'node:crypto';
+
 import { type Collection, type Db, type Document, ObjectId } from 'mongodb';
 
 import { InvalidItineraryOwnerError } from './itineraryErrors';
 import type { ItineraryRepository } from './itineraryRepository';
 import type {
+  ActivityItem,
   CreateItineraryInput,
   Itinerary,
   ItineraryDetails,
@@ -10,6 +13,7 @@ import type {
   ItineraryFilters,
   ItineraryItem,
   ItineraryScore,
+  TransportationItem,
 } from './itineraryTypes';
 
 type ItineraryDocument = {
@@ -54,7 +58,7 @@ export class ItineraryDao implements ItineraryRepository {
         : { startingLocation: itinerary.startingLocation }),
       items: itinerary.items.map((item) => ({
         ...item,
-        id: new ObjectId().toHexString(),
+        id: randomUUID(),
       })),
       createdAt: now,
       updatedAt: now,
@@ -172,6 +176,22 @@ export class ItineraryDao implements ItineraryRepository {
     return result.matchedCount === 1;
   }
 
+  async insertEmbeddedActivity(
+    userId: string,
+    itineraryId: string,
+    activity: ActivityItem,
+  ): Promise<boolean> {
+    return this.insertEmbeddedItem(userId, itineraryId, activity);
+  }
+
+  async insertEmbeddedTransportationSegment(
+    userId: string,
+    itineraryId: string,
+    segment: TransportationItem,
+  ): Promise<boolean> {
+    return this.insertEmbeddedItem(userId, itineraryId, segment);
+  }
+
   async removeItinerary(
     userId: string,
     itineraryId: string,
@@ -199,6 +219,30 @@ export class ItineraryDao implements ItineraryRepository {
       userId: new ObjectId(userId),
       itineraryId: new ObjectId(itineraryId),
     };
+  }
+
+  private async insertEmbeddedItem(
+    userId: string,
+    itineraryId: string,
+    item: ItineraryItem,
+  ): Promise<boolean> {
+    const ids = this.parseIds(userId, itineraryId);
+    if (ids === null) {
+      return false;
+    }
+
+    const result = await this.itineraries.updateOne(
+      {
+        _id: ids.itineraryId,
+        ownerId: ids.userId,
+        saved: true,
+      },
+      {
+        $push: { items: item },
+        $set: { updatedAt: new Date() },
+      },
+    );
+    return result.matchedCount === 1;
   }
 
   private toItinerary(document: ItineraryDocument): Itinerary {
