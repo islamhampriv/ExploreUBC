@@ -6,6 +6,7 @@ import { InvalidItineraryOwnerError } from './itineraryErrors';
 import type { ItineraryRepository } from './itineraryRepository';
 import type {
   ActivityItem,
+  ActivityUpdate,
   CreateItineraryInput,
   Itinerary,
   ItineraryDetails,
@@ -14,6 +15,7 @@ import type {
   ItineraryItem,
   ItineraryScore,
   TransportationItem,
+  TransportationSegmentUpdate,
 } from './itineraryTypes';
 
 type ItineraryDocument = {
@@ -192,6 +194,62 @@ export class ItineraryDao implements ItineraryRepository {
     return this.insertEmbeddedItem(userId, itineraryId, segment);
   }
 
+  async removeEmbeddedActivity(
+    userId: string,
+    itineraryId: string,
+    activityId: string,
+  ): Promise<boolean> {
+    return this.removeEmbeddedItem(
+      userId,
+      itineraryId,
+      activityId,
+      'activity',
+    );
+  }
+
+  async removeEmbeddedTransportationSegment(
+    userId: string,
+    itineraryId: string,
+    segmentId: string,
+  ): Promise<boolean> {
+    return this.removeEmbeddedItem(
+      userId,
+      itineraryId,
+      segmentId,
+      'transportation',
+    );
+  }
+
+  async updateEmbeddedActivity(
+    userId: string,
+    itineraryId: string,
+    activityId: string,
+    update: ActivityUpdate,
+  ): Promise<boolean> {
+    return this.updateEmbeddedItem(
+      userId,
+      itineraryId,
+      activityId,
+      'activity',
+      update,
+    );
+  }
+
+  async updateEmbeddedTransportationSegment(
+    userId: string,
+    itineraryId: string,
+    segmentId: string,
+    update: TransportationSegmentUpdate,
+  ): Promise<boolean> {
+    return this.updateEmbeddedItem(
+      userId,
+      itineraryId,
+      segmentId,
+      'transportation',
+      update,
+    );
+  }
+
   async removeItinerary(
     userId: string,
     itineraryId: string,
@@ -241,6 +299,61 @@ export class ItineraryDao implements ItineraryRepository {
         $push: { items: item },
         $set: { updatedAt: new Date() },
       },
+    );
+    return result.matchedCount === 1;
+  }
+
+  private async removeEmbeddedItem(
+    userId: string,
+    itineraryId: string,
+    itemId: string,
+    type: ItineraryItem['type'],
+  ): Promise<boolean> {
+    const ids = this.parseIds(userId, itineraryId);
+    if (ids === null) {
+      return false;
+    }
+
+    const result = await this.itineraries.updateOne(
+      {
+        _id: ids.itineraryId,
+        ownerId: ids.userId,
+        saved: true,
+        items: { $elemMatch: { id: itemId, type } },
+      },
+      {
+        $pull: { items: { id: itemId, type } },
+        $set: { updatedAt: new Date() },
+      },
+    );
+    return result.matchedCount === 1;
+  }
+
+  private async updateEmbeddedItem(
+    userId: string,
+    itineraryId: string,
+    itemId: string,
+    type: ItineraryItem['type'],
+    update: ActivityUpdate | TransportationSegmentUpdate,
+  ): Promise<boolean> {
+    const ids = this.parseIds(userId, itineraryId);
+    if (ids === null) {
+      return false;
+    }
+
+    const setFields: Document = { updatedAt: new Date() };
+    for (const [field, value] of Object.entries(update)) {
+      setFields[`items.$.${field}`] = value;
+    }
+
+    const result = await this.itineraries.updateOne(
+      {
+        _id: ids.itineraryId,
+        ownerId: ids.userId,
+        saved: true,
+        items: { $elemMatch: { id: itemId, type } },
+      },
+      { $set: setFields },
     );
     return result.matchedCount === 1;
   }

@@ -1,7 +1,9 @@
 import type {
+  ActivityUpdate,
   CreateItineraryInput,
   ActivityItem,
   TransportationItem,
+  TransportationSegmentUpdate,
   Itinerary,
   ItineraryDetails,
   ItineraryDetailsUpdate,
@@ -42,6 +44,32 @@ export interface ItineraryRepository {
     userId: string,
     itineraryId: string,
     segment: TransportationItem,
+  ): Promise<boolean>;
+
+  removeEmbeddedActivity(
+    userId: string,
+    itineraryId: string,
+    activityId: string,
+  ): Promise<boolean>;
+
+  removeEmbeddedTransportationSegment(
+    userId: string,
+    itineraryId: string,
+    segmentId: string,
+  ): Promise<boolean>;
+
+  updateEmbeddedActivity(
+    userId: string,
+    itineraryId: string,
+    activityId: string,
+    update: ActivityUpdate,
+  ): Promise<boolean>;
+
+  updateEmbeddedTransportationSegment(
+    userId: string,
+    itineraryId: string,
+    segmentId: string,
+    update: TransportationSegmentUpdate,
   ): Promise<boolean>;
 
   removeItinerary(userId: string, itineraryId: string): Promise<boolean>;

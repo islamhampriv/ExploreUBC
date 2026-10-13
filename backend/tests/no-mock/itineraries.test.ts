@@ -4,6 +4,7 @@ import { createApp } from '../../src/app';
 import type { ItineraryRepository } from '../../src/itineraries/itineraryRepository';
 import type {
   ActivityItem,
+  ActivityUpdate,
   CreateActivityInput,
   CreateItineraryInput,
   CreateTransportationInput,
@@ -13,6 +14,7 @@ import type {
   ItineraryFilters,
   ItineraryItem,
   TransportationItem,
+  TransportationSegmentUpdate,
 } from '../../src/itineraries/itineraryTypes';
 
 const USER_ID = '6705f0000000000000000001';
@@ -194,6 +196,57 @@ class TestItineraryRepository implements ItineraryRepository {
     return this.insertEmbeddedItem(userId, itineraryId, segment);
   }
 
+  async removeEmbeddedActivity(
+    userId: string,
+    itineraryId: string,
+    activityId: string,
+  ): Promise<boolean> {
+    return this.removeEmbeddedItem(userId, itineraryId, activityId, 'activity');
+  }
+
+  async removeEmbeddedTransportationSegment(
+    userId: string,
+    itineraryId: string,
+    segmentId: string,
+  ): Promise<boolean> {
+    return this.removeEmbeddedItem(
+      userId,
+      itineraryId,
+      segmentId,
+      'transportation',
+    );
+  }
+
+  async updateEmbeddedActivity(
+    userId: string,
+    itineraryId: string,
+    activityId: string,
+    update: ActivityUpdate,
+  ): Promise<boolean> {
+    return this.updateEmbeddedItem(
+      userId,
+      itineraryId,
+      activityId,
+      'activity',
+      update,
+    );
+  }
+
+  async updateEmbeddedTransportationSegment(
+    userId: string,
+    itineraryId: string,
+    segmentId: string,
+    update: TransportationSegmentUpdate,
+  ): Promise<boolean> {
+    return this.updateEmbeddedItem(
+      userId,
+      itineraryId,
+      segmentId,
+      'transportation',
+      update,
+    );
+  }
+
   async removeItinerary(
     userId: string,
     itineraryId: string,
@@ -218,6 +271,49 @@ class TestItineraryRepository implements ItineraryRepository {
       ...itinerary,
       items: [...itinerary.items, item],
       updatedAt: '2026-10-12T14:00:00.000Z',
+    };
+    return true;
+  }
+
+  private async removeEmbeddedItem(
+    userId: string,
+    itineraryId: string,
+    itemId: string,
+    type: ItineraryItem['type'],
+  ): Promise<boolean> {
+    const itinerary = await this.findItinerary(userId, itineraryId);
+    if (itinerary === null || !itinerary.saved) return false;
+    const itemExists = itinerary.items.some(
+      (item) => item.id === itemId && item.type === type,
+    );
+    if (!itemExists) return false;
+    this.storedItinerary = {
+      ...itinerary,
+      items: itinerary.items.filter((item) => item.id !== itemId),
+      updatedAt: '2026-10-12T15:00:00.000Z',
+    };
+    return true;
+  }
+
+  private async updateEmbeddedItem(
+    userId: string,
+    itineraryId: string,
+    itemId: string,
+    type: ItineraryItem['type'],
+    update: ActivityUpdate | TransportationSegmentUpdate,
+  ): Promise<boolean> {
+    const itinerary = await this.findItinerary(userId, itineraryId);
+    if (itinerary === null || !itinerary.saved) return false;
+    const itemExists = itinerary.items.some(
+      (item) => item.id === itemId && item.type === type,
+    );
+    if (!itemExists) return false;
+    this.storedItinerary = {
+      ...itinerary,
+      items: itinerary.items.map((item) =>
+        item.id === itemId ? { ...item, ...update } as ItineraryItem : item,
+      ),
+      updatedAt: '2026-10-12T15:00:00.000Z',
     };
     return true;
   }
@@ -422,6 +518,130 @@ describe('Unmocked: add itinerary activities and transportation', () => {
       expect(response.body.error.code).toBe('ITINERARY_NOT_FOUND');
     },
   );
+});
+
+describe('Unmocked: update and remove itinerary items', () => {
+  test('partially updates an activity and preserves omitted fields', async () => {
+    const { app } = createTestApp();
+
+    const response = await request(app)
+      .patch(
+        `/api/v1/users/${USER_ID}/itineraries/${ITINERARY_ID}/activities/generated-item-1`,
+      )
+      .send({
+        name: 'Updated Museum of Anthropology',
+        description: 'Updated activity description.',
+      });
+
+    expect(response.status).toBe(200);
+    expect(response.body.activity).toMatchObject({
+      id: 'generated-item-1',
+      type: 'activity',
+      name: 'Updated Museum of Anthropology',
+      description: 'Updated activity description.',
+      location: '6393 NW Marine Drive, Vancouver, BC',
+      startTime: '2026-10-17T17:00:00.000Z',
+      endTime: '2026-10-17T18:30:00.000Z',
+    });
+  });
+
+  test('partially updates a transportation segment', async () => {
+    const { app } = createTestApp();
+
+    const response = await request(app)
+      .patch(
+        `/api/v1/users/${USER_ID}/itineraries/${ITINERARY_ID}/transportation-segments/generated-item-2`,
+      )
+      .send({ mode: 'transit', distanceMeters: 2600 });
+
+    expect(response.status).toBe(200);
+    expect(response.body.transportationSegment).toMatchObject({
+      id: 'generated-item-2',
+      type: 'transportation',
+      mode: 'transit',
+      distanceMeters: 2600,
+      startLocation: '6393 NW Marine Drive, Vancouver, BC',
+      endLocation: '6804 SW Marine Drive, Vancouver, BC',
+    });
+  });
+
+  test('validates a partial time update against the stored activity time', async () => {
+    const { app } = createTestApp();
+
+    const response = await request(app)
+      .patch(
+        `/api/v1/users/${USER_ID}/itineraries/${ITINERARY_ID}/activities/generated-item-1`,
+      )
+      .send({ startTime: '2026-10-17T19:00:00.000Z' });
+
+    expect(response.status).toBe(400);
+    expect(response.body.error).toEqual({
+      code: 'INVALID_ITINERARY_ITEM',
+      message: 'The itinerary item is invalid.',
+      details: ['startTime must be earlier than endTime.'],
+    });
+  });
+
+  test.each([
+    ['activities/generated-item-1', 'generated-item-1'],
+    ['transportation-segments/generated-item-2', 'generated-item-2'],
+  ])('removes an item through %s', async (path, removedId) => {
+    const { app } = createTestApp();
+
+    await request(app)
+      .delete(`/api/v1/users/${USER_ID}/itineraries/${ITINERARY_ID}/${path}`)
+      .expect(204);
+
+    const itineraryResponse = await request(app).get(
+      `/api/v1/users/${USER_ID}/itineraries/${ITINERARY_ID}`,
+    );
+    expect(
+      itineraryResponse.body.itinerary.items.some(
+        (item: { id: string }) => item.id === removedId,
+      ),
+    ).toBe(false);
+  });
+
+  test.each([
+    [
+      'patch',
+      'activities/generated-item-2',
+      { name: 'Wrong item type' },
+    ],
+    [
+      'delete',
+      'transportation-segments/generated-item-1',
+      undefined,
+    ],
+  ] as const)(
+    '%s returns 404 when the item exists under a different type',
+    async (method, path, body) => {
+      const { app } = createTestApp();
+      const operation = request(app)[method](
+        `/api/v1/users/${USER_ID}/itineraries/${ITINERARY_ID}/${path}`,
+      );
+      if (body !== undefined) operation.send(body);
+
+      const response = await operation;
+      expect(response.status).toBe(404);
+      expect(response.body.error.code).toBe('ITINERARY_ITEM_NOT_FOUND');
+    },
+  );
+
+  test('rejects an empty item update', async () => {
+    const { app } = createTestApp();
+
+    const response = await request(app)
+      .patch(
+        `/api/v1/users/${USER_ID}/itineraries/${ITINERARY_ID}/activities/generated-item-1`,
+      )
+      .send({});
+
+    expect(response.status).toBe(400);
+    expect(response.body.error.details).toContain(
+      'At least one item field must be provided.',
+    );
+  });
 });
 
 describe('Unmocked: itinerary retrieval, update, and deletion', () => {

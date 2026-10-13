@@ -27,6 +27,10 @@ export type ItineraryItem = ActivityItem | TransportationItem;
 
 export type CreateActivityInput = Omit<ActivityItem, 'id'>;
 export type CreateTransportationInput = Omit<TransportationItem, 'id'>;
+export type ActivityUpdate = Partial<Omit<ActivityItem, 'id' | 'type'>>;
+export type TransportationSegmentUpdate = Partial<
+  Omit<TransportationItem, 'id' | 'type'>
+>;
 export type CreateItineraryItemInput =
   | CreateActivityInput
   | CreateTransportationInput;

@@ -41,3 +41,10 @@ export class ItineraryNotFoundError extends Error {
     this.name = 'ItineraryNotFoundError';
   }
 }
+
+export class ItineraryItemNotFoundError extends Error {
+  constructor(itemId: string) {
+    super(`Itinerary item '${itemId}' was not found.`);
+    this.name = 'ItineraryItemNotFoundError';
+  }
+}

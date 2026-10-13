@@ -1,9 +1,14 @@
 import { randomUUID } from 'node:crypto';
 
 import type { ItineraryRepository } from './itineraryRepository';
-import { ItineraryNotFoundError } from './itineraryErrors';
+import {
+  InvalidItineraryItemError,
+  ItineraryItemNotFoundError,
+  ItineraryNotFoundError,
+} from './itineraryErrors';
 import type {
   ActivityItem,
+  ActivityUpdate,
   CreateActivityInput,
   CreateItineraryInput,
   CreateTransportationInput,
@@ -12,6 +17,7 @@ import type {
   ItineraryDetailsUpdate,
   ItineraryFilters,
   TransportationItem,
+  TransportationSegmentUpdate,
 } from './itineraryTypes';
 
 export class ItineraryService {
@@ -109,6 +115,101 @@ export class ItineraryService {
     return segment;
   }
 
+  async removeActivity(
+    userId: string,
+    itineraryId: string,
+    activityId: string,
+  ): Promise<boolean> {
+    await this.findSavedItem(userId, itineraryId, activityId, 'activity');
+    const removed = await this.repository.removeEmbeddedActivity(
+      userId,
+      itineraryId,
+      activityId,
+    );
+    if (!removed) {
+      throw new ItineraryItemNotFoundError(activityId);
+    }
+    return true;
+  }
+
+  async removeTransportationSegment(
+    userId: string,
+    itineraryId: string,
+    segmentId: string,
+  ): Promise<boolean> {
+    await this.findSavedItem(
+      userId,
+      itineraryId,
+      segmentId,
+      'transportation',
+    );
+    const removed =
+      await this.repository.removeEmbeddedTransportationSegment(
+        userId,
+        itineraryId,
+        segmentId,
+      );
+    if (!removed) {
+      throw new ItineraryItemNotFoundError(segmentId);
+    }
+    return true;
+  }
+
+  async updateActivity(
+    userId: string,
+    itineraryId: string,
+    activityId: string,
+    update: ActivityUpdate,
+  ): Promise<ActivityItem> {
+    const current = await this.findSavedItem(
+      userId,
+      itineraryId,
+      activityId,
+      'activity',
+    ) as ActivityItem;
+    const activity: ActivityItem = { ...current, ...update };
+    this.validateMergedTimeOrder(activity.startTime, activity.endTime);
+
+    const updated = await this.repository.updateEmbeddedActivity(
+      userId,
+      itineraryId,
+      activityId,
+      update,
+    );
+    if (!updated) {
+      throw new ItineraryItemNotFoundError(activityId);
+    }
+    return activity;
+  }
+
+  async updateTransportationSegment(
+    userId: string,
+    itineraryId: string,
+    segmentId: string,
+    update: TransportationSegmentUpdate,
+  ): Promise<TransportationItem> {
+    const current = await this.findSavedItem(
+      userId,
+      itineraryId,
+      segmentId,
+      'transportation',
+    ) as TransportationItem;
+    const segment: TransportationItem = { ...current, ...update };
+    this.validateMergedTimeOrder(segment.startTime, segment.endTime);
+
+    const updated =
+      await this.repository.updateEmbeddedTransportationSegment(
+        userId,
+        itineraryId,
+        segmentId,
+        update,
+      );
+    if (!updated) {
+      throw new ItineraryItemNotFoundError(segmentId);
+    }
+    return segment;
+  }
+
   async deleteItinerary(
     userId: string,
     itineraryId: string,
@@ -118,5 +219,32 @@ export class ItineraryService {
       throw new ItineraryNotFoundError(itineraryId);
     }
     return true;
+  }
+
+  private async findSavedItem(
+    userId: string,
+    itineraryId: string,
+    itemId: string,
+    type: 'activity' | 'transportation',
+  ): Promise<ActivityItem | TransportationItem> {
+    const itinerary = await this.getItinerary(userId, itineraryId);
+    if (!itinerary.saved) {
+      throw new ItineraryNotFoundError(itineraryId);
+    }
+    const item = itinerary.items.find(
+      (candidate) => candidate.id === itemId && candidate.type === type,
+    );
+    if (item === undefined) {
+      throw new ItineraryItemNotFoundError(itemId);
+    }
+    return item;
+  }
+
+  private validateMergedTimeOrder(startTime: string, endTime: string): void {
+    if (Date.parse(startTime) >= Date.parse(endTime)) {
+      throw new InvalidItineraryItemError([
+        'startTime must be earlier than endTime.',
+      ]);
+    }
   }
 }

@@ -5,6 +5,7 @@ import {
   InvalidItineraryFiltersError,
   InvalidItineraryItemError,
   InvalidItineraryOwnerError,
+  ItineraryItemNotFoundError,
   ItineraryNotFoundError,
 } from './itineraryErrors';
 import type { ItineraryService } from './itineraryService';
@@ -13,7 +14,9 @@ import {
   parseItineraryDetailsUpdate,
   parseItineraryFilters,
   parseActivityInput,
+  parseActivityUpdate,
   parseTransportationSegmentInput,
+  parseTransportationSegmentUpdate,
 } from './itineraryValidation';
 
 function sendError(response: Response, error: unknown): void {
@@ -64,6 +67,16 @@ function sendError(response: Response, error: unknown): void {
     response.status(404).json({
       error: {
         code: 'ITINERARY_NOT_FOUND',
+        message: error.message,
+      },
+    });
+    return;
+  }
+
+  if (error instanceof ItineraryItemNotFoundError) {
+    response.status(404).json({
+      error: {
+        code: 'ITINERARY_ITEM_NOT_FOUND',
         message: error.message,
       },
     });
@@ -169,6 +182,44 @@ export function createItineraryRouter(
     }
   });
 
+  router.patch(
+    '/:itineraryId/activities/:activityId',
+    async (request, response) => {
+      try {
+        const { userId, itineraryId, itemId } = getItemRouteIds(
+          request.params,
+          'activityId',
+        );
+        const update = parseActivityUpdate(request.body);
+        const activity = await itineraryService.updateActivity(
+          userId,
+          itineraryId,
+          itemId,
+          update,
+        );
+        response.json({ activity });
+      } catch (error: unknown) {
+        sendError(response, error);
+      }
+    },
+  );
+
+  router.delete(
+    '/:itineraryId/activities/:activityId',
+    async (request, response) => {
+      try {
+        const { userId, itineraryId, itemId } = getItemRouteIds(
+          request.params,
+          'activityId',
+        );
+        await itineraryService.removeActivity(userId, itineraryId, itemId);
+        response.status(204).send();
+      } catch (error: unknown) {
+        sendError(response, error);
+      }
+    },
+  );
+
   router.post(
     '/:itineraryId/transportation-segments',
     async (request, response) => {
@@ -182,6 +233,49 @@ export function createItineraryRouter(
             segmentInput,
           );
         response.status(201).json({ transportationSegment });
+      } catch (error: unknown) {
+        sendError(response, error);
+      }
+    },
+  );
+
+  router.patch(
+    '/:itineraryId/transportation-segments/:segmentId',
+    async (request, response) => {
+      try {
+        const { userId, itineraryId, itemId } = getItemRouteIds(
+          request.params,
+          'segmentId',
+        );
+        const update = parseTransportationSegmentUpdate(request.body);
+        const transportationSegment =
+          await itineraryService.updateTransportationSegment(
+            userId,
+            itineraryId,
+            itemId,
+            update,
+          );
+        response.json({ transportationSegment });
+      } catch (error: unknown) {
+        sendError(response, error);
+      }
+    },
+  );
+
+  router.delete(
+    '/:itineraryId/transportation-segments/:segmentId',
+    async (request, response) => {
+      try {
+        const { userId, itineraryId, itemId } = getItemRouteIds(
+          request.params,
+          'segmentId',
+        );
+        await itineraryService.removeTransportationSegment(
+          userId,
+          itineraryId,
+          itemId,
+        );
+        response.status(204).send();
       } catch (error: unknown) {
         sendError(response, error);
       }
@@ -228,4 +322,16 @@ function getRouteIds(params: unknown): { userId: string; itineraryId: string } {
     throw new ItineraryNotFoundError('');
   }
   return { userId, itineraryId };
+}
+
+function getItemRouteIds(
+  params: unknown,
+  itemParameter: 'activityId' | 'segmentId',
+): { userId: string; itineraryId: string; itemId: string } {
+  const { userId, itineraryId } = getRouteIds(params);
+  const itemId = (params as Record<string, string | undefined>)[itemParameter];
+  if (itemId === undefined || itemId === '') {
+    throw new ItineraryItemNotFoundError('');
+  }
+  return { userId, itineraryId, itemId };
 }

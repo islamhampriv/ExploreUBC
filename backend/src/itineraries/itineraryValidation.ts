@@ -5,6 +5,7 @@ import {
   InvalidItineraryItemError,
 } from './itineraryErrors';
 import type {
+  ActivityUpdate,
   CreateActivityInput,
   CreateItineraryInput,
   CreateItineraryItemInput,
@@ -12,6 +13,7 @@ import type {
   ItineraryDetailsUpdate,
   ItineraryFilters,
   ItineraryScore,
+  TransportationSegmentUpdate,
 } from './itineraryTypes';
 
 function isObject(value: unknown): value is Record<string, unknown> {
@@ -236,6 +238,139 @@ export function parseTransportationSegmentInput(
     throw new InvalidItineraryItemError(details);
   }
   return segment;
+}
+
+export function parseActivityUpdate(value: unknown): ActivityUpdate {
+  if (!isObject(value)) {
+    throw new InvalidItineraryItemError(['Request body must be an activity update object.']);
+  }
+
+  const details: string[] = [];
+  addUnexpectedFields(
+    value,
+    ['name', 'image', 'description', 'category', 'location', 'startTime', 'endTime'],
+    '',
+    details,
+  );
+  const update: ActivityUpdate = {};
+
+  if ('name' in value) {
+    const name = requiredString(value.name, 'name', 200, details);
+    if (name !== undefined) update.name = name;
+  }
+  if ('image' in value) {
+    const image = requiredString(value.image, 'image', 2_000, details);
+    if (image !== undefined) update.image = image;
+  }
+  if ('description' in value) {
+    const description = optionalString(value.description, 'description', 1_000, details);
+    if (description !== undefined) update.description = description;
+  }
+  if ('category' in value) {
+    const category = optionalString(value.category, 'category', 100, details);
+    if (category !== undefined) update.category = category;
+  }
+  if ('location' in value) {
+    const location = requiredString(value.location, 'location', 500, details);
+    if (location !== undefined) update.location = location;
+  }
+  if ('startTime' in value) {
+    const startTime = timestamp(value.startTime, 'startTime', details);
+    if (startTime !== undefined) update.startTime = startTime;
+  }
+  if ('endTime' in value) {
+    const endTime = timestamp(value.endTime, 'endTime', details);
+    if (endTime !== undefined) update.endTime = endTime;
+  }
+  validateTimeOrder(update.startTime, update.endTime, '', details);
+
+  validateItemUpdate(update, details);
+  return update;
+}
+
+export function parseTransportationSegmentUpdate(
+  value: unknown,
+): TransportationSegmentUpdate {
+  if (!isObject(value)) {
+    throw new InvalidItineraryItemError([
+      'Request body must be a transportation segment update object.',
+    ]);
+  }
+
+  const details: string[] = [];
+  addUnexpectedFields(
+    value,
+    ['mode', 'startLocation', 'endLocation', 'distanceMeters', 'startTime', 'endTime'],
+    '',
+    details,
+  );
+  const update: TransportationSegmentUpdate = {};
+
+  if ('mode' in value) {
+    if (
+      typeof value.mode !== 'string' ||
+      !TRANSPORTATION_MODES.includes(
+        value.mode as (typeof TRANSPORTATION_MODES)[number],
+      )
+    ) {
+      details.push(`mode must be one of: ${TRANSPORTATION_MODES.join(', ')}.`);
+    } else {
+      update.mode = value.mode as (typeof TRANSPORTATION_MODES)[number];
+    }
+  }
+  if ('startLocation' in value) {
+    const startLocation = requiredString(
+      value.startLocation,
+      'startLocation',
+      500,
+      details,
+    );
+    if (startLocation !== undefined) update.startLocation = startLocation;
+  }
+  if ('endLocation' in value) {
+    const endLocation = requiredString(
+      value.endLocation,
+      'endLocation',
+      500,
+      details,
+    );
+    if (endLocation !== undefined) update.endLocation = endLocation;
+  }
+  if ('distanceMeters' in value) {
+    if (
+      typeof value.distanceMeters !== 'number' ||
+      !Number.isFinite(value.distanceMeters) ||
+      value.distanceMeters < 0
+    ) {
+      details.push('distanceMeters must be a non-negative number.');
+    } else {
+      update.distanceMeters = value.distanceMeters;
+    }
+  }
+  if ('startTime' in value) {
+    const startTime = timestamp(value.startTime, 'startTime', details);
+    if (startTime !== undefined) update.startTime = startTime;
+  }
+  if ('endTime' in value) {
+    const endTime = timestamp(value.endTime, 'endTime', details);
+    if (endTime !== undefined) update.endTime = endTime;
+  }
+  validateTimeOrder(update.startTime, update.endTime, '', details);
+
+  validateItemUpdate(update, details);
+  return update;
+}
+
+function validateItemUpdate(
+  update: ActivityUpdate | TransportationSegmentUpdate,
+  details: string[],
+): void {
+  if (Object.keys(update).length === 0 && details.length === 0) {
+    details.push('At least one item field must be provided.');
+  }
+  if (details.length > 0) {
+    throw new InvalidItineraryItemError(details);
+  }
 }
 
 function parseScore(value: unknown, details: string[]): ItineraryScore {
