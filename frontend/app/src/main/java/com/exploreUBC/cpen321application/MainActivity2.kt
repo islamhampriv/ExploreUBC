@@ -21,7 +21,10 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import com.exploreUBC.cpen321application.data.users.UsersApi
 import com.exploreUBC.cpen321application.data.users.UsersRepository
+import com.exploreUBC.cpen321application.data.itineraries.ItinerariesApi
+import com.exploreUBC.cpen321application.data.itineraries.ItinerariesRepository
 import com.exploreUBC.cpen321application.ui.profile.ProfileRoute
+import com.exploreUBC.cpen321application.ui.trips.TripsRoute
 import com.exploreUBC.cpen321application.ui.theme.CPEN321ApplicationTheme
 
 class MainActivity2 : ComponentActivity() {
@@ -31,10 +34,13 @@ class MainActivity2 : ComponentActivity() {
         setContent {
             CPEN321ApplicationTheme {
                 val usersRepository = remember { UsersApi(BuildConfig.API_BASE_URL) }
+                val itinerariesRepository = remember { ItinerariesApi(BuildConfig.API_BASE_URL) }
                 CPEN321ApplicationApp(
-                    userId = intent.getStringExtra("userId"),
+//                    userId = intent.getStringExtra("userId"),
+                    userId = "6acd519c76376cefc61e97f1",
                     displayName = intent.getStringExtra("displayName"),
                     usersRepository = usersRepository,
+                    itinerariesRepository = itinerariesRepository,
                 )
             }
         }
@@ -46,6 +52,7 @@ fun CPEN321ApplicationApp(
     userId: String?,
     displayName: String?,
     usersRepository: UsersRepository,
+    itinerariesRepository: ItinerariesRepository,
 ) {
     var currentDestination by rememberSaveable { mutableStateOf(AppDestinations.NOTIFICATIONS) }
     NavigationSuiteScaffold(
@@ -66,16 +73,20 @@ fun CPEN321ApplicationApp(
         }
     ) {
         Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-            if (currentDestination == AppDestinations.PROFILE) {
-                ProfileRoute(
+            when (currentDestination) {
+                AppDestinations.PROFILE -> ProfileRoute(
+                        userId = userId,
+                        displayName = displayName,
+                        startLocation = null,
+                        usersRepository = usersRepository,
+                        modifier = Modifier.padding(innerPadding),
+                    )
+                AppDestinations.TRIPS -> TripsRoute(
                     userId = userId,
-                    displayName = displayName,
-                    startLocation = null,
-                    usersRepository = usersRepository,
+                    itinerariesRepository = itinerariesRepository,
                     modifier = Modifier.padding(innerPadding),
                 )
-            } else {
-                Greeting2(
+                else -> Greeting2(
                     name = currentDestination.label,
                     modifier = Modifier.padding(innerPadding),
                 )

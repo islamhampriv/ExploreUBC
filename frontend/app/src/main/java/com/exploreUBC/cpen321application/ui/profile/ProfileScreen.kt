@@ -1,5 +1,6 @@
 package com.exploreUBC.cpen321application.ui.profile
 
+import android.util.Log
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -39,8 +40,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.exploreUBC.cpen321application.data.users.BudgetPreference
 import com.exploreUBC.cpen321application.data.users.InterestPreference
-import com.exploreUBC.cpen321application.data.users.PlaceSnapshot
 import com.exploreUBC.cpen321application.data.users.PreferencesUpdate
+import com.exploreUBC.cpen321application.data.users.TransportationPreference
 import com.exploreUBC.cpen321application.data.users.TransportationMode
 import com.exploreUBC.cpen321application.data.users.UserPreferences
 import com.exploreUBC.cpen321application.data.users.UsersRepository
@@ -48,7 +49,7 @@ import com.exploreUBC.cpen321application.R
 import kotlinx.coroutines.launch
 
 private val defaultPreferences = UserPreferences(
-    transportationMode = TransportationMode.WALKING,
+    transportation = TransportationPreference(TransportationMode.WALKING),
     budget = BudgetPreference.ECONOMICAL,
     interest = InterestPreference.FOOD,
 )
@@ -57,7 +58,7 @@ private val defaultPreferences = UserPreferences(
 fun ProfileRoute(
     userId: String?,
     displayName: String? = null,
-    startLocation: PlaceSnapshot? = null,
+    startLocation: String? = null,
     usersRepository: UsersRepository,
     modifier: Modifier = Modifier,
 ) {
@@ -88,7 +89,8 @@ fun ProfileRoute(
         statusMessage = errorMessage ?: savedMessage,
         onSave = { update ->
             if (userId.isNullOrBlank()) {
-                preferences = update.toUserPreferences()
+                Log.i("TAG ", "UserID: "+ userId)
+                preferences = update.toUserPreferences(preferences)
                 errorMessage = null
                 savedMessage = "Preferences selected."
             } else {
@@ -113,16 +115,16 @@ fun ProfileRoute(
     )
 }
 
-private fun PreferencesUpdate.toUserPreferences() = UserPreferences(
-    transportationMode = transportationMode,
-    budget = budget,
-    interest = interest,
+private fun PreferencesUpdate.toUserPreferences(current: UserPreferences) = UserPreferences(
+    transportation = transportation ?: current.transportation,
+    budget = budget ?: current.budget,
+    interest = interest ?: current.interest,
 )
 
 @Composable
 fun ProfilePreferencesForm(
     displayName: String? = null,
-    startLocation: PlaceSnapshot? = null,
+    startLocation: String? = null,
     preferences: UserPreferences,
     isSaving: Boolean,
     statusMessage: String?,
@@ -130,12 +132,12 @@ fun ProfilePreferencesForm(
     modifier: Modifier = Modifier,
 ) {
     var transportationMode by remember(preferences) {
-        mutableStateOf(preferences.transportationMode)
+        mutableStateOf(preferences.transportation.mode)
     }
     var budget by remember(preferences) { mutableStateOf(preferences.budget) }
     var interest by remember(preferences) { mutableStateOf(preferences.interest) }
     var startLocationText by remember(startLocation) {
-        mutableStateOf(startLocation.editableText())
+        mutableStateOf(startLocation.orEmpty())
     }
 
     Column(
@@ -195,7 +197,7 @@ fun ProfilePreferencesForm(
             onClick = {
                 onSave(
                     PreferencesUpdate(
-                        transportationMode = transportationMode,
+                        transportation = TransportationPreference(transportationMode),
                         budget = budget,
                         interest = interest,
                     ),
@@ -262,11 +264,6 @@ private fun ProfileSummary(
     }
 }
 
-private fun PlaceSnapshot?.editableText(): String = when (this) {
-    null -> ""
-    else -> address?.takeIf { it.isNotBlank() }?.let { "$name — $it" } ?: name
-}
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun <T> PreferenceDropdown(
@@ -320,7 +317,7 @@ private fun <T> PreferenceDropdown(
 private fun ProfilePreferencesFormPreview() {
     ProfilePreferencesForm(
         preferences = UserPreferences(
-            transportationMode = TransportationMode.TRANSIT,
+            transportation = TransportationPreference(TransportationMode.TRANSIT),
             budget = BudgetPreference.BALANCED,
             interest = InterestPreference.OUTDOORS,
         ),

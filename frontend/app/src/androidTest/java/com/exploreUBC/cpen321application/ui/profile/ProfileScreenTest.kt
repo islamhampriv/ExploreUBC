@@ -11,6 +11,7 @@ import com.exploreUBC.cpen321application.data.users.BudgetPreference
 import com.exploreUBC.cpen321application.data.users.InterestPreference
 import com.exploreUBC.cpen321application.data.users.PreferencesUpdate
 import com.exploreUBC.cpen321application.data.users.TransportationMode
+import com.exploreUBC.cpen321application.data.users.TransportationPreference
 import com.exploreUBC.cpen321application.data.users.UserPreferences
 import com.exploreUBC.cpen321application.data.users.UsersRepository
 import org.junit.Assert.assertEquals
@@ -61,7 +62,7 @@ class ProfileScreenTest {
         composeRule.setContent {
             ProfilePreferencesForm(
                 preferences = UserPreferences(
-                    transportationMode = TransportationMode.TRANSIT,
+                    transportation = TransportationPreference(TransportationMode.TRANSIT),
                     budget = BudgetPreference.BALANCED,
                     interest = InterestPreference.FOOD,
                 ),
@@ -80,7 +81,7 @@ class ProfileScreenTest {
         composeRule.onNodeWithTag("profile_save").performScrollTo().performClick()
 
         composeRule.runOnIdle {
-            assertEquals(TransportationMode.CYCLING, savedUpdate?.transportationMode)
+            assertEquals(TransportationMode.CYCLING, savedUpdate?.transportation?.mode)
             assertEquals(BudgetPreference.PREMIUM, savedUpdate?.budget)
             assertEquals(InterestPreference.GAMING, savedUpdate?.interest)
         }

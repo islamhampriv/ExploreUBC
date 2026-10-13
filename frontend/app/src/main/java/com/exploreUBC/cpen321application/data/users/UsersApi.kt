@@ -27,17 +27,20 @@ class UsersApi(private val apiBaseUrl: String) : UsersRepository {
         userId: String,
         update: PreferencesUpdate,
     ): UserPreferences = withContext(Dispatchers.IO) {
+        val requestBody = JSONObject().apply {
+            update.transportation?.let {
+                put(
+                    "transportation",
+                    JSONObject().put("mode", it.mode.apiValue),
+                )
+            }
+            update.budget?.let { put("budget", it.apiValue) }
+            update.interest?.let { put("interest", it.apiValue) }
+        }
         execute(
             method = "PATCH",
             userId = userId,
-            requestBody = JSONObject()
-                .put(
-                    "transportation",
-                    JSONObject().put("mode", update.transportationMode.apiValue),
-                )
-                .put("budget", update.budget.apiValue)
-                .put("interest", update.interest.apiValue)
-                .toString(),
+            requestBody = requestBody.toString(),
         )
     }
 
@@ -84,8 +87,10 @@ class UsersApi(private val apiBaseUrl: String) : UsersRepository {
 
     private fun parsePreferences(json: JSONObject): UserPreferences {
         return UserPreferences(
-            transportationMode = TransportationMode.fromApiValue(
-                json.getJSONObject("transportation").getString("mode"),
+            transportation = TransportationPreference(
+                mode = TransportationMode.fromApiValue(
+                    json.getJSONObject("transportation").getString("mode"),
+                ),
             ),
             budget = BudgetPreference.fromApiValue(json.getString("budget")),
             interest = InterestPreference.fromApiValue(json.getString("interest")),

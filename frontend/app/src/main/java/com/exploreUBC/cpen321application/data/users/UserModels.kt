@@ -42,36 +42,27 @@ enum class InterestPreference(val apiValue: String, val displayName: String) {
 }
 
 data class UserPreferences(
-    val transportationMode: TransportationMode,
+    val transportation: TransportationPreference,
     val budget: BudgetPreference,
     val interest: InterestPreference,
+)
+
+data class TransportationPreference(
+    val mode: TransportationMode,
 )
 
 data class PreferencesUpdate(
-    val transportationMode: TransportationMode,
-    val budget: BudgetPreference,
-    val interest: InterestPreference,
-)
-
-data class Coordinates(
-    val latitude: Double,
-    val longitude: Double,
-)
-
-data class PlaceSnapshot(
-    val providerPlaceId: String? = null,
-    val name: String,
-    val address: String? = null,
-    val coordinates: Coordinates,
+    val transportation: TransportationPreference? = null,
+    val budget: BudgetPreference? = null,
+    val interest: InterestPreference? = null,
 )
 
 data class User(
-    val id: String,
     val googleSubject: String,
     val email: String,
     val displayName: String,
-    val startLocation: PlaceSnapshot?,
+    val start_location: String,
     val preferences: UserPreferences,
-    val createdAt: String,
-    val updatedAt: String,
+    val create_at: String,
+    val updated_at: String,
 )
