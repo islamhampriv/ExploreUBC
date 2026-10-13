@@ -31,6 +31,16 @@ data class ActivityItem(
     override val endTime: String,
 ) : ItineraryItem
 
+data class CreateActivityInput(
+    val name: String,
+    val image: String,
+    val description: String? = null,
+    val category: String? = null,
+    val location: String,
+    val startTime: String,
+    val endTime: String,
+)
+
 data class TransportationItem(
     override val id: String,
     val mode: String,
@@ -40,6 +50,15 @@ data class TransportationItem(
     override val startTime: String,
     override val endTime: String,
 ) : ItineraryItem
+
+data class CreateTransportationInput(
+    val mode: String,
+    val startLocation: String,
+    val endLocation: String,
+    val distanceMeters: Double,
+    val startTime: String,
+    val endTime: String,
+)
 
 data class ItineraryDetails(
     val name: String,

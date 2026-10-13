@@ -23,6 +23,18 @@ interface ItinerariesRepository {
         itineraryId: String,
         details: ItineraryDetails,
     ): Itinerary
+
+    suspend fun addActivity(
+        userId: String,
+        itineraryId: String,
+        activity: CreateActivityInput,
+    ): ActivityItem
+
+    suspend fun addTransportationSegment(
+        userId: String,
+        itineraryId: String,
+        segment: CreateTransportationInput,
+    ): TransportationItem
 }
 
 class ItinerariesApi(private val apiBaseUrl: String) : ItinerariesRepository {
@@ -73,6 +85,53 @@ class ItinerariesApi(private val apiBaseUrl: String) : ItinerariesRepository {
             requestBody = requestBody,
         )
         parseItinerary(response.getJSONObject("itinerary"))
+    }
+
+    override suspend fun addActivity(
+        userId: String,
+        itineraryId: String,
+        activity: CreateActivityInput,
+    ): ActivityItem = withContext(Dispatchers.IO) {
+        val requestBody = JSONObject()
+            .put("type", "activity")
+            .put("name", activity.name)
+            .put("image", activity.image)
+            .put("location", activity.location)
+            .put("startTime", activity.startTime)
+            .put("endTime", activity.endTime)
+            .apply {
+                activity.description?.let { put("description", it) }
+                activity.category?.let { put("category", it) }
+            }
+            .toString()
+        val response = execute(
+            method = "POST",
+            path = "${itineraryCollectionPath(userId)}/${encode(itineraryId)}/activities",
+            requestBody = requestBody,
+        )
+        parseItem(response.getJSONObject("activity")) as ActivityItem
+    }
+
+    override suspend fun addTransportationSegment(
+        userId: String,
+        itineraryId: String,
+        segment: CreateTransportationInput,
+    ): TransportationItem = withContext(Dispatchers.IO) {
+        val requestBody = JSONObject()
+            .put("type", "transportation")
+            .put("mode", segment.mode)
+            .put("startLocation", segment.startLocation)
+            .put("endLocation", segment.endLocation)
+            .put("distanceMeters", segment.distanceMeters)
+            .put("startTime", segment.startTime)
+            .put("endTime", segment.endTime)
+            .toString()
+        val response = execute(
+            method = "POST",
+            path = "${itineraryCollectionPath(userId)}/${encode(itineraryId)}/transportation-segments",
+            requestBody = requestBody,
+        )
+        parseItem(response.getJSONObject("transportationSegment")) as TransportationItem
     }
 
     private fun itineraryCollectionPath(userId: String): String =
