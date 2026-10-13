@@ -15,6 +15,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DatePicker
@@ -23,6 +24,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedTextField
@@ -41,11 +43,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import com.exploreUBC.cpen321application.R
 import com.exploreUBC.cpen321application.data.itineraries.ActivityItem
+import com.exploreUBC.cpen321application.data.itineraries.ActivityUpdate
 import com.exploreUBC.cpen321application.data.itineraries.CreateActivityInput
 import com.exploreUBC.cpen321application.data.itineraries.CreateTransportationInput
 import com.exploreUBC.cpen321application.data.itineraries.ItinerariesRepository
@@ -53,6 +59,7 @@ import com.exploreUBC.cpen321application.data.itineraries.Itinerary
 import com.exploreUBC.cpen321application.data.itineraries.ItineraryDetails
 import com.exploreUBC.cpen321application.data.itineraries.ItineraryItem
 import com.exploreUBC.cpen321application.data.itineraries.TransportationItem
+import com.exploreUBC.cpen321application.data.itineraries.TransportationSegmentUpdate
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
@@ -164,7 +171,94 @@ fun TripsRoute(
     } else if (item != null) {
         ItineraryItemScreen(
             item = item,
-            onBack = { selectedItem = null },
+            isSaving = isSaving,
+            statusMessage = statusMessage,
+            onBack = {
+                selectedItem = null
+                statusMessage = null
+            },
+            onUpdateActivity = { update ->
+                if (userId.isNullOrBlank()) return@ItineraryItemScreen
+                scope.launch {
+                    isSaving = true
+                    statusMessage = null
+                    runCatching {
+                        itinerariesRepository.updateActivity(
+                            userId,
+                            itinerary.id,
+                            item.id,
+                            update,
+                        )
+                    }.onSuccess { updatedItem ->
+                        val updated = itinerary.replaceItem(updatedItem)
+                        selectedItem = updatedItem
+                        selectedItinerary = updated
+                        savedItineraries = savedItineraries.replace(updated)
+                        recommendedItineraries = recommendedItineraries.replace(updated)
+                        statusMessage = "Activity saved."
+                    }.onFailure {
+                        statusMessage = it.message ?: "Could not save the activity."
+                    }
+                    isSaving = false
+                }
+            },
+            onUpdateTransportation = { update ->
+                if (userId.isNullOrBlank()) return@ItineraryItemScreen
+                scope.launch {
+                    isSaving = true
+                    statusMessage = null
+                    runCatching {
+                        itinerariesRepository.updateTransportationSegment(
+                            userId,
+                            itinerary.id,
+                            item.id,
+                            update,
+                        )
+                    }.onSuccess { updatedItem ->
+                        val updated = itinerary.replaceItem(updatedItem)
+                        selectedItem = updatedItem
+                        selectedItinerary = updated
+                        savedItineraries = savedItineraries.replace(updated)
+                        recommendedItineraries = recommendedItineraries.replace(updated)
+                        statusMessage = "Transportation saved."
+                    }.onFailure {
+                        statusMessage = it.message ?: "Could not save transportation."
+                    }
+                    isSaving = false
+                }
+            },
+            onDelete = {
+                if (userId.isNullOrBlank()) return@ItineraryItemScreen
+                scope.launch {
+                    isSaving = true
+                    statusMessage = null
+                    runCatching {
+                        when (item) {
+                            is ActivityItem -> itinerariesRepository.deleteActivity(
+                                userId,
+                                itinerary.id,
+                                item.id,
+                            )
+                            is TransportationItem ->
+                                itinerariesRepository.deleteTransportationSegment(
+                                    userId,
+                                    itinerary.id,
+                                    item.id,
+                                )
+                        }
+                    }.onSuccess {
+                        val updated = itinerary.removeItem(item.id)
+                        selectedItem = null
+                        selectedItinerary = updated
+                        savedItineraries = savedItineraries.replace(updated)
+                        recommendedItineraries = recommendedItineraries.replace(updated)
+                        statusMessage = "Item deleted."
+                    }.onFailure {
+                        statusMessage = it.message ?: "Could not delete the item."
+                    }
+                    isSaving = false
+                }
+            },
             modifier = modifier,
         )
     } else if (itemType != null) {
@@ -237,7 +331,10 @@ fun TripsRoute(
                 selectedItinerary = null
                 statusMessage = null
             },
-            onItemClick = { selectedItem = it },
+            onItemClick = {
+                statusMessage = null
+                selectedItem = it
+            },
             onAddActivity = {
                 statusMessage = null
                 newItemType = NewItemType.ACTIVITY
@@ -275,6 +372,14 @@ fun TripsRoute(
 
 private fun List<Itinerary>.replace(updated: Itinerary): List<Itinerary> =
     map { if (it.id == updated.id) updated else it }
+
+private fun Itinerary.replaceItem(updated: ItineraryItem): Itinerary = copy(
+    items = items.map { if (it.id == updated.id) updated else it },
+)
+
+private fun Itinerary.removeItem(itemId: String): Itinerary = copy(
+    items = items.filterNot { it.id == itemId },
+)
 
 @Composable
 fun TripsList(
@@ -377,6 +482,7 @@ fun ItineraryScreen(
     var startingLocation by remember(itinerary.id, itinerary.updatedAt) {
         mutableStateOf(itinerary.startingLocation.orEmpty())
     }
+    var isEditing by remember(itinerary.id, itinerary.updatedAt) { mutableStateOf(false) }
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -387,44 +493,73 @@ fun ItineraryScreen(
         TextButton(onClick = onBack, modifier = Modifier.testTag("itinerary_back")) {
             Text("Back to itineraries")
         }
-        Text(
-            text = "Itinerary details",
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Bold,
-        )
-        OutlinedTextField(
-            value = name,
-            onValueChange = { name = it },
-            label = { Text("Name") },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth().testTag("itinerary_name"),
-        )
-        OutlinedTextField(
-            value = description,
-            onValueChange = { description = it },
-            label = { Text("Description") },
-            modifier = Modifier.fillMaxWidth().testTag("itinerary_description"),
-        )
-        OutlinedTextField(
-            value = startingLocation,
-            onValueChange = { startingLocation = it },
-            label = { Text("Starting location") },
-            modifier = Modifier.fillMaxWidth().testTag("itinerary_starting_location"),
-        )
-        Button(
-            onClick = {
-                onSave(
-                    ItineraryDetails(
-                        name = name,
-                        description = description,
-                        startingLocation = startingLocation,
-                    ),
-                )
-            },
-            enabled = !isSaving && name.isNotBlank(),
-            modifier = Modifier.fillMaxWidth().testTag("itinerary_save"),
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(if (isSaving) "Saving…" else "Save details")
+            Text(
+                text = "Itinerary details",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.weight(1f),
+            )
+            TextButton(
+                onClick = {
+                    if (isEditing) {
+                        name = itinerary.name
+                        description = itinerary.description.orEmpty()
+                        startingLocation = itinerary.startingLocation.orEmpty()
+                    }
+                    isEditing = !isEditing
+                },
+                enabled = !isSaving,
+                modifier = Modifier.testTag("itinerary_details_edit"),
+            ) {
+                Text(if (isEditing) "Cancel" else "Edit")
+            }
+        }
+        if (isEditing) {
+            OutlinedTextField(
+                value = name,
+                onValueChange = { name = it },
+                label = { Text("Name") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth().testTag("itinerary_name"),
+            )
+            OutlinedTextField(
+                value = description,
+                onValueChange = { description = it },
+                label = { Text("Description") },
+                modifier = Modifier.fillMaxWidth().testTag("itinerary_description"),
+            )
+            OutlinedTextField(
+                value = startingLocation,
+                onValueChange = { startingLocation = it },
+                label = { Text("Starting location") },
+                modifier = Modifier.fillMaxWidth().testTag("itinerary_starting_location"),
+            )
+            Button(
+                onClick = {
+                    onSave(
+                        ItineraryDetails(
+                            name = name,
+                            description = description,
+                            startingLocation = startingLocation,
+                        ),
+                    )
+                },
+                enabled = !isSaving && name.isNotBlank(),
+                modifier = Modifier.fillMaxWidth().testTag("itinerary_save"),
+            ) {
+                Text(if (isSaving) "Saving…" else "Save details")
+            }
+        } else {
+            DetailField("Name", itinerary.name)
+            DetailField("Description", itinerary.description?.takeIf { it.isNotBlank() } ?: "Not set")
+            DetailField(
+                "Starting location",
+                itinerary.startingLocation?.takeIf { it.isNotBlank() } ?: "Not set",
+            )
         }
         statusMessage?.let { Text(it, modifier = Modifier.testTag("itinerary_status")) }
 
@@ -868,9 +1003,17 @@ private fun ItineraryItemCard(
 @Composable
 fun ItineraryItemScreen(
     item: ItineraryItem,
+    isSaving: Boolean,
+    statusMessage: String?,
     onBack: () -> Unit,
+    onUpdateActivity: (ActivityUpdate) -> Unit,
+    onUpdateTransportation: (TransportationSegmentUpdate) -> Unit,
+    onDelete: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    var isEditing by remember(item) { mutableStateOf(false) }
+    var showDeleteConfirmation by remember(item.id) { mutableStateOf(false) }
+
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -879,19 +1022,220 @@ fun ItineraryItemScreen(
             .testTag("itinerary_item_detail"),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        TextButton(
-            onClick = onBack,
-            modifier = Modifier.testTag("itinerary_item_back"),
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text("Back to itinerary")
+            TextButton(
+                onClick = onBack,
+                modifier = Modifier.testTag("itinerary_item_back"),
+            ) {
+                Text("Back to itinerary")
+            }
+            Spacer(Modifier.weight(1f))
+            TextButton(
+                onClick = { isEditing = !isEditing },
+                enabled = !isSaving,
+                modifier = Modifier.testTag("itinerary_item_edit"),
+            ) {
+                Text(if (isEditing) "Cancel" else "Edit")
+            }
         }
 
-        when (item) {
-            is ActivityItem -> ActivityDetails(item)
-            is TransportationItem -> TransportationDetails(item)
+        if (isEditing) {
+            when (item) {
+                is ActivityItem -> EditActivityForm(
+                    activity = item,
+                    isSaving = isSaving,
+                    onSave = onUpdateActivity,
+                )
+                is TransportationItem -> EditTransportationForm(
+                    segment = item,
+                    isSaving = isSaving,
+                    onSave = onUpdateTransportation,
+                )
+            }
+        } else {
+            when (item) {
+                is ActivityItem -> ActivityDetails(item)
+                is TransportationItem -> TransportationDetails(item)
+            }
+        }
+
+        statusMessage?.let {
+            Text(it, modifier = Modifier.testTag("itinerary_item_status"))
+        }
+
+        Spacer(Modifier.height(12.dp))
+        OutlinedButton(
+            onClick = { showDeleteConfirmation = true },
+            enabled = !isSaving,
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("itinerary_item_delete"),
+        ) {
+            Icon(
+                painter = painterResource(R.drawable.delete_24px),
+                contentDescription = "Delete item",
+            )
+            Spacer(Modifier.width(8.dp))
+            Text("Delete")
         }
     }
+
+    if (showDeleteConfirmation) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirmation = false },
+            title = { Text("Delete item?") },
+            text = { Text("This activity or transportation segment will be permanently deleted.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showDeleteConfirmation = false
+                        onDelete()
+                    },
+                    modifier = Modifier.testTag("confirm_item_delete"),
+                ) {
+                    Text("Delete")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirmation = false }) {
+                    Text("Cancel")
+                }
+            },
+        )
+    }
 }
+
+@Composable
+private fun EditActivityForm(
+    activity: ActivityItem,
+    isSaving: Boolean,
+    onSave: (ActivityUpdate) -> Unit,
+) {
+    var name by remember(activity) { mutableStateOf(activity.name) }
+    var image by remember(activity) { mutableStateOf(activity.image) }
+    var description by remember(activity) { mutableStateOf(activity.description.orEmpty()) }
+    var category by remember(activity) { mutableStateOf(activity.category.orEmpty()) }
+    var location by remember(activity) { mutableStateOf(activity.location) }
+    var startTime by remember(activity) { mutableStateOf(activity.startTime) }
+    var endTime by remember(activity) { mutableStateOf(activity.endTime) }
+    val isValid = name.isNotBlank() && image.isNotBlank() &&
+        location.isNotBlank() && timesAreOrdered(startTime, endTime)
+
+    Text("Edit activity", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+    FormField(name, { name = it }, "Name", "edit_activity_name")
+    FormField(image, { image = it }, "Image URL", "edit_activity_image")
+    FormField(description, { description = it }, "Description (optional)", "edit_activity_description")
+    SelectionDropdown(
+        label = "Category (optional)",
+        options = activityCategories,
+        selected = category,
+        onSelected = { category = it },
+        tag = "edit_activity_category",
+    )
+    FormField(location, { location = it }, "Location", "edit_activity_location")
+    DateTimePickerField(
+        label = "Start time",
+        value = startTime,
+        onValueChange = { startTime = it },
+        tag = "edit_activity_start_time",
+    )
+    DateTimePickerField(
+        label = "End time",
+        value = endTime,
+        onValueChange = { endTime = it },
+        tag = "edit_activity_end_time",
+    )
+    Button(
+        onClick = {
+            onSave(
+                ActivityUpdate(
+                    name = name,
+                    image = image,
+                    description = description,
+                    category = category,
+                    location = location,
+                    startTime = startTime,
+                    endTime = endTime,
+                ),
+            )
+        },
+        enabled = isValid && !isSaving,
+        modifier = Modifier.fillMaxWidth().testTag("edit_activity_save"),
+    ) {
+        Text(if (isSaving) "Saving…" else "Save")
+    }
+}
+
+@Composable
+private fun EditTransportationForm(
+    segment: TransportationItem,
+    isSaving: Boolean,
+    onSave: (TransportationSegmentUpdate) -> Unit,
+) {
+    var mode by remember(segment) { mutableStateOf(segment.mode) }
+    var startLocation by remember(segment) { mutableStateOf(segment.startLocation) }
+    var endLocation by remember(segment) { mutableStateOf(segment.endLocation) }
+    var distanceMeters by remember(segment) { mutableStateOf(segment.distanceMeters.toString()) }
+    var startTime by remember(segment) { mutableStateOf(segment.startTime) }
+    var endTime by remember(segment) { mutableStateOf(segment.endTime) }
+    val parsedDistance = distanceMeters.toDoubleOrNull()
+    val isValid = mode in transportationModes && startLocation.isNotBlank() &&
+        endLocation.isNotBlank() && parsedDistance != null && parsedDistance >= 0 &&
+        timesAreOrdered(startTime, endTime)
+
+    Text(
+        "Edit transportation",
+        style = MaterialTheme.typography.headlineSmall,
+        fontWeight = FontWeight.Bold,
+    )
+    SelectionDropdown(
+        label = "Mode",
+        options = transportationModes,
+        selected = mode,
+        onSelected = { mode = it },
+        tag = "edit_transportation_mode",
+    )
+    FormField(startLocation, { startLocation = it }, "Start location", "edit_transportation_start_location")
+    FormField(endLocation, { endLocation = it }, "End location", "edit_transportation_end_location")
+    FormField(distanceMeters, { distanceMeters = it }, "Distance in meters", "edit_transportation_distance")
+    DateTimePickerField(
+        label = "Start time",
+        value = startTime,
+        onValueChange = { startTime = it },
+        tag = "edit_transportation_start_time",
+    )
+    DateTimePickerField(
+        label = "End time",
+        value = endTime,
+        onValueChange = { endTime = it },
+        tag = "edit_transportation_end_time",
+    )
+    Button(
+        onClick = {
+            onSave(
+                TransportationSegmentUpdate(
+                    mode = mode,
+                    startLocation = startLocation,
+                    endLocation = endLocation,
+                    distanceMeters = requireNotNull(parsedDistance),
+                    startTime = startTime,
+                    endTime = endTime,
+                ),
+            )
+        },
+        enabled = isValid && !isSaving,
+        modifier = Modifier.fillMaxWidth().testTag("edit_transportation_save"),
+    ) {
+        Text(if (isSaving) "Saving…" else "Save")
+    }
+}
+
+private fun timesAreOrdered(startTime: String, endTime: String): Boolean =
+    runCatching { Instant.parse(startTime).isBefore(Instant.parse(endTime)) }
+        .getOrDefault(false)
 
 @Composable
 private fun ActivityDetails(activity: ActivityItem) {

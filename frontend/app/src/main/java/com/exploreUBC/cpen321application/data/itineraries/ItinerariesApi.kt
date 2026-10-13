@@ -35,6 +35,28 @@ interface ItinerariesRepository {
         itineraryId: String,
         segment: CreateTransportationInput,
     ): TransportationItem
+
+    suspend fun updateActivity(
+        userId: String,
+        itineraryId: String,
+        activityId: String,
+        update: ActivityUpdate,
+    ): ActivityItem
+
+    suspend fun updateTransportationSegment(
+        userId: String,
+        itineraryId: String,
+        segmentId: String,
+        update: TransportationSegmentUpdate,
+    ): TransportationItem
+
+    suspend fun deleteActivity(userId: String, itineraryId: String, activityId: String)
+
+    suspend fun deleteTransportationSegment(
+        userId: String,
+        itineraryId: String,
+        segmentId: String,
+    )
 }
 
 class ItinerariesApi(private val apiBaseUrl: String) : ItinerariesRepository {
@@ -134,6 +156,75 @@ class ItinerariesApi(private val apiBaseUrl: String) : ItinerariesRepository {
         parseItem(response.getJSONObject("transportationSegment")) as TransportationItem
     }
 
+    override suspend fun updateActivity(
+        userId: String,
+        itineraryId: String,
+        activityId: String,
+        update: ActivityUpdate,
+    ): ActivityItem = withContext(Dispatchers.IO) {
+        val requestBody = JSONObject()
+            .put("name", update.name)
+            .put("image", update.image)
+            .put("location", update.location)
+            .put("startTime", update.startTime)
+            .put("endTime", update.endTime)
+            .apply {
+                update.description?.let { put("description", it) }
+                update.category?.let { put("category", it) }
+            }
+            .toString()
+        val response = execute(
+            method = "PATCH",
+            path = "${itineraryCollectionPath(userId)}/${encode(itineraryId)}/activities/${encode(activityId)}",
+            requestBody = requestBody,
+        )
+        parseItem(response.getJSONObject("activity")) as ActivityItem
+    }
+
+    override suspend fun updateTransportationSegment(
+        userId: String,
+        itineraryId: String,
+        segmentId: String,
+        update: TransportationSegmentUpdate,
+    ): TransportationItem = withContext(Dispatchers.IO) {
+        val requestBody = JSONObject()
+            .put("mode", update.mode)
+            .put("startLocation", update.startLocation)
+            .put("endLocation", update.endLocation)
+            .put("distanceMeters", update.distanceMeters)
+            .put("startTime", update.startTime)
+            .put("endTime", update.endTime)
+            .toString()
+        val response = execute(
+            method = "PATCH",
+            path = "${itineraryCollectionPath(userId)}/${encode(itineraryId)}/transportation-segments/${encode(segmentId)}",
+            requestBody = requestBody,
+        )
+        parseItem(response.getJSONObject("transportationSegment")) as TransportationItem
+    }
+
+    override suspend fun deleteActivity(
+        userId: String,
+        itineraryId: String,
+        activityId: String,
+    ): Unit = withContext(Dispatchers.IO) {
+        execute(
+            method = "DELETE",
+            path = "${itineraryCollectionPath(userId)}/${encode(itineraryId)}/activities/${encode(activityId)}",
+        )
+    }
+
+    override suspend fun deleteTransportationSegment(
+        userId: String,
+        itineraryId: String,
+        segmentId: String,
+    ): Unit = withContext(Dispatchers.IO) {
+        execute(
+            method = "DELETE",
+            path = "${itineraryCollectionPath(userId)}/${encode(itineraryId)}/transportation-segments/${encode(segmentId)}",
+        )
+    }
+
     private fun itineraryCollectionPath(userId: String): String =
         "/api/v1/users/${encode(userId)}/itineraries"
 
@@ -164,7 +255,7 @@ class ItinerariesApi(private val apiBaseUrl: String) : ItinerariesRepository {
             if (status !in 200..299) {
                 throw IOException("Itinerary request failed with HTTP $status: $responseText")
             }
-            JSONObject(responseText)
+            if (responseText.isBlank()) JSONObject() else JSONObject(responseText)
         } finally {
             connection.disconnect()
         }

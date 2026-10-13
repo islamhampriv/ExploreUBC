@@ -41,6 +41,8 @@ data class CreateActivityInput(
     val endTime: String,
 )
 
+typealias ActivityUpdate = CreateActivityInput
+
 data class TransportationItem(
     override val id: String,
     val mode: String,
@@ -59,6 +61,8 @@ data class CreateTransportationInput(
     val startTime: String,
     val endTime: String,
 )
+
+typealias TransportationSegmentUpdate = CreateTransportationInput
 
 data class ItineraryDetails(
     val name: String,
