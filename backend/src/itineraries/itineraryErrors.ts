@@ -1,0 +1,50 @@
+export class InvalidItineraryDetailsError extends Error {
+  readonly details: string[];
+
+  constructor(details: string[]) {
+    super('The itinerary details are invalid.');
+    this.name = 'InvalidItineraryDetailsError';
+    this.details = details;
+  }
+}
+
+export class InvalidItineraryFiltersError extends Error {
+  readonly details: string[];
+
+  constructor(details: string[]) {
+    super('The itinerary filters are invalid.');
+    this.name = 'InvalidItineraryFiltersError';
+    this.details = details;
+  }
+}
+
+export class InvalidItineraryItemError extends Error {
+  readonly details: string[];
+
+  constructor(details: string[]) {
+    super('The itinerary item is invalid.');
+    this.name = 'InvalidItineraryItemError';
+    this.details = details;
+  }
+}
+
+export class InvalidItineraryOwnerError extends Error {
+  constructor(userId: string) {
+    super(`User ID '${userId}' is not valid.`);
+    this.name = 'InvalidItineraryOwnerError';
+  }
+}
+
+export class ItineraryNotFoundError extends Error {
+  constructor(itineraryId: string) {
+    super(`Itinerary '${itineraryId}' was not found.`);
+    this.name = 'ItineraryNotFoundError';
+  }
+}
+
+export class ItineraryItemNotFoundError extends Error {
+  constructor(itemId: string) {
+    super(`Itinerary item '${itemId}' was not found.`);
+    this.name = 'ItineraryItemNotFoundError';
+  }
+}
