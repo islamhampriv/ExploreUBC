@@ -5,12 +5,23 @@ import type {
   LiveEventCandidate,
   RecommendedLiveEvent,
 } from './eventTypes';
+import { UserNotFoundError } from '../users/userErrors';
+import type { UserRepository } from '../users/userRepository';
+import type { InterestPreference } from '../users/userTypes';
 
 const RECOMMENDATION_THRESHOLD = 40;
 const CANDIDATE_LIMIT = 200;
 
+const INTEREST_CATEGORIES: Record<InterestPreference, string[]> = {
+  food: ['Miscellaneous'],
+  art: ['Arts & Theatre'],
+  outdoors: ['Sports'],
+  markets: ['Miscellaneous'],
+  live_music: ['Music'],
+  gaming: ['Sports'],
+};
+
 export interface EventRecommendationOptions {
-  preferredCategories: string[];
   longitude: number;
   latitude: number;
   maxDistanceKm: number;
@@ -48,14 +59,20 @@ function calculateRecommendationScore(
 }
 
 export class EventService {
-  constructor(private readonly repository: EventRepository) {}
+  constructor(
+    private readonly eventRepository: EventRepository,
+    private readonly userRepository: UserRepository,
+  ) {}
 
   /**
-   * Finds and ranks events recommended for a user.
-   * @param options User preferences, location, distance, and pagination.
+   * Finds and ranks events using a user's stored interest.
+   * @param userId User whose preferences are used.
+   * @param options Current location, distance, and pagination.
    * @returns Recommended events for the requested page.
+   * @throws UserNotFoundError If the user does not exist.
    */
   async getRecommendedEvents(
+    userId: string,
     options: EventRecommendationOptions,
   ): Promise<RecommendedLiveEvent[]> {
     const page = options.page ?? 1;
@@ -65,12 +82,17 @@ export class EventService {
       throw new Error('Invalid event recommendation options');
     }
 
+    const preferences = await this.userRepository.findPreferences(userId);
+    if (preferences === null) {
+      throw new UserNotFoundError(userId);
+    }
+
     const preferredCategories = new Set(
-      options.preferredCategories.map((category) =>
-        category.trim().toLowerCase(),
+      INTEREST_CATEGORIES[preferences.interest].map((category) =>
+        category.toLowerCase(),
       ),
     );
-    const candidates = await this.repository.findNearbyUpcomingEvents({
+    const candidates = await this.eventRepository.findNearbyUpcomingEvents({
       longitude: options.longitude,
       latitude: options.latitude,
       maxDistanceKm: options.maxDistanceKm,

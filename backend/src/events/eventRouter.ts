@@ -2,19 +2,19 @@
 
 import { Router } from 'express';
 
+import { UserNotFoundError } from '../users/userErrors';
 import type { EventService } from './eventService';
 
+/**
+ * Creates event routes backed by the supplied service.
+ * @param eventService Event recommendation business logic.
+ * @returns Router for user-specific event requests.
+ */
 export function createEventRouter(eventService: EventService): Router {
-  const router = Router();
+  const router = Router({ mergeParams: true });
 
   router.get('/', async (request, response) => {
-    const categories =
-      typeof request.query.categories === 'string'
-        ? request.query.categories
-            .split(',')
-            .map((category) => category.trim())
-            .filter((category) => category !== '')
-        : [];
+    const { userId } = request.params as { userId?: string };
     const latitude = Number(request.query.latitude);
     const longitude = Number(request.query.longitude);
     const maxDistanceKm = Number(request.query.maxDistanceKm ?? 30);
@@ -22,6 +22,8 @@ export function createEventRouter(eventService: EventService): Router {
     const limit = Number(request.query.limit ?? 20);
 
     if (
+      userId === undefined ||
+      userId === '' ||
       !Number.isFinite(latitude) ||
       latitude < -90 ||
       latitude > 90 ||
@@ -41,14 +43,16 @@ export function createEventRouter(eventService: EventService): Router {
     }
 
     try {
-      const events = await eventService.getRecommendedEvents({
-        preferredCategories: categories,
-        longitude,
-        latitude,
-        maxDistanceKm,
-        page,
-        limit,
-      });
+      const events = await eventService.getRecommendedEvents(
+        userId,
+        {
+          longitude,
+          latitude,
+          maxDistanceKm,
+          page,
+          limit,
+        },
+      );
 
       response.json({
         page,
@@ -71,6 +75,10 @@ export function createEventRouter(eventService: EventService): Router {
         })),
       });
     } catch (error: unknown) {
+      if (error instanceof UserNotFoundError) {
+        response.status(404).json({ error: error.message });
+        return;
+      }
       console.error('Failed to retrieve events:', error);
       response.status(500).json({ error: 'Failed to retrieve events' });
     }

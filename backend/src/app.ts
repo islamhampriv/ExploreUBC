@@ -40,9 +40,18 @@ export function createApp(dependencies: AppDependencies = {}): Express {
     );
   }
 
-  if (dependencies.eventRepository !== undefined) {
-    const eventService = new EventService(dependencies.eventRepository);
-    app.use('/api/v1/events', createEventRouter(eventService));
+  if (
+    dependencies.eventRepository !== undefined &&
+    dependencies.userRepository !== undefined
+  ) {
+    const eventService = new EventService(
+      dependencies.eventRepository,
+      dependencies.userRepository,
+    );
+    app.use(
+      '/api/v1/users/:userId/events',
+      createEventRouter(eventService),
+    );
   }
 
   app.use((_req, res) => {
