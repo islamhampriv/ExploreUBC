@@ -32,7 +32,10 @@ export async function syncEvents(
   matchedCount: number;
   modifiedCount: number;
   upsertedCount: number;
+  expiredCount: number;
+  staleCount: number;
 }> {
+  const syncStartedAt = new Date();
   const pageLimit = Math.ceil(
     MAX_TICKETMASTER_RESULTS / env.ticketmaster.pageSize,
   );
@@ -42,6 +45,7 @@ export async function syncEvents(
   let matchedCount = 0;
   let modifiedCount = 0;
   let upsertedCount = 0;
+  let ticketmasterTotalPages = 0;
 
   while (page < pagesToFetch) {
     const liveEventPage = await fetchLiveEventPage(page);
@@ -51,6 +55,7 @@ export async function syncEvents(
     matchedCount += databaseResult.matchedCount;
     modifiedCount += databaseResult.modifiedCount;
     upsertedCount += databaseResult.upsertedCount;
+    ticketmasterTotalPages = liveEventPage.totalPages;
     pagesToFetch = Math.min(liveEventPage.totalPages, pageLimit);
     page += 1;
 
@@ -59,12 +64,23 @@ export async function syncEvents(
     }
   }
 
+  const expiredCount = await repository.deleteExpiredEvents(new Date());
+  const completeCatalogFetched =
+    ticketmasterTotalPages > 0 &&
+    ticketmasterTotalPages <= pageLimit &&
+    page >= ticketmasterTotalPages;
+  const staleCount = completeCatalogFetched
+    ? await repository.deleteEventsNotSyncedSince(syncStartedAt)
+    : 0;
+
   return {
     pageCount: page,
     eventCount,
     matchedCount,
     modifiedCount,
     upsertedCount,
+    expiredCount,
+    staleCount,
   };
 }
 

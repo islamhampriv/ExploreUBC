@@ -1,4 +1,4 @@
-import { type Collection, type Db, ObjectId } from 'mongodb';
+import { type Collection, type Db, type Filter, ObjectId } from 'mongodb';
 
 import type { EventRepository } from './eventRepository';
 import type {
@@ -48,6 +48,26 @@ export class EventDao implements EventRepository {
       modifiedCount: result.modifiedCount,
       upsertedCount: result.upsertedCount,
     };
+  }
+
+  /** Removes events whose start time has passed. */
+  async deleteExpiredEvents(before: Date): Promise<number> {
+    return this.deleteEvents({
+      startDateTime: { $lt: before },
+    });
+  }
+
+  /** Removes events that were not updated during a complete sync. */
+  async deleteEventsNotSyncedSince(syncStartedAt: Date): Promise<number> {
+    return this.deleteEvents({
+      lastSyncedAt: { $lt: syncStartedAt },
+    });
+  }
+
+  /** Deletes events matching a database filter. */
+  private async deleteEvents(filter: Filter<EventDocument>): Promise<number> {
+    const result = await this.events.deleteMany(filter);
+    return result.deletedCount;
   }
 
   /** Finds nearby upcoming events for recommendation scoring. */
