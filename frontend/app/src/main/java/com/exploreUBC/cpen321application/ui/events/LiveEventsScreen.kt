@@ -32,6 +32,8 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
+private const val EVENTS_PAGE_SIZE = 20
+
 @Composable
 fun LiveEventsScreen(
     userId: String?,
@@ -40,27 +42,42 @@ fun LiveEventsScreen(
 ) {
     var events by remember { mutableStateOf<List<Event>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
+    var isLoadingMore by remember { mutableStateOf(false) }
+    var hasMoreEvents by remember { mutableStateOf(true) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
-    var refreshCount by remember { mutableStateOf(0) }
+    var currentPage by remember { mutableStateOf(1) }
+    var requestCount by remember { mutableStateOf(0) }
 
-    LaunchedEffect(userId, eventsRepository, refreshCount) {
-        isLoading = true
+    LaunchedEffect(userId, eventsRepository, currentPage, requestCount) {
+        val isFirstPage = currentPage == 1
+        isLoading = isFirstPage
+        isLoadingMore = !isFirstPage
         errorMessage = null
         if (userId.isNullOrBlank()) {
             errorMessage = "User is unavailable"
             isLoading = false
+            isLoadingMore = false
             return@LaunchedEffect
         }
         try {
-            events = eventsRepository.getEvents(
+            val newEvents = eventsRepository.getEvents(
                 userId = userId,
                 latitude = 49.2606,
-                longitude = -123.2460
+                longitude = -123.2460,
+                page = currentPage,
+                limit = EVENTS_PAGE_SIZE,
             )
+            events = if (isFirstPage) {
+                newEvents
+            } else {
+                (events + newEvents).distinctBy { it.id }
+            }
+            hasMoreEvents = newEvents.size == EVENTS_PAGE_SIZE
         } catch (error: Exception) {
             errorMessage = error.message ?: "Unable to load events"
         } finally {
             isLoading = false
+            isLoadingMore = false
         }
     }
 
@@ -72,21 +89,39 @@ fun LiveEventsScreen(
         ) {
             CircularProgressIndicator()
         }
-        errorMessage != null -> MessageWithButton(
+        errorMessage != null && events.isEmpty() -> MessageWithButton(
             message = errorMessage ?: "Unable to load events",
             buttonText = "Retry",
-            onClick = { refreshCount++ },
+            onClick = { requestCount++ },
             modifier = modifier
         )
         events.isEmpty() -> MessageWithButton(
             message = "No events found",
             buttonText = "Refresh",
-            onClick = { refreshCount++ },
+            onClick = { requestCount++ },
             modifier = modifier
         )
         else -> EventList(
             events = events,
-            onRefresh = { refreshCount++ },
+            hasMoreEvents = hasMoreEvents,
+            isLoadingMore = isLoadingMore,
+            loadMoreError = errorMessage,
+            onLoadMore = {
+                if (errorMessage == null) {
+                    currentPage++
+                } else {
+                    requestCount++
+                }
+            },
+            onRefresh = {
+                events = emptyList()
+                hasMoreEvents = true
+                if (currentPage == 1) {
+                    requestCount++
+                } else {
+                    currentPage = 1
+                }
+            },
             modifier = modifier
         )
     }
@@ -116,6 +151,10 @@ private fun MessageWithButton(
 @Composable
 private fun EventList(
     events: List<Event>,
+    hasMoreEvents: Boolean,
+    isLoadingMore: Boolean,
+    loadMoreError: String?,
+    onLoadMore: () -> Unit,
     onRefresh: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -139,6 +178,31 @@ private fun EventList(
         }
         items(events, key = { it.id }) { event ->
             EventCard(event)
+        }
+        if (loadMoreError != null) {
+            item {
+                Text(
+                    text = loadMoreError,
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
+        }
+        if (hasMoreEvents) {
+            item {
+                Button(
+                    onClick = onLoadMore,
+                    enabled = !isLoadingMore,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        when {
+                            isLoadingMore -> "Loading..."
+                            loadMoreError != null -> "Retry loading"
+                            else -> "Load more"
+                        }
+                    )
+                }
+            }
         }
     }
 }

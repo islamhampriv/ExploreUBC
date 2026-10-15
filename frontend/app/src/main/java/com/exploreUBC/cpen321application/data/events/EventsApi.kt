@@ -13,6 +13,8 @@ interface EventsRepository {
         userId: String,
         latitude: Double,
         longitude: Double,
+        page: Int,
+        limit: Int,
     ): List<Event>
 }
 
@@ -22,11 +24,13 @@ class EventsApi(private val apiBaseUrl: String) : EventsRepository {
         userId: String,
         latitude: Double,
         longitude: Double,
+        page: Int,
+        limit: Int,
     ): List<Event> = withContext(Dispatchers.IO) {
         val encodedUserId = URLEncoder.encode(userId, "UTF-8")
         val eventsUrl =
             "${apiBaseUrl.trimEnd('/')}/api/v1/users/$encodedUserId/events" +
-                "?latitude=$latitude&longitude=$longitude"
+                "?latitude=$latitude&longitude=$longitude&page=$page&limit=$limit"
         val connection = URL(eventsUrl).openConnection() as HttpURLConnection
 
         try {
