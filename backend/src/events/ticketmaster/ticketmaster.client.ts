@@ -3,6 +3,15 @@
 import { env } from '../../config/env';
 import type { LiveEvent } from '../eventTypes';
 
+const MAX_REQUEST_ATTEMPTS = 3;
+
+class TicketmasterRequestError extends Error {
+  constructor(readonly status: number) {
+    super(`Ticketmaster request failed with status ${status}`);
+    this.name = 'TicketmasterRequestError';
+  }
+}
+
 interface TicketmasterEvent {
   id?: string;
   name?: string;
@@ -69,6 +78,27 @@ function cleanEventTitle(title: string): string {
 }
 
 /**
+ * Waits before retrying a request.
+ * @param milliseconds Time to wait.
+ * @returns A promise that resolves after the delay.
+ */
+function wait(milliseconds: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
+/**
+ * Checks whether a failed Ticketmaster request can be retried.
+ * @param error Request failure.
+ * @returns Whether another attempt should be made.
+ */
+function isRetryableRequestError(error: unknown): boolean {
+  if (error instanceof TicketmasterRequestError) {
+    return error.status === 429 || error.status >= 500;
+  }
+  return error instanceof TypeError;
+}
+
+/**
  * Fetches one page of raw events from Ticketmaster.
  * @param page Zero-based page number.
  * @returns Raw events and pagination details.
@@ -95,23 +125,34 @@ async function fetchTicketmasterEventPage(
     sort: "date,asc",
   });
 
-  const response = await fetch(
-    `${env.ticketmaster.baseUrl}/events.json?${query.toString()}`,
-  );
-  if (!response.ok) {
-    throw new Error(
-      `Ticketmaster request failed with status ${response.status}`,
-    );
+  for (let attempt = 1; attempt <= MAX_REQUEST_ATTEMPTS; attempt += 1) {
+    try {
+      const response = await fetch(
+        `${env.ticketmaster.baseUrl}/events.json?${query.toString()}`,
+      );
+      if (!response.ok) {
+        throw new TicketmasterRequestError(response.status);
+      }
+
+      const body = (await response.json()) as TicketmasterResponse;
+      return {
+        events: body._embedded?.events ?? [],
+        page: body.page?.number ?? page,
+        totalPages: body.page?.totalPages ?? 0,
+        totalElements: body.page?.totalElements ?? 0,
+      };
+    } catch (error: unknown) {
+      if (
+        attempt === MAX_REQUEST_ATTEMPTS ||
+        !isRetryableRequestError(error)
+      ) {
+        throw error;
+      }
+      await wait(attempt * 1000);
+    }
   }
 
-  const body = (await response.json()) as TicketmasterResponse;
-
-  return {
-    events: body._embedded?.events ?? [],
-    page: body.page?.number ?? page,
-    totalPages: body.page?.totalPages ?? 0,
-    totalElements: body.page?.totalElements ?? 0,
-  };
+  throw new Error('Ticketmaster request failed');
 }
 
 /**
