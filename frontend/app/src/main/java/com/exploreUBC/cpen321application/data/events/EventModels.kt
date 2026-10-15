@@ -1,4 +1,4 @@
-package com.exploreUBC.cpen321application.features.events
+package com.exploreUBC.cpen321application.data.events
 
 data class Event(
     val id: String,

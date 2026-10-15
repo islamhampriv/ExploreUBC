@@ -1,4 +1,4 @@
-package com.exploreUBC.cpen321application.features.events
+package com.exploreUBC.cpen321application.ui.events
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -24,24 +24,28 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.unit.dp
+import com.exploreUBC.cpen321application.data.events.Event
+import com.exploreUBC.cpen321application.data.events.EventsRepository
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 @Composable
-fun LiveEventsScreen(apiBaseUrl: String, modifier: Modifier = Modifier) {
+fun LiveEventsScreen(
+    eventsRepository: EventsRepository,
+    modifier: Modifier = Modifier,
+) {
     var events by remember { mutableStateOf<List<Event>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var refreshCount by remember { mutableStateOf(0) }
 
-    LaunchedEffect(apiBaseUrl, refreshCount) {
+    LaunchedEffect(eventsRepository, refreshCount) {
         isLoading = true
         errorMessage = null
         try {
-            events = fetchEvents(
-                apiBaseUrl = apiBaseUrl,
+            events = eventsRepository.getEvents(
                 categories = listOf("Music", "Sports"),
                 latitude = 49.2606,
                 longitude = -123.2460
