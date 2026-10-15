@@ -16,7 +16,7 @@ if (mongodbUri === undefined || mongodbUri === "") {
 const rawEventSearchPageSize = process.env.EVENT_SEARCH_PAGE_SIZE;
 const eventSearchPageSize =
   rawEventSearchPageSize === undefined || rawEventSearchPageSize === ""
-    ? 20
+    ? 200
     : Number.parseInt(rawEventSearchPageSize, 10);
 
 if (

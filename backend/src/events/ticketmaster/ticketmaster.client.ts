@@ -6,6 +6,8 @@ import type { LiveEvent } from '../eventTypes';
 interface TicketmasterEvent {
   id?: string;
   name?: string;
+  info?: string;
+  pleaseNote?: string;
   url?: string;
   images?: Array<{
     ratio?: string;
@@ -49,6 +51,21 @@ interface TicketmasterEventPage {
   page: number;
   totalPages: number;
   totalElements: number;
+}
+
+export interface LiveEventPage {
+  events: LiveEvent[];
+  page: number;
+  totalPages: number;
+}
+
+/**
+ * Removes decorative asterisks and extra spaces from an event title.
+ * @param title Ticketmaster event title.
+ * @returns Cleaned title for display.
+ */
+function cleanEventTitle(title: string): string {
+  return title.replace(/\*/g, '').replace(/\s+/g, ' ').trim();
 }
 
 /**
@@ -140,10 +157,14 @@ function mapTicketmasterEvent(event: TicketmasterEvent): LiveEvent | null {
   }
 
   const priceRange = event.priceRanges?.[0];
+  const description = (event.info ?? event.pleaseNote)?.trim();
 
   return {
     externalId: event.id,
-    title: event.name.trim(),
+    title: cleanEventTitle(event.name),
+    ...(description === undefined || description === ''
+      ? {}
+      : { description }),
     imageUrl,
     startDateTime,
     venueName: venue.name,
@@ -175,11 +196,17 @@ function mapTicketmasterEvents(events: TicketmasterEvent[]): LiveEvent[] {
 }
 
 /**
- * Fetches one page of Ticketmaster events as LiveEvents.
+ * Fetches one Ticketmaster page and maps its valid events.
  * @param page Zero-based Ticketmaster page number.
- * @returns Valid events mapped to the internal type.
+ * @returns Mapped events and pagination details.
  */
-export async function fetchLiveEvents(page = 0): Promise<LiveEvent[]> {
+export async function fetchLiveEventPage(
+  page: number,
+): Promise<LiveEventPage> {
   const ticketmasterPage = await fetchTicketmasterEventPage(page);
-  return mapTicketmasterEvents(ticketmasterPage.events);
+  return {
+    events: mapTicketmasterEvents(ticketmasterPage.events),
+    page: ticketmasterPage.page,
+    totalPages: ticketmasterPage.totalPages,
+  };
 }

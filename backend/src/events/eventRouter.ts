@@ -61,6 +61,7 @@ export function createEventRouter(eventService: EventService): Router {
         events: events.map((event) => ({
           id: event.externalId,
           title: event.title,
+          description: event.description,
           imageUrl: event.imageUrl,
           startDateTime: event.startDateTime,
           venueName: event.venueName,

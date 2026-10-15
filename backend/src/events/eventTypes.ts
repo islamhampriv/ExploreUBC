@@ -3,6 +3,7 @@
 export interface LiveEvent {
   externalId: string;
   title: string;
+  description?: string;
   imageUrl: string;
   startDateTime: Date;
   venueName: string;

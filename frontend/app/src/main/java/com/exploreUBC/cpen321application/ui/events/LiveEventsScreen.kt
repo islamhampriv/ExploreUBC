@@ -23,6 +23,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.exploreUBC.cpen321application.data.events.Event
 import com.exploreUBC.cpen321application.data.events.EventsRepository
@@ -153,12 +154,26 @@ private fun EventCard(event: Event) {
         ) {
             Text(event.title, style = MaterialTheme.typography.titleMedium)
             Text(event.category, style = MaterialTheme.typography.labelLarge)
+            Text(
+                text = event.description ?: "No description available.",
+                style = MaterialTheme.typography.bodyMedium,
+                maxLines = 3,
+                overflow = TextOverflow.Ellipsis
+            )
             Text(formatDate(event.startDateTime))
             Text("${event.venueName}, ${event.city}")
-            Text(formatPrice(event))
-            Text(String.format(Locale.CANADA, "%.1f km away", event.distanceKm))
-            Button(onClick = { uriHandler.openUri(event.ticketUrl) }) {
-                Text("View tickets")
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(formatPrice(event))
+                Text(String.format(Locale.CANADA, "%.1f km away", event.distanceKm))
+            }
+            Button(
+                onClick = { uriHandler.openUri(event.ticketUrl) },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("View event details")
             }
         }
     }

@@ -46,6 +46,7 @@ class EventsApi(private val apiBaseUrl: String) : EventsRepository {
                 Event(
                     id = event.getString("id"),
                     title = event.getString("title"),
+                    description = event.optionalString("description"),
                     imageUrl = event.getString("imageUrl"),
                     startDateTime = event.getString("startDateTime"),
                     venueName = event.getString("venueName"),
