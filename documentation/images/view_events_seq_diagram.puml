@@ -1,0 +1,116 @@
+@startuml
+title Use Case 2: View Event Recommendations
+
+skinparam ArrowFontStyle plain
+skinparam ParticipantStyle rectangle
+skinparam Shadowing false
+skinparam DefaultTextAlignment center
+skinparam SequenceMessageAlign center
+skinparam SequenceBoxFontSize 15
+skinparam SequenceBoxPadding 0
+skinparam FontName Arial
+skinparam NoteBackgroundColor white
+skinparam NoteBorderColor black
+hide footbox
+
+box "User"
+participant ":User" as User
+end box
+
+box "User Interface"
+participant ":ExploreUBCApp" as App
+end box
+
+box "Application Logic"
+participant ":BackendAPI" as Backend
+end box
+
+box "Storage"
+participant "db:MongoDB" as DB
+end box
+
+note over Backend, DB
+Current event listings have already been
+periodically retrieved and stored.
+end note
+
+User -> App : openLiveEvents()
+activate App
+
+App -> Backend : getEventRecommendations()
+activate Backend
+
+Backend -> DB : getUserPreferences()
+activate DB
+DB --> Backend : preferences
+deactivate DB
+
+Backend -> DB : findMatchingEvents(preferences)
+activate DB
+DB --> Backend : matchingEvents
+deactivate DB
+
+alt matching events found
+    Backend --> App : matchingEvents
+    deactivate Backend
+    App --> User : displayRecommendations(matchingEvents)
+    deactivate App
+
+    User -> App : selectEvent(eventId)
+    activate App
+    App -> Backend : getEventDetails(eventId)
+    activate Backend
+    Backend -> DB : findEvent(eventId)
+    activate DB
+    DB --> Backend : eventDetails
+    deactivate DB
+    Backend --> App : eventDetails
+    deactivate Backend
+    App --> User : displayEventDetails(eventDetails)
+    deactivate App
+
+    User -> App : addToItinerary(eventId)
+    activate App
+    App -> Backend : getUserItineraries()
+    activate Backend
+    Backend -> DB : findUserItineraries()
+    activate DB
+    DB --> Backend : itineraries
+    deactivate DB
+    Backend --> App : itineraries
+    deactivate Backend
+    App --> User : displayItineraryChoices(itineraries)
+    deactivate App
+
+    User -> App : selectItinerary(itineraryId)
+    activate App
+    App -> Backend : addEventToItinerary(eventId, itineraryId)
+    activate Backend
+    Backend -> DB : validateEventAndItinerary(eventId, itineraryId)
+    activate DB
+    DB --> Backend : validationResult
+    deactivate DB
+
+    alt event is still available
+        Backend -> DB : addEvent(eventId, itineraryId)
+        activate DB
+        DB --> Backend : updateConfirmed
+        deactivate DB
+        Backend --> App : additionSuccessful
+        deactivate Backend
+        App --> User : displayConfirmation()
+        deactivate App
+    else event is no longer available
+        Backend --> App : eventUnavailable
+        deactivate Backend
+        App --> User : displayUnavailableError()
+        deactivate App
+    end
+else no matching events
+    Backend --> App : emptyEventList
+    deactivate Backend
+    App --> User : displayNoEventsMessage()
+    deactivate App
+end
+
+@enduml

@@ -1,0 +1,73 @@
+@startuml
+title Use Case 3: Calculate and Store Transportation Cost
+
+skinparam ArrowFontStyle plain
+skinparam ParticipantStyle rectangle
+skinparam Shadowing false
+skinparam DefaultTextAlignment center
+skinparam SequenceMessageAlign center
+skinparam SequenceBoxFontSize 15
+skinparam SequenceBoxPadding 0
+skinparam FontName Arial
+hide footbox
+
+actor User
+
+box "User Interface"
+participant ":ExploreUBCApp" as App
+end box
+
+box "Application Logic"
+participant ":ItineraryService" as ItineraryService
+participant ":TransportCalculator" as Calculator
+end box
+
+box "Storage"
+participant "db:MongoDB" as Database
+end box
+
+box "External Service"
+participant ":ExternalPricingService" as ExternalService
+end box
+
+User -> App : Update itinerary
+activate App
+App -> ItineraryService : updateItinerary(itinerary: Itinerary): Itinerary
+activate ItineraryService
+
+ItineraryService -> Calculator : calculateTransportationCost(itinerary: Itinerary): CostSummary
+activate Calculator
+
+opt itinerary contains car segments
+    Calculator -> Database : getUserVehicleDetails(userId: UserId): VehicleDetails
+    activate Database
+    Database --> Calculator : vehicleDetails: VehicleDetails
+    deactivate Database
+
+    Calculator -> ExternalService : getCarPricingData(itinerary: Itinerary, vehicleDetails: VehicleDetails): CarPricingData
+    activate ExternalService
+    ExternalService --> Calculator : carPricingData: CarPricingData
+    deactivate ExternalService
+end
+
+opt itinerary contains public transport segments
+    Calculator -> ExternalService : getPublicTransportPricingData(itinerary: Itinerary): PublicTransportPricingData
+    activate ExternalService
+    ExternalService --> Calculator : publicTransportPricingData: PublicTransportPricingData
+    deactivate ExternalService
+end
+
+Calculator --> ItineraryService : costSummary: CostSummary
+deactivate Calculator
+
+ItineraryService -> Database : saveTransportationCost(itineraryId: ItineraryId, costSummary: CostSummary): Itinerary
+activate Database
+Database --> ItineraryService : updatedItinerary: Itinerary
+deactivate Database
+
+ItineraryService --> App : updatedItinerary: Itinerary
+deactivate ItineraryService
+App --> User : Display updated itinerary
+deactivate App
+
+@enduml
