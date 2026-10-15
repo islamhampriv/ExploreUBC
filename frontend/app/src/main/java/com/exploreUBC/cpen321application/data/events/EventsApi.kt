@@ -8,23 +8,25 @@ import kotlinx.coroutines.withContext
 import org.json.JSONObject
 
 interface EventsRepository {
+    /** Retrieves recommended events for a user and their current location. */
     suspend fun getEvents(
-        categories: List<String>,
+        userId: String,
         latitude: Double,
         longitude: Double,
     ): List<Event>
 }
 
 class EventsApi(private val apiBaseUrl: String) : EventsRepository {
+    /** Retrieves recommended events from the backend. */
     override suspend fun getEvents(
-        categories: List<String>,
+        userId: String,
         latitude: Double,
         longitude: Double,
     ): List<Event> = withContext(Dispatchers.IO) {
-        val encodedCategories = URLEncoder.encode(categories.joinToString(","), "UTF-8")
+        val encodedUserId = URLEncoder.encode(userId, "UTF-8")
         val eventsUrl =
-            "${apiBaseUrl.trimEnd('/')}/api/v1/events" +
-                "?categories=$encodedCategories&latitude=$latitude&longitude=$longitude"
+            "${apiBaseUrl.trimEnd('/')}/api/v1/users/$encodedUserId/events" +
+                "?latitude=$latitude&longitude=$longitude"
         val connection = URL(eventsUrl).openConnection() as HttpURLConnection
 
         try {

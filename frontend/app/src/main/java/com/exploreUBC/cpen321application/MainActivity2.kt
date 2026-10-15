@@ -93,6 +93,7 @@ fun CPEN321ApplicationApp(
                     modifier = Modifier.padding(innerPadding),
                 )
                 AppDestinations.EVENTS -> LiveEventsScreen(
+                    userId = userId,
                     eventsRepository = eventsRepository,
                     modifier = Modifier.padding(innerPadding),
                 )

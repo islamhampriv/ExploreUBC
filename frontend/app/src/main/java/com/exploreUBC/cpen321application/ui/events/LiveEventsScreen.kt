@@ -33,6 +33,7 @@ import java.util.Locale
 
 @Composable
 fun LiveEventsScreen(
+    userId: String?,
     eventsRepository: EventsRepository,
     modifier: Modifier = Modifier,
 ) {
@@ -41,12 +42,17 @@ fun LiveEventsScreen(
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var refreshCount by remember { mutableStateOf(0) }
 
-    LaunchedEffect(eventsRepository, refreshCount) {
+    LaunchedEffect(userId, eventsRepository, refreshCount) {
         isLoading = true
         errorMessage = null
+        if (userId.isNullOrBlank()) {
+            errorMessage = "User is unavailable"
+            isLoading = false
+            return@LaunchedEffect
+        }
         try {
             events = eventsRepository.getEvents(
-                categories = listOf("Music", "Sports"),
+                userId = userId,
                 latitude = 49.2606,
                 longitude = -123.2460
             )
