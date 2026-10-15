@@ -7,9 +7,16 @@ import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.json.JSONArray
 import org.json.JSONObject
 
 interface ItinerariesRepository {
+    /** Creates an empty saved itinerary for a user. */
+    suspend fun createItinerary(
+        userId: String,
+        input: CreateItineraryInput,
+    ): Itinerary
+
     suspend fun getItineraries(
         userId: String,
         saved: Boolean? = null,
@@ -60,6 +67,31 @@ interface ItinerariesRepository {
 }
 
 class ItinerariesApi(private val apiBaseUrl: String) : ItinerariesRepository {
+    /** Creates an empty saved itinerary for a user. */
+    override suspend fun createItinerary(
+        userId: String,
+        input: CreateItineraryInput,
+    ): Itinerary = withContext(Dispatchers.IO) {
+        val requestBody = JSONObject()
+            .put("ownerId", userId)
+            .put("name", input.name)
+            .put("items", JSONArray())
+            .put("saved", true)
+            .put("inRecommendation", false)
+            .put("score", JSONObject())
+            .apply {
+                input.description?.let { put("description", it) }
+                input.startingLocation?.let { put("startingLocation", it) }
+            }
+            .toString()
+        val response = execute(
+            method = "POST",
+            path = itineraryCollectionPath(userId),
+            requestBody = requestBody,
+        )
+        parseItinerary(response.getJSONObject("itinerary"))
+    }
+
     override suspend fun getItineraries(
         userId: String,
         saved: Boolean?,
@@ -253,7 +285,14 @@ class ItinerariesApi(private val apiBaseUrl: String) : ItinerariesRepository {
                 connection.errorStream?.bufferedReader()?.use { it.readText() }.orEmpty()
             }
             if (status !in 200..299) {
-                throw IOException("Itinerary request failed with HTTP $status: $responseText")
+                val message = runCatching {
+                    JSONObject(responseText)
+                        .getJSONObject("error")
+                        .getString("message")
+                }.getOrNull()
+                throw IOException(
+                    message ?: "Itinerary request failed with HTTP $status"
+                )
             }
             if (responseText.isBlank()) JSONObject() else JSONObject(responseText)
         } finally {

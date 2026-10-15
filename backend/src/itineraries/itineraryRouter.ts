@@ -7,6 +7,7 @@ import {
   InvalidItineraryOwnerError,
   ItineraryItemNotFoundError,
   ItineraryNotFoundError,
+  ItineraryTimeConflictError,
 } from './itineraryErrors';
 import type { ItineraryService } from './itineraryService';
 import {
@@ -77,6 +78,16 @@ function sendError(response: Response, error: unknown): void {
     response.status(404).json({
       error: {
         code: 'ITINERARY_ITEM_NOT_FOUND',
+        message: error.message,
+      },
+    });
+    return;
+  }
+
+  if (error instanceof ItineraryTimeConflictError) {
+    response.status(409).json({
+      error: {
+        code: 'ITINERARY_TIME_CONFLICT',
         message: error.message,
       },
     });

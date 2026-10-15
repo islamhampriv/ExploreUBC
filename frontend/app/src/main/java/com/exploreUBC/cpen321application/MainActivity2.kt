@@ -95,6 +95,7 @@ fun CPEN321ApplicationApp(
                 AppDestinations.EVENTS -> LiveEventsScreen(
                     userId = userId,
                     eventsRepository = eventsRepository,
+                    itinerariesRepository = itinerariesRepository,
                     modifier = Modifier.padding(innerPadding),
                 )
                 else -> Greeting2(
