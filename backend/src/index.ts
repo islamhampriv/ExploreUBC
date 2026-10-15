@@ -1,22 +1,21 @@
 import { MongoClient } from 'mongodb';
 
 import { createApp } from './app';
-import {
-  connectToDatabase,
-  disconnectFromDatabase,
-} from './config/database';
 import { env } from './config/env';
+import { EventDao } from './events/eventDao';
 import { ItineraryDao } from './itineraries/itineraryDao';
 import { UserDao } from './users/userDao';
 
 async function start(): Promise<void> {
   const mongoClient = new MongoClient(env.mongodbUri);
   await mongoClient.connect();
-  await connectToDatabase();
 
+  const eventDao = new EventDao(mongoClient.db());
+  await eventDao.createIndexes();
   const userDao = new UserDao(mongoClient.db());
   const itineraryDao = new ItineraryDao(mongoClient.db());
   const app = createApp({
+    eventRepository: eventDao,
     itineraryRepository: itineraryDao,
     userRepository: userDao,
   });
@@ -27,9 +26,7 @@ async function start(): Promise<void> {
   for (const signal of ['SIGINT', 'SIGTERM'] as const) {
     process.on(signal, () => {
       server.close(() => {
-        void Promise.all([mongoClient.close(), disconnectFromDatabase()]).then(
-          () => process.exit(0),
-        );
+        void mongoClient.close().finally(() => process.exit(0));
       });
     });
   }

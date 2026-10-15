@@ -8,7 +8,7 @@ export interface LiveEvent {
   venueName: string;
   city: string;
   location: {
-    type: "Point";
+    type: 'Point';
     coordinates: [number, number];
   };
   category: string;
@@ -25,4 +25,17 @@ export interface LiveEventCandidate extends LiveEvent {
 
 export interface RecommendedLiveEvent extends LiveEventCandidate {
   recommendationScore: number;
+}
+
+export interface NearbyEventQuery {
+  longitude: number;
+  latitude: number;
+  maxDistanceKm: number;
+  candidateLimit?: number;
+}
+
+export interface EventUpsertResult {
+  matchedCount: number;
+  modifiedCount: number;
+  upsertedCount: number;
 }
