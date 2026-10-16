@@ -1,5 +1,5 @@
 @startuml
-title Use Case 3: Calculate and Store Transportation Cost
+title Use Case 8: Calculate and Store Transportation Cost
 
 skinparam ArrowFontStyle plain
 skinparam ParticipantStyle rectangle

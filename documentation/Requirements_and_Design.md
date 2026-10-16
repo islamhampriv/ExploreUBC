@@ -18,6 +18,14 @@
 
 ### **3.1. List of Features**
 
+1. **Itinerary Recommendation**: Generates and ranks itinerary recommendations using trip constraints and user preferences.
+2. **Itinerary Management**: Allows users to create, view, modify, and delete saved itineraries and their activities or transportation segments.
+3. **User Profile**: Stores user details and preferences used to personalize itineraries and live-event recommendations.
+4. **Authentication**: Authenticates users with Google and connects them to their ExploreUBC account.
+5. **Google Maps Integration**: Displays itinerary routes, activity locations, and popular nearby locations on an interactive map.
+6. **Live Events**: Retrieves upcoming events from Ticketmaster and recommends them using the user's interest and location.
+7. **Transportation Budget Calculator**: Calculates and displays estimated transportation costs for an itinerary and its individual segments.
+
 ### **3.2. Use Case Diagram**
 
 ![My diagram](images/Usecase_diagram.png)
@@ -26,7 +34,7 @@
 
 1. **Exchange Student**: The primary user of ExploreUBC. An incoming or current UBC exchange student who plans trips around campus and Vancouver, maintains a travel profile, creates itineraries, views maps, estimates transportation costs, and receives live event recommendations.
 2. **Google Maps Service**: An external mapping service that supplies map tiles, geocoded activity coordinates, transportation routes between itinerary stops, and popular nearby locations.
-3. **Event Information Service**: An external or backend-fed source of upcoming local events (for example concerts, shows, and campus events) used to generate in-app live recommendations.
+3. **Ticketmaster Discovery API**: An external event service that supplies upcoming event details, venues, locations, prices, images, and ticket links used to generate live-event recommendations.
 
 
 ### **3.4. Use Case Description**
@@ -58,14 +66,21 @@
 1. **Sign In with Google**: The user authenticates with Google, and the backend validates the Google identity before granting access to the associated ExploreUBC account.
 2. **Sign Up with Google**: A first-time user authenticates with Google, after which the system creates an ExploreUBC account linked to the validated Google identity.
 3. **Sign Out**: The user ends the current ExploreUBC session and returns to the authentication screen.
-- Use cases for feature 1: [WRITE_FEATURE_1_NAME_HERE]
 
-1. **[WRITE_NAME_HERE]**: ...
-2. **[WRITE_NAME_HERE]**: ...
+#### Use Cases for Feature 5: Google Maps Integration
 
-- Use cases for feature set 2: Google Maps Integration and Transportation Budget Calculator
-3. **View Itinerary on Map**: The exchange student selects a saved itinerary and the system plots its activity locations and connecting transportation routes on an interactive Google Map.
-4. **Browse Popular Locations**: The exchange student opens the map and the system displays pins for popular locations in the current map region so the student can inspect them and consider adding them to a trip.
+1. **View Itinerary on Map**: The exchange student selects a saved itinerary and the system plots its activity locations and connecting transportation routes on an interactive Google Map.
+2. **Browse Popular Locations**: The exchange student opens the map and the system displays pins for popular locations in the current map region so the student can inspect them and consider adding them to a trip.
+
+#### Use Cases for Feature 6: Live Events
+
+1. **View Event Recommendations**: The user views upcoming events ranked using their saved interests and current location. The user can load additional recommendations when more matching events are available.
+2. **View Event Details**: The user reviews an event's title, description, date, venue, distance, and available price information, and can open its Ticketmaster page for complete details.
+3. **Add an Event to an Itinerary**: The user selects a saved itinerary and adds an event as a scheduled activity. If the user has no itinerary, they can create one during this process. The system rejects the addition if the event overlaps with an existing itinerary item.
+
+#### Use Cases for Feature 7: Transportation Budget Calculator
+
+1. **View Transportation Cost Estimate**: The user views an itinerary's total estimated transportation cost and can open a per-segment breakdown showing how the estimate was calculated.
 
 
 ### **3.5. Formal Use Case Specifications (5 Most Major Use Cases)**
@@ -262,40 +277,51 @@ The five specifications below are the major use cases for Feature Sets 2 and 3.
 
 #### Use Case 7: View Event Recommendations
 
-**Description**: The user views event recommendations personalised to their interests and location. The system periodically retrieves event listings from an external event service to keep the recommendations current. The user can view an event’s details and add it to an itinerary.
+**Description**: The user views upcoming events ranked using their saved interest and current location. Event data is periodically retrieved from Ticketmaster and stored in MongoDB. The user can load more recommendations, open the Ticketmaster event page, and add an event to an itinerary.
 
 **Primary actor(s)**: User
 
-**Secondary actor(s)**: External Event Service
+**Secondary actor(s)**: Ticketmaster Discovery API
 
 **Preconditions:**
 
-- The user has saved interests and a location in their profile.
-- The system has retrieved and stored event listings during a periodic check.
+- The user has a saved interest preference.
+- The application can provide the user's current location or a default location.
+- The system has previously synchronized Ticketmaster events into MongoDB.
 
 **Main success scenario**:
 
 1. The user opens the live-events feature.
-2. The system displays events matching the user’s interests and location.
-3. The user selects an event.
-4. The system displays the event’s details.
-5. The user chooses to add the event to an itinerary.
-6. The system displays the user's itineraries.
-7. The user selects an itinerary.
-8. The system verifies that the event is still available and stores it in the selected itinerary.
+2. The application requests recommendations using the user's identifier and current location.
+3. The system retrieves the user's saved interest preference.
+4. The system finds nearby upcoming events in MongoDB, calculates recommendation scores, and removes events below the matching threshold.
+5. The system returns one page of ranked recommendations.
+6. The application displays event cards containing the title, description, date, venue, distance, available price information, and actions.
+7. The user optionally loads another page of recommendations or opens the event's Ticketmaster page.
+8. The user chooses to add an event to an itinerary.
+9. The system displays the user's saved itineraries.
+10. The user selects an itinerary.
+11. The application represents the event as a two-hour itinerary activity.
+12. The system confirms that the activity does not overlap any existing activity or transportation segment.
+13. The system stores the activity in the selected itinerary and confirms the addition.
 
 **Failure scenario(s)**:
 
-- 2a. No events match the user’s interests and location.
-  - 2a1. The system shows that no events are available at the moment.
-- 6a. The user does not have a saved itinerary.
-  - 6a1. The system informs the user that no itinerary is available and offers the option to create one.
-  - 6a2. The user chooses to create an itinerary and enters its required details.
-  - 6a3. The system creates the itinerary.
-  - 6a4. The flow continues at step 8 using the newly created itinerary.
-- 8a. The selected event is no longer available.
-  - 8a1. The system tells the user the event can no longer be added.
-  - 8a2. The system leaves the itinerary unchanged and lets the user choose another event.
+- 2a. The recommendation request fails because of a network or server error.
+  - 2a1. The application keeps any recommendations already displayed and allows the user to retry.
+- 4a. No stored events satisfy the location and recommendation threshold.
+  - 4a1. The application informs the user that no matching events are currently available.
+- 7a. Another page cannot be loaded.
+  - 7a1. The application keeps the existing event cards visible and allows the user to retry the same page.
+- 9a. The user does not have a saved itinerary.
+  - 9a1. The application offers the option to create an itinerary.
+  - 9a2. The user enters an itinerary name.
+  - 9a3. The system creates the itinerary and continues at step 11.
+- 12a. The event overlaps an existing activity or transportation segment.
+  - 12a1. The system rejects the addition and leaves the itinerary unchanged.
+  - 12a2. The application identifies the conflicting itinerary item.
+- 13a. The activity cannot be stored because of a network or database error.
+  - 13a1. The application reports that the event could not be added and allows another attempt.
 
 <a name="uc8"></a>
 
@@ -408,13 +434,18 @@ The five specifications below are the major use cases for Feature Sets 2 and 3.
             - **Purpose**: Updates a user's profile preferences.
         4. `bool updatePreferences(String userId, PreferencesUpdate update)`
             - **Purpose**: Stores updated preferences in MongoDB.
-2. **LiveEvents**
-     - **Purpose**: ...
-    - **Interfaces**: 
-        1. ...
-            - **Purpose**: ...
-        2. ...
-2. **Recommendations**
+3. **LiveEvents**
+    - **Purpose**: Synchronizes Ticketmaster events into MongoDB and returns nearby upcoming events ranked using the user's saved interest, distance, and event date.
+    - **Interfaces**:
+        1. `SyncResult syncEvents(EventRepository repository)`
+            - **Purpose [3.4.6.1]**: Retrieves available Ticketmaster pages, maps the results, upserts events, and removes expired or stale events after a successful complete sync.
+        2. `RecommendedLiveEvent[] getRecommendedEvents(String userId, EventRecommendationOptions options)`
+            - **Purpose [3.4.6.1]**: Retrieves, scores, filters, sorts, and paginates personalized event recommendations.
+        3. `LiveEventCandidate[] findNearbyUpcomingEvents(NearbyEventQuery options)`
+            - **Purpose [3.4.6.1]**: Queries MongoDB for upcoming events within the requested distance.
+        4. `EventUpsertResult upsertEvents(LiveEvent[] events)`
+            - **Purpose [3.4.6.1]**: Inserts new events and updates existing events using the Ticketmaster event identifier.
+4. **Recommendations**
      - **Purpose**: It owns itinerary generation, rank calculation, and the create and read of latest recommendation set. It's responsible for requesting the LLM for itineraries, persisting the latest recommendation set.
     - **Interfaces**:
         1. `RecommendationSet findLatestRecommendations(String userId)`
@@ -495,24 +526,46 @@ The five specifications below are the major use cases for Feature Sets 2 and 3.
             }
         };
     ```
-1. **[WRITE_NAME_HERE]**
-   - **Purpose**: ...
-2. ...
+3. **Live Events**
+    - **Purpose**: Stores normalized Ticketmaster events for synchronization, nearby searches, and recommendation scoring.
+    ```javascript
+        type LiveEvent = {
+            externalId: string;
+            title: string;
+            description?: string;
+            imageUrl: string;
+            startDateTime: Date;
+            venueName: string;
+            city: string;
+            location: {
+                type: "Point";
+                coordinates: [number, number]; // longitude, latitude
+            };
+            category: string;
+            ticketUrl: string;
+            priceMin?: number;
+            priceMax?: number;
+            currency?: string;
+            lastSyncedAt: Date;
+        };
+    ```
 
 ### **4.3. External Modules**
 
-1. **[WRITE_NAME_HERE]**
-
-- **Purpose**: ...
-
-2. ...
+1. **Ticketmaster Discovery API**
+    - **Purpose**: Supplies upcoming event listings for the configured city, province, and country. The backend retrieves paginated results, retries temporary failures, and converts provider responses into the internal `LiveEvent` format.
 
 ### **4.4. Frameworks and Libraries**
 
-1. **[WRITE_NAME_HERE]**
-   - **Purpose**: ...
-   - **Reason**: ...
-2. ...
+1. **Express**
+    - **Purpose**: Provides the backend HTTP routes for event recommendations and itinerary operations.
+    - **Reason**: It is lightweight and integrates directly with the project's Node.js and TypeScript backend.
+2. **MongoDB Node.js Driver**
+    - **Purpose**: Stores events and performs geospatial, date, and user-preference queries.
+    - **Reason**: It supports GeoJSON `2dsphere` indexes, upserts, and the MongoDB database already used by the project.
+3. **Jetpack Compose with Material 3**
+    - **Purpose**: Builds the Android event cards, loading states, pagination controls, and itinerary-selection dialog.
+    - **Reason**: It is the existing declarative UI framework used by the Android application.
 
 ### **4.5. Dependencies Diagram**
 
@@ -629,12 +682,17 @@ sequenceDiagram
         end
     end
 ```
-1. [**[Use Case 6: Browse Popular Location]**](#uc6)
-   ![Browse Popular Location sequence diagram](images/browse_popular_locations.png)
-2. [**View Event Recommendations**](#uc7)\
-   ![View Event Recommendations sequence diagram](images/view_events_seq_diagram.png)
-3. [**Calculate Transportation Cost**](#uc8)\
-   ![Calculate Transportation Cost sequence diagram](images/transportation_cost_seq_diagram.png)
+#### 4.6.3. [**Browse Popular Locations**](#uc6)
+
+![Browse Popular Locations sequence diagram](images/browse_popular_locations.png)
+
+#### 4.6.4. [**View Event Recommendations**](#uc7)
+
+![View Event Recommendations sequence diagram](images/view_events_seq_diagram.png)
+
+#### 4.6.5. [**View Transportation Cost Estimate**](#uc8)
+
+![View Transportation Cost Estimate sequence diagram](images/transportation_cost_seq_diagram.png)
 
 ### **4.7. Design of Non-Functional Requirements**
 
