@@ -1,6 +1,6 @@
 import request from 'supertest';
 
-import { createApp } from '../../src/app';
+import { createApp } from '../../src/index';
 import type { UserRepository } from '../../src/users/userRepository';
 import {
   INTEREST_PREFERENCES,
