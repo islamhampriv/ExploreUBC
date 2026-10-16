@@ -23,6 +23,7 @@ import com.exploreUBC.cpen321application.data.users.UsersApi
 import com.exploreUBC.cpen321application.data.users.UsersRepository
 import com.exploreUBC.cpen321application.data.itineraries.ItinerariesApi
 import com.exploreUBC.cpen321application.data.itineraries.ItinerariesRepository
+import com.exploreUBC.cpen321application.ui.map.MapRoute
 import com.exploreUBC.cpen321application.ui.profile.ProfileRoute
 import com.exploreUBC.cpen321application.ui.trips.TripsRoute
 import com.exploreUBC.cpen321application.ui.theme.CPEN321ApplicationTheme
@@ -84,6 +85,9 @@ fun CPEN321ApplicationApp(
                 AppDestinations.TRIPS -> TripsRoute(
                     userId = userId,
                     itinerariesRepository = itinerariesRepository,
+                    modifier = Modifier.padding(innerPadding),
+                )
+                AppDestinations.MAP -> MapRoute(
                     modifier = Modifier.padding(innerPadding),
                 )
                 else -> Greeting2(
