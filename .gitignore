@@ -52,6 +52,9 @@ google-services.json
 
 # Verity — snapshots of analyzed files (machine state, never commit)
 .verity/.snapshot/
+.vercel
+.env*
+!.env.example
 
 # Personal implementation handoff notes
 implementation-notes.local.md

@@ -1,10 +1,11 @@
 import request from 'supertest';
 
-import { createApp } from '../../src/app';
+import { createApp } from '../../src/index';
 import type { UserRepository } from '../../src/users/userRepository';
 import {
   INTEREST_PREFERENCES,
   type PreferencesUpdate,
+  type User,
   type UserPreferences,
 } from '../../src/users/userTypes';
 
@@ -23,6 +24,22 @@ class TestUserRepository implements UserRepository {
 
   async findPreferences(userId: string): Promise<UserPreferences | null> {
     return userId === USER_ID ? this.preferences : null;
+  }
+
+  async findUser(userId: string): Promise<User | null> {
+    if (userId !== USER_ID || this.preferences === null) {
+      return null;
+    }
+
+    return {
+      googleSubject: USER_ID,
+      email: 'test.user@student.ubc.ca',
+      displayName: 'Test User',
+      start_location: 'UBC Bus Exchange',
+      preferences: this.preferences,
+      create_at: new Date('2026-10-12T12:00:00.000Z'),
+      updated_at: new Date('2026-10-12T12:00:00.000Z'),
+    };
   }
 
   async updatePreferences(
