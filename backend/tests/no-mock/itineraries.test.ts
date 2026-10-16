@@ -1,6 +1,6 @@
 import request from 'supertest';
 
-import { createApp } from '../../src/app';
+import { createApp } from '../../src/index';
 import type { ItineraryRepository } from '../../src/itineraries/itineraryRepository';
 import type {
   ActivityItem,
