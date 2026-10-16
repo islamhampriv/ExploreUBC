@@ -277,11 +277,9 @@ The five specifications below are the major use cases for Feature Sets 2 and 3.
 
 #### Use Case 7: View Event Recommendations
 
-**Description**: The user views upcoming events ranked using their saved interest and current location. Event data is periodically retrieved from Ticketmaster and stored in MongoDB. The user can load more recommendations, open the Ticketmaster event page, and add an event to an itinerary.
+**Description**: The user views upcoming events ranked using their saved interest and current location. The user can load additional recommendations when more results are available.
 
 **Primary actor(s)**: User
-
-**Secondary actor(s)**: Ticketmaster Discovery API
 
 **Preconditions:**
 
@@ -292,36 +290,20 @@ The five specifications below are the major use cases for Feature Sets 2 and 3.
 **Main success scenario**:
 
 1. The user opens the live-events feature.
-2. The application requests recommendations using the user's identifier and current location.
-3. The system retrieves the user's saved interest preference.
-4. The system finds nearby upcoming events in MongoDB, calculates recommendation scores, and removes events below the matching threshold.
-5. The system returns one page of ranked recommendations.
-6. The application displays event cards containing the title, description, date, venue, distance, available price information, and actions.
-7. The user optionally loads another page of recommendations or opens the event's Ticketmaster page.
-8. The user chooses to add an event to an itinerary.
-9. The system displays the user's saved itineraries.
-10. The user selects an itinerary.
-11. The application represents the event as a two-hour itinerary activity.
-12. The system confirms that the activity does not overlap any existing activity or transportation segment.
-13. The system stores the activity in the selected itinerary and confirms the addition.
+2. The system retrieves the user's saved interest preference and location, ranks nearby upcoming events, and displays the first page of event cards with their relevant information.
+3. The user reviews the recommended events.
+4. The system indicates whether more recommendations are available.
+5. The user requests the next page when they want to view more recommendations.
+6. The system retrieves and displays the additional recommendations.
 
 **Failure scenario(s)**:
 
-- 2a. The recommendation request fails because of a network or server error.
+- 2a. The recommendations cannot be retrieved because of a network or server error.
   - 2a1. The application keeps any recommendations already displayed and allows the user to retry.
-- 4a. No stored events satisfy the location and recommendation threshold.
-  - 4a1. The application informs the user that no matching events are currently available.
-- 7a. Another page cannot be loaded.
-  - 7a1. The application keeps the existing event cards visible and allows the user to retry the same page.
-- 9a. The user does not have a saved itinerary.
-  - 9a1. The application offers the option to create an itinerary.
-  - 9a2. The user enters an itinerary name.
-  - 9a3. The system creates the itinerary and continues at step 11.
-- 12a. The event overlaps an existing activity or transportation segment.
-  - 12a1. The system rejects the addition and leaves the itinerary unchanged.
-  - 12a2. The application identifies the conflicting itinerary item.
-- 13a. The activity cannot be stored because of a network or database error.
-  - 13a1. The application reports that the event could not be added and allows another attempt.
+- 2b. No stored events satisfy the location and recommendation threshold.
+  - 2b1. The system informs the user that no matching events are currently available.
+- 6a. The next page cannot be loaded.
+  - 6a1. The system keeps the existing event cards visible and allows the user to retry.
 
 <a name="uc8"></a>
 
