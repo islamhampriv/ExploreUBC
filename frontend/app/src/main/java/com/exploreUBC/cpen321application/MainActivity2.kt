@@ -19,10 +19,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
+import com.exploreUBC.cpen321application.data.events.EventsApi
+import com.exploreUBC.cpen321application.data.events.EventsRepository
 import com.exploreUBC.cpen321application.data.users.UsersApi
 import com.exploreUBC.cpen321application.data.users.UsersRepository
 import com.exploreUBC.cpen321application.data.itineraries.ItinerariesApi
 import com.exploreUBC.cpen321application.data.itineraries.ItinerariesRepository
+import com.exploreUBC.cpen321application.ui.events.LiveEventsScreen
 import com.exploreUBC.cpen321application.ui.map.MapRoute
 import com.exploreUBC.cpen321application.ui.profile.ProfileRoute
 import com.exploreUBC.cpen321application.ui.trips.TripsRoute
@@ -36,12 +39,14 @@ class MainActivity2 : ComponentActivity() {
             CPEN321ApplicationTheme {
                 val usersRepository = remember { UsersApi(BuildConfig.API_BASE_URL) }
                 val itinerariesRepository = remember { ItinerariesApi(BuildConfig.API_BASE_URL) }
+                val eventsRepository = remember { EventsApi(BuildConfig.API_BASE_URL) }
                 CPEN321ApplicationApp(
 //                    userId = intent.getStringExtra("userId"),
                     userId = "6acd519c76376cefc61e97f1",
                     displayName = intent.getStringExtra("displayName"),
                     usersRepository = usersRepository,
                     itinerariesRepository = itinerariesRepository,
+                    eventsRepository = eventsRepository,
                 )
             }
         }
@@ -54,6 +59,7 @@ fun CPEN321ApplicationApp(
     displayName: String?,
     usersRepository: UsersRepository,
     itinerariesRepository: ItinerariesRepository,
+    eventsRepository: EventsRepository,
 ) {
     var currentDestination by rememberSaveable { mutableStateOf(AppDestinations.NOTIFICATIONS) }
     NavigationSuiteScaffold(
@@ -87,6 +93,12 @@ fun CPEN321ApplicationApp(
                     itinerariesRepository = itinerariesRepository,
                     modifier = Modifier.padding(innerPadding),
                 )
+                AppDestinations.EVENTS -> LiveEventsScreen(
+                    userId = userId,
+                    eventsRepository = eventsRepository,
+                    itinerariesRepository = itinerariesRepository,
+                    modifier = Modifier.padding(innerPadding),
+                )
                 AppDestinations.MAP -> MapRoute(
                     modifier = Modifier.padding(innerPadding),
                 )
@@ -104,6 +116,7 @@ enum class AppDestinations(
     val icon: Int,
 ) {
     NOTIFICATIONS("Notifications", R.drawable.notifications_24px),
+    EVENTS("Events", R.drawable.notifications_24px),
     TRIPS("Trips", R.drawable.trip_24px),
     MAP("Map", R.drawable.map_24px),
     CALCULATOR("Calculator", R.drawable.calculate_24px),

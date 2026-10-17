@@ -54,3 +54,7 @@ google-services.json
 .verity/.snapshot/
 .vercel
 .env*
+!.env.example
+
+# Personal implementation handoff notes
+implementation-notes.local.md
