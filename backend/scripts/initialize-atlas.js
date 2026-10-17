@@ -183,6 +183,15 @@ async function initializeDatabase() {
       [{ ownerId: 1, updatedAt: -1 }, { name: 'owner_updated_at' }],
     ]);
 
+    const liveEvents = database.collection('liveevents');
+    await liveEvents.createIndex(
+      { externalId: 1 },
+      { unique: true, name: 'unique_external_event' },
+    );
+    await liveEvents.createIndex({ startDateTime: 1 });
+    await liveEvents.createIndex({ category: 1, startDateTime: 1 });
+    await liveEvents.createIndex({ location: '2dsphere' });
+
     await seedTestData(database);
     console.log('Atlas database schema and indexes are ready.');
   } finally {

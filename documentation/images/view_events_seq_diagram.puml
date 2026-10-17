@@ -1,0 +1,77 @@
+@startuml
+title Use Case 7: View Event Recommendations
+
+skinparam ArrowFontStyle plain
+skinparam ParticipantStyle rectangle
+skinparam Shadowing false
+skinparam DefaultTextAlignment center
+skinparam SequenceMessageAlign center
+skinparam SequenceBoxFontSize 15
+skinparam SequenceBoxPadding 0
+skinparam FontName Arial
+skinparam NoteBackgroundColor white
+skinparam NoteBorderColor black
+hide footbox
+
+actor User
+
+box "User Interface"
+participant ":ExploreUBCApp" as App
+end box
+
+box "Application Logic"
+participant ":EventRecommendation" as EventRecommendation
+end box
+
+box "Storage"
+participant "db:MongoDB" as DB
+end box
+
+note over EventRecommendation, DB
+Ticketmaster events have already been
+synchronized and stored in MongoDB.
+end note
+
+User -> App : Open Live Events
+activate App
+
+App -> EventRecommendation : getRecommendedEvents(userId: UserId, location: GeoPoint, page: int, limit: int): RecommendedLiveEvent[]
+activate EventRecommendation
+
+EventRecommendation -> DB : findPreferences(userId: UserId): UserPreferences
+activate DB
+DB --> EventRecommendation : preferences: UserPreferences
+deactivate DB
+
+EventRecommendation -> DB : findNearbyUpcomingEvents(query: NearbyEventQuery): LiveEventCandidate[]
+activate DB
+DB --> EventRecommendation : candidates: LiveEventCandidate[]
+deactivate DB
+
+note over EventRecommendation
+Score, filter, sort, and paginate candidates.
+end note
+
+EventRecommendation --> App : recommendedEvents: RecommendedLiveEvent[]
+deactivate EventRecommendation
+
+alt recommendations found
+    App --> User : Display event cards
+    deactivate App
+
+    opt User loads more recommendations
+        User -> App : Load more events
+        activate App
+        App -> EventRecommendation : getRecommendedEvents(userId: UserId, location: GeoPoint, nextPage: int, limit: int): RecommendedLiveEvent[]
+        activate EventRecommendation
+        EventRecommendation --> App : additionalEvents: RecommendedLiveEvent[]
+        deactivate EventRecommendation
+        App --> User : Display additional event cards
+        deactivate App
+    end
+else no recommendations
+    App --> User : Display no-events message
+    deactivate App
+end
+
+@enduml

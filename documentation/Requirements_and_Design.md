@@ -31,13 +31,23 @@ The features in this app will facilitate the entire trip planning process for UB
 
 ### **3.1. List of Features**
 
+1. **Itinerary Recommendation**: Generates and ranks itinerary recommendations using trip constraints and user preferences.
+2. **Itinerary Management**: Allows users to create, view, modify, and delete saved itineraries and their activities or transportation segments.
+3. **User Profile**: Stores user details and preferences used to personalize itineraries and live-event recommendations.
+4. **Authentication**: Authenticates users with Google and connects them to their ExploreUBC account.
+5. **Google Maps Integration**: Displays itinerary routes, activity locations, and popular nearby locations on an interactive map.
+6. **Live Events**: Retrieves upcoming events from Ticketmaster and recommends them using the user's interest and location.
+7. **Transportation Budget Calculator**: Calculates and displays estimated transportation costs for an itinerary and its individual segments.
+
 ### **3.2. Use Case Diagram**
+
+![My diagram](images/Usecase_diagram.png)
 
 ### **3.3. Actors Description**
 
 1. **Exchange Student**: The primary user of ExploreUBC. An incoming or current UBC exchange student who plans trips around campus and Vancouver, maintains a travel profile, creates itineraries, views maps, estimates transportation costs, and receives live event recommendations.
 2. **Google Maps Service**: An external mapping service that supplies map tiles, geocoded activity coordinates, transportation routes between itinerary stops, and popular nearby locations.
-3. **Event Information Service**: An external or backend-fed source of upcoming local events (for example concerts, shows, and campus events) used to generate in-app live recommendations.
+3. **Ticketmaster Discovery API**: An external event service that supplies upcoming event details, venues, locations, prices, images, and ticket links used to generate live-event recommendations.
 
 ### **3.4. Use Case Description**
 
@@ -68,10 +78,20 @@ The features in this app will facilitate the entire trip planning process for UB
 2. **Sign Up with Google**: A first-time user authenticates with Google, after which the system creates an ExploreUBC account linked to the validated Google identity.
 3. **Sign Out**: The user ends the current ExploreUBC session and returns to the authentication screen.
 
-#### Use Cases for Feature 5: Google Maps
+#### Use Cases for Feature 5: Google Maps Integration
 
 1. **View Itinerary on Map**: The exchange student selects a saved itinerary and the system plots its activity locations and connecting transportation routes on an interactive Google Map.
 2. **Browse Popular Locations**: The exchange student opens the map and the system displays pins for popular locations in the current map region so the student can inspect them and consider adding them to a trip.
+
+#### Use Cases for Feature 6: Live Events
+
+1. **View Event Recommendations**: The user views upcoming events ranked using their saved interests and current location. The user can load additional recommendations when more matching events are available.
+2. **View Event Details**: The user reviews an event's title, description, date, venue, distance, and available price information, and can open its Ticketmaster page for complete details.
+3. **Add an Event to an Itinerary**: The user selects a saved itinerary and adds an event as a scheduled activity. If the user has no itinerary, they can create one during this process. The system rejects the addition if the event overlaps with an existing itinerary item.
+
+#### Use Cases for Feature 7: Transportation Budget Calculator
+
+1. **View Transportation Cost Estimate**: The user views an itinerary's total estimated transportation cost and can open a per-segment breakdown showing how the estimate was calculated.
 
 ### **3.5. Formal Use Case Specifications (5 Most Major Use Cases)**
 
@@ -165,17 +185,79 @@ The features in this app will facilitate the entire trip planning process for UB
   - 6b2. The system notifies the student that this transportation leg could not be drawn.
   - 6b3. The use case continues with the remaining routes.
 
+#### Use Case 4: View Event Recommendations
 
-<a name="uc3"></a>
+**Description**: The user views upcoming events ranked using their saved interest and current location. The user can load additional recommendations when more results are available.
+
+**Primary actor(s)**: User
+
+**Preconditions:**
+
+- The user has a saved interest preference.
+- The application can provide the user's current location or a default location.
+- The system has previously synchronized Ticketmaster events into MongoDB.
+
+**Main success scenario**:
+
+1. The user opens the live-events feature.
+2. The system retrieves the user's saved interest preference and location, ranks nearby upcoming events, and displays the first page of event cards with their relevant information.
+3. The user reviews the recommended events.
+4. The system indicates whether more recommendations are available.
+5. The user requests the next page when they want to view more recommendations.
+6. The system retrieves and displays the additional recommendations.
+
+**Failure scenario(s)**:
+
+- 2a. The recommendations cannot be retrieved because of a network or server error.
+  - 2a1. The application keeps any recommendations already displayed and allows the user to retry.
+- 2b. No stored events satisfy the location and recommendation threshold.
+  - 2b1. The system informs the user that no matching events are currently available.
+- 6a. The next page cannot be loaded.
+  - 6a1. The system keeps the existing event cards visible and allows the user to retry.
+
+#### Use Case 5: View Transportation Cost Estimate
+
+**Description**: When an itinerary is created or modified, the system automatically calculates and stores a transportation cost estimate based on its transportation segments. The system uses the transportation mode and route information stored with each segment. For a car segment, it uses the vehicle type specified by the itinerary or, if none is specified, the vehicle type saved in the user's profile. The itinerary card displays the total estimated transportation cost, and the user can select it to open a detailed cost breakdown without first opening the itinerary.
+
+**Primary actor**: User
+
+**Supporting actor**: External fuel price data source
+
+**Preconditions**:
+
+- An itinerary containing transportation segments with route information has been created or modified.
+- The system has attempted to calculate and store its total transportation cost and per-segment breakdown.
+
+**Main success scenario**:
+
+1. The user views a screen containing an itinerary card.
+2. The system retrieves the itinerary's stored total transportation cost estimate.
+3. The system displays the total estimated transportation cost on the itinerary card.
+4. The user selects the transportation cost on the card.
+5. The system retrieves the stored per-segment cost breakdown.
+6. The system displays a pop-up containing the estimated cost for each transportation segment, including the mode and the pricing information used.
+
+**Failure scenario**:
+
+- 2a. The system could not calculate a total because route or pricing information was unavailable for one or more transportation segments.
+  - 2a1. The itinerary card identifies the transportation cost as unavailable.
+  - 2a2. The system identifies the affected segments when breakdown information is available.
+- 2b. The system could not calculate a car segment because neither the itinerary nor the user's profile specified a vehicle type.
+  - 2b1. The itinerary card identifies the transportation cost as unavailable.
+  - 2b2. The system informs the user that a vehicle type must be added to the itinerary or their profile before the total can be estimated.
+- 5a. The cost breakdown cannot be loaded because of a server or network error.
+  - 5a1. The system keeps the itinerary card visible.
+  - 5a2. The system informs the user that the breakdown is temporarily unavailable and allows another attempt.
+
+**Postcondition:** The itinerary card displays its total estimated transportation cost and makes a per-segment breakdown available, or clearly indicates that the estimate is unavailable.
 
 ### **3.6. Screen Mock-ups**
 
 ### **3.7. Non-Functional Requirements**
 
 1. **[WRITE_NAME_HERE]**
-  - **Description**: ...
-    - **Justification**: ...
-2. ...
+   - **Description**: ...
+   - **Justification**: ...
 
 ---
 
@@ -240,11 +322,16 @@ The features in this app will facilitate the entire trip planning process for UB
         4. `bool updatePreferences(String userId, PreferencesUpdate update)`
             - **Purpose**: Stores updated preferences in MongoDB.
 3. **LiveEvents**
-     - **Purpose**: ...
-    - **Interfaces**: 
-        1. ...
-            - **Purpose**: ...
-        2. ...
+    - **Purpose**: Synchronizes Ticketmaster events into MongoDB and returns nearby upcoming events ranked using the user's saved interest, distance, and event date.
+    - **Interfaces**:
+        1. `SyncResult syncEvents(EventRepository repository)`
+            - **Purpose [3.4.6.1]**: Retrieves available Ticketmaster pages, maps the results, upserts events, and removes expired or stale events after a successful complete sync.
+        2. `RecommendedLiveEvent[] getRecommendedEvents(String userId, EventRecommendationOptions options)`
+            - **Purpose [3.4.6.1]**: Retrieves, scores, filters, sorts, and paginates personalized event recommendations.
+        3. `LiveEventCandidate[] findNearbyUpcomingEvents(NearbyEventQuery options)`
+            - **Purpose [3.4.6.1]**: Queries MongoDB for upcoming events within the requested distance.
+        4. `EventUpsertResult upsertEvents(LiveEvent[] events)`
+            - **Purpose [3.4.6.1]**: Inserts new events and updates existing events using the Ticketmaster event identifier.
 4. **Recommendations**
      - **Purpose**: It owns itinerary generation, rank calculation, and the create and read of latest recommendation set. It's responsible for requesting the LLM for itineraries, persisting the latest recommendation set.
     - **Interfaces**:
@@ -343,36 +430,66 @@ The features in this app will facilitate the entire trip planning process for UB
             }
         };
     ```
+3. **Live Events**
+    - **Purpose**: Stores normalized Ticketmaster events for synchronization, nearby searches, and recommendation scoring.
+    ```javascript
+        type LiveEvent = {
+            externalId: string;
+            title: string;
+            description?: string;
+            imageUrl: string;
+            startDateTime: Date;
+            venueName: string;
+            city: string;
+            location: {
+                type: "Point";
+                coordinates: [number, number]; // longitude, latitude
+            };
+            category: string;
+            ticketUrl: string;
+            priceMin?: number;
+            priceMax?: number;
+            currency?: string;
+            lastSyncedAt: Date;
+        };
+    ```
 
 ### **4.3. External Modules**
 
-1. **Google Maps API**
-  - **Purpose**: External mapping service used by ExploreUBC for the Feature Set 2 map view. The Android Maps SDK draws the interactive map, activity pins, popular-location pins, and routes. The same API key also supports Directions (walking routes between itinerary stops), Places Nearby Search (popular locations), and Static Maps (fallback image if live tiles do not load).
+1. **Ticketmaster Discovery API**
+    - **Purpose**: Supplies upcoming event listings for the configured city, province, and country. The backend retrieves paginated results, retries temporary failures, and converts provider responses into the internal `LiveEvent` format.
+
+2. **Google Maps API**
+    - **Purpose**: External mapping service used by ExploreUBC for the Feature Set 2 map view. The Android Maps SDK draws the interactive map, activity pins, popular-location pins, and routes. The same API key also supports Directions (walking routes between itinerary stops), Places Nearby Search (popular locations), and Static Maps (fallback image if live tiles do not load).
 
 ### **4.4. Frameworks and Libraries**
 
 1. **Kotlin / Android SDK**
-  - **Purpose**: Language and platform for the ExploreUBC mobile client, including activities, layouts, and location permissions.
+    - **Purpose**: Language and platform for the ExploreUBC mobile client, including activities, layouts, and location permissions.
     - **Reason**: The course requires an Android application, and Kotlin is the standard language for the Android toolchain used in this project.
 2. **Jetpack Compose and Material 3**
-  - **Purpose**: Declarative UI toolkit used for Compose-based screens such as the health-check activity.
+    - **Purpose**: Declarative UI toolkit used for Compose-based screens such as the health-check activity.
     - **Reason**: Compose is the current Android UI stack in the project template and works with the pinned AndroidX Compose BOM.
 3. **Google Play services Maps SDK**
-  - **Purpose**: Client library that embeds Google Maps in the app and exposes `MapView` / `GoogleMap` for pins, polylines, and camera control.
+    - **Purpose**: Client library that embeds Google Maps in the app and exposes `MapView` / `GoogleMap` for pins, polylines, and camera control.
     - **Reason**: Feature Set 2 requires an in-app map rather than only opening the external Google Maps app.
 4. **Node.js, TypeScript, and Express**
-  - **Purpose**: Runtime, language, and HTTP framework for the backend API (for example the health endpoint and future itinerary/location services).
+    - **Purpose**: Runtime, language, and HTTP framework for the backend API (for example the health endpoint and future itinerary/location services).
     - **Reason**: The course backend template uses Express on Node 22 with TypeScript, which matches the Itinerary Service and Location Service in the sequence diagrams.
 5. **Gradle / Android Gradle Plugin**
-  - **Purpose**: Builds the Android app and injects configuration such as `API_BASE_URL` and `MAPS_API_KEY` from `local.properties`.
+    - **Purpose**: Builds the Android app and injects configuration such as `API_BASE_URL` and `MAPS_API_KEY` from `local.properties`.
     - **Reason**: It is the required Android build system and keeps secrets out of source control.
 6. **Jest**
-  - **Purpose**: Test runner for backend interface and non-functional tests.
+    - **Purpose**: Test runner for backend interface and non-functional tests.
     - **Reason**: It is the backend testing framework specified by the course template.
+7. **MongoDB Node.js Driver**
+    - **Purpose**: Stores events and performs geospatial, date, and user-preference queries.
+    - **Reason**: It supports GeoJSON `2dsphere` indexes, upserts, and the MongoDB database already used by the project.
 
 ### **4.5. Dependencies Diagram**
 
 ### **4.6. Use Case Sequence Diagram (5 Most Major Use Cases)**
+
 #### 4.6.1. [**Generate Itineraries**](#use-case-1-generate-itineraries)
 
 ```mermaid
@@ -488,6 +605,14 @@ sequenceDiagram
 
 #### 4.6.3. [**View itinerary on map**](#use-case-3-view-itinerary-on-map)
   ![View itinerary on map sequence diagram](images/View_itinerary_on_map.png)
+
+#### 4.6.4. [**View Event Recommendations**](#use-case-4-view-event-recommendations)
+
+![View Event Recommendations sequence diagram](images/view_events_seq_diagram.png)
+
+#### 4.6.5. [**View Transportation Cost Estimate**](#use-case-5-view-transportation-cost-estimate)
+
+![View Transportation Cost Estimate sequence diagram](images/transportation_cost_seq_diagram.png)
 
 ### **4.7. Design of Non-Functional Requirements**
 

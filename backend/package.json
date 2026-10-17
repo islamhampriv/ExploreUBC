@@ -10,6 +10,7 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc -p tsconfig.build.json",
     "start": "node dist/index.js",
+    "sync:events": "tsx src/events/eventSync.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "jest"
   },

@@ -69,3 +69,9 @@ data class ItineraryDetails(
     val description: String? = null,
     val startingLocation: String? = null,
 )
+
+data class CreateItineraryInput(
+    val name: String,
+    val description: String? = null,
+    val startingLocation: String? = null,
+)

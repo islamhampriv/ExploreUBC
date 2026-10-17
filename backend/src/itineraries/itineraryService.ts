@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import type { ItineraryRepository } from './itineraryRepository';
 import {
   InvalidItineraryItemError,
+  ItineraryTimeConflictError,
   ItineraryItemNotFoundError,
   ItineraryNotFoundError,
 } from './itineraryErrors';
@@ -80,6 +81,22 @@ export class ItineraryService {
     itineraryId: string,
     activityInput: CreateActivityInput,
   ): Promise<ActivityItem> {
+    const itinerary = await this.getItinerary(userId, itineraryId);
+    const newStartTime = Date.parse(activityInput.startTime);
+    const newEndTime = Date.parse(activityInput.endTime);
+    const conflictingItem = itinerary.items.find(
+      (item) =>
+        newStartTime < Date.parse(item.endTime) &&
+        newEndTime > Date.parse(item.startTime),
+    );
+    if (conflictingItem !== undefined) {
+      const conflictName =
+        conflictingItem.type === 'activity'
+          ? conflictingItem.name
+          : 'transportation segment';
+      throw new ItineraryTimeConflictError(conflictName);
+    }
+
     const activity: ActivityItem = {
       ...activityInput,
       id: randomUUID(),
