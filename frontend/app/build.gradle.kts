@@ -18,11 +18,11 @@ fun localProperty(name: String, default: String = ""): String =
     localProperties.getProperty(name)?.trim()?.removeSurrounding("\"") ?: default
 
 android {
-    namespace = "com.example.cpen321application"
+    namespace = "com.exploreUBC.cpen321application"
     compileSdk = libs.versions.compileSdk.get().toInt()
 
     defaultConfig {
-        applicationId = "com.example.cpen321application"
+        applicationId = "com.exploreUBC.cpen321application"
         minSdk = libs.versions.minSdk.get().toInt()
         targetSdk = libs.versions.targetSdk.get().toInt()
         versionCode = 1
@@ -42,6 +42,12 @@ android {
             "GOOGLE_CLIENT_ID",
             "\"${localProperty("GOOGLE_CLIENT_ID")}\""
         )
+        buildConfigField(
+            "String",
+            "MAPS_API_KEY",
+            "\"${localProperty("MAPS_API_KEY")}\""
+        )
+        resValue("string", "google_maps_key", localProperty("MAPS_API_KEY", "YOUR_API_KEY"))
     }
 
     buildTypes {
@@ -60,6 +66,7 @@ android {
     buildFeatures {
         compose = true
         buildConfig = true
+        viewBinding = true
     }
 }
 
@@ -71,6 +78,9 @@ kotlin {
 }
 
 dependencies {
+    implementation(libs.androidx.appcompat)
+    implementation(libs.androidx.constraintlayout)
+    implementation(libs.androidx.compose.material3.adaptive.navigation.suite)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
@@ -79,6 +89,7 @@ dependencies {
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
+    implementation(libs.play.services.maps)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -86,4 +97,7 @@ dependencies {
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
+    implementation("androidx.credentials:credentials:1.7.0-alpha03")
+    implementation("androidx.credentials:credentials-play-services-auth:1.7.0-alpha03")
+    implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")
 }
