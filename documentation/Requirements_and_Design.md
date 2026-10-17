@@ -56,9 +56,7 @@ The features in this app will facilitate the entire trip planning process for UB
 
 #### Use Cases for Feature 3: User Profile
 
-1. **Update Transportation Preferences**: The user selects preferred transportation modes for future itinerary recommendations.
-2. **Update Budget Preferences**: The user sets or changes the default budget used for future recommendations.
-3. **Update Interest Preferences**: The user selects interests, such as food, art, or outdoor activities, that the system uses to personalize future itinerary and live-event recommendations.
+1. **Update Preferences**: The user selects preferred transportation modes for future itinerary recommendations. The user sets or changes the default budget used for future recommendations. The user selects interests, such as food, art, or outdoor activities, that the system uses to personalize future itinerary and live-event recommendations.
 
 #### Use Cases for Feature 4: Authentication
 
