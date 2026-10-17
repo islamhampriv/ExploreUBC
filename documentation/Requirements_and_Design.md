@@ -371,6 +371,47 @@ The features in this app will facilitate the entire trip planning process for UB
     - **Reason**: It is the backend testing framework specified by the course template.
 
 ### **4.5. Dependencies Diagram**
+```mermaid
+---
+config:
+  layout: elk
+---
+flowchart LR
+    android[Android App]
+
+    subgraph backend[Node.js Backend]
+        api[Router]
+        account[Users]
+        itinerary[Itineraries]
+        recommendation[Recommendation]
+        liveEvents[LiveEvent]
+    end
+
+    mongo[(MongoDB)]
+
+    subgraph external[External Services]
+        authProvider[Authentication Provider]
+        llm[LLM Service]
+        routing[Routing Provider]
+        eventApi[Event API]
+        mapsSdk[Maps SDK]
+    end
+
+    android <-->|REST and WebSocket| api
+    android -.->|Render maps| mapsSdk
+
+    api --> account & itinerary & recommendation & liveEvents
+
+    account & itinerary & recommendation & liveEvents --> mongo
+    account -.->|Verify identity| authProvider
+    recommendation -.->|Generate itineraries ideas| llm
+    recommendation -.->|Calculate routes| routing
+    liveEvents -.->|Fetch events| eventApi
+    liveEvents -.->|Add to itinerary| itinerary
+
+    style backend fill:#C2E5FF,stroke:#3DADFF
+    style external fill:#FFECBD,stroke:#FFC943
+```
 
 ### **4.6. Use Case Sequence Diagram (5 Most Major Use Cases)**
 #### 4.6.1. [**Generate Itineraries**](#use-case-1-generate-itineraries)
