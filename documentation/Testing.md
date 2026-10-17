@@ -14,12 +14,23 @@
 
 #### 2.1.1. Tests
 
-| **Interface**                 | **Describe Group Location, No Mocks**                | **Describe Group Location, With Mocks**            | **Mocked Components**              |
-| ----------------------------- | ---------------------------------------------------- | -------------------------------------------------- | ---------------------------------- |
-| **POST /user/login**          | [`tests/no-mock/authenticationLogin.test.js#L1`](#) | [`tests/mock/authenticationLogin.test.js#L1`](#) | Google Authentication API, User DB |
-| **POST /study-groups/create** | ...                                                  | ...                                                | Study Group DB                     |
-| ...                           | ...                                                  | ...                                                | ...                                |
-| ...                           | ...                                                  | ...                                                | ...                                |
+| **Interface** | **Describe Group Location, No Mocks** | **Describe Group Location, With Mocks** | **Mocked Components** |
+| --- | --- | --- | --- |
+| **GET /api/v1/users/:userId** | [`backend/tests/no-mock/users.test.ts`](../backend/tests/no-mock/users.test.ts) | [`backend/tests/mock/users.test.ts`](../backend/tests/mock/users.test.ts) | Get one user's data from the database |
+| **GET /api/v1/users/:userId/preferences** | [`backend/tests/no-mock/users.test.ts`](../backend/tests/no-mock/users.test.ts) | [`backend/tests/mock/users.test.ts`](../backend/tests/mock/users.test.ts) | Get one user's preference data from the database |
+| **PATCH /api/v1/users/:userId/preferences** | [`backend/tests/no-mock/users.test.ts`](../backend/tests/no-mock/users.test.ts) | [`backend/tests/mock/users.test.ts`](../backend/tests/mock/users.test.ts) | Update a user's preference data in the database |
+| **POST /api/v1/users/:userId/itineraries** | [`backend/tests/no-mock/itineraries.test.ts`](../backend/tests/no-mock/itineraries.test.ts) | [`backend/tests/mock/itineraries.test.ts`](../backend/tests/mock/itineraries.test.ts) | Create an itinerary for a user in the database |
+| **GET /api/v1/users/:userId/itineraries** | [`backend/tests/no-mock/itineraries.test.ts`](../backend/tests/no-mock/itineraries.test.ts) | [`backend/tests/mock/itineraries.test.ts`](../backend/tests/mock/itineraries.test.ts) | Get all itineraries for a user from the database. The itinerary-list endpoint accepts the optional Boolean query parameters `saved` and `inRecommendation`. |
+| **GET /api/v1/users/:userId/itineraries/:itineraryId/details** | [`backend/tests/no-mock/itineraries.test.ts`](../backend/tests/no-mock/itineraries.test.ts) | [`backend/tests/mock/itineraries.test.ts`](../backend/tests/mock/itineraries.test.ts) | Get an itinerary's details from the database |
+| **GET /api/v1/users/:userId/itineraries/:itineraryId** | [`backend/tests/no-mock/itineraries.test.ts`](../backend/tests/no-mock/itineraries.test.ts) | [`backend/tests/mock/itineraries.test.ts`](../backend/tests/mock/itineraries.test.ts) | Get one complete itinerary from the database |
+| **PATCH /api/v1/users/:userId/itineraries/:itineraryId** | [`backend/tests/no-mock/itineraries.test.ts`](../backend/tests/no-mock/itineraries.test.ts) | [`backend/tests/mock/itineraries.test.ts`](../backend/tests/mock/itineraries.test.ts) | Update an itinerary's details in the database |
+| **DELETE /api/v1/users/:userId/itineraries/:itineraryId** | [`backend/tests/no-mock/itineraries.test.ts`](../backend/tests/no-mock/itineraries.test.ts) | [`backend/tests/mock/itineraries.test.ts`](../backend/tests/mock/itineraries.test.ts) | Delete an itinerary from the database |
+| **POST /api/v1/users/:userId/itineraries/:itineraryId/activities** | [`backend/tests/no-mock/itineraries.test.ts`](../backend/tests/no-mock/itineraries.test.ts) | [`backend/tests/mock/itineraries.test.ts`](../backend/tests/mock/itineraries.test.ts) | Add an activity to an itinerary in the database |
+| **PATCH /api/v1/users/:userId/itineraries/:itineraryId/activities/:activityId** | [`backend/tests/no-mock/itineraries.test.ts`](../backend/tests/no-mock/itineraries.test.ts) | [`backend/tests/mock/itineraries.test.ts`](../backend/tests/mock/itineraries.test.ts) | Update an itinerary activity in the database |
+| **DELETE /api/v1/users/:userId/itineraries/:itineraryId/activities/:activityId** | [`backend/tests/no-mock/itineraries.test.ts`](../backend/tests/no-mock/itineraries.test.ts) | [`backend/tests/mock/itineraries.test.ts`](../backend/tests/mock/itineraries.test.ts) | Remove an activity from an itinerary in the database |
+| **POST /api/v1/users/:userId/itineraries/:itineraryId/transportation-segments** | [`backend/tests/no-mock/itineraries.test.ts`](../backend/tests/no-mock/itineraries.test.ts) | [`backend/tests/mock/itineraries.test.ts`](../backend/tests/mock/itineraries.test.ts) | Add a transportation segment to an itinerary in the database |
+| **PATCH /api/v1/users/:userId/itineraries/:itineraryId/transportation-segments/:segmentId** | [`backend/tests/no-mock/itineraries.test.ts`](../backend/tests/no-mock/itineraries.test.ts) | [`backend/tests/mock/itineraries.test.ts`](../backend/tests/mock/itineraries.test.ts) | Update a transportation segment in the database |
+| **DELETE /api/v1/users/:userId/itineraries/:itineraryId/transportation-segments/:segmentId** | [`backend/tests/no-mock/itineraries.test.ts`](../backend/tests/no-mock/itineraries.test.ts) | [`backend/tests/mock/itineraries.test.ts`](../backend/tests/mock/itineraries.test.ts) | Remove a transportation segment from an itinerary in the database |
 
 #### 2.1.2. Commit Hash Where Tests Run
 
@@ -86,19 +97,23 @@ _(Placeholder for Jest coverage screenshot without mocks)_
 
 ### 4.2. Tests
 
-- **Use Case: Login**
+- **Use Case: Update Preferences**
 
   - **Expected Behaviors:**
     | **Scenario Steps** | **Test Case Steps** |
     | ------------------ | ------------------- |
-    | 1. The user opens "Add Todo Items" screen. | Open "Add Todo Items" screen. |
-    | 2. The app shows an input text field and an "Add" button. The add button is disabled. | Check that the text field is present on screen.<br>Check that the button labelled "Add" is present on screen.<br>Check that the "Add" button is disabled. |
-    | 3a. The user inputs an ill-formatted string. | Input "_^_^^OQ#$" in the text field. |
+    | 1. The user opens the user profile tab. | Open User Profile screen |
+    | 2. The app shows the logged in userName, the user's start location input field, transportation, budget, interest dropdowns, and a `Saved Prefrences` button. | Check that the user name is present.<br>Check the start location input is present and enabled.<br>Check the three preferences dropdowns are present and enabled.<br>Check the save button is present and enabled. |
+    | 3. The user inputs a new start location. | Input "12345 abc Avenue, Vancouver BC" in the text field. |
+    | 4. The user selects another transportation preference | Click the transportation dropdown <br> Check the list option 'walking', 'cycling', 'transit','driving','other' appears. <br>Select "transit" and check if the field value is 'transit'    |
+    | 5. The user selects another budget preference | Click the budget dropdown <br> Check the list option 'economical', 'balanced', 'premium' appears. <br>Select "balanced" and check if the field value is 'balanced'    |
+    | 6. The user selects another interest preference | Click the interest dropdown <br> Check the list option 'food', 'art', 'outdoors', 'markets', 'live_music', 'gaming' appears. <br>Select "outdoors" and check if the field value is 'outdoor'    |
+    | 7. The user saves the user profile change | Click the `Save preferences` button <br>Check the confirmation message "Preference saved` appears   |
+    <!-- | 3a. The user inputs an ill-formatted string. | Input "_^_^^OQ#$" in the text field. |
     | 3a1. The app displays an error message prompting the user for the expected format. | Check that a dialog is opened with the text: "Please use only alphanumeric characters ". |
-    | 3. The user inputs a new item for the list and the add button becomes enabled. | Input "buy milk" in the text field.<br>Check that the button labelled "add" is enabled. |
     | 4. The user presses the "Add" button. | Click the button labelled "add ". |
     | 5. The screen refreshes and the new item is at the bottom of the todo list. | Check that a text box with the text "buy milk" is present on screen.<br>Input "buy chocolate" in the text field.<br>Click the button labelled "add".<br>Check that two text boxes are present on the screen with "buy milk" on top and "buy chocolate" at the bottom. |
-    | 5a. The list exceeds the maximum todo-list size. | Repeat steps 3 to 5 ten times.<br>Check that a dialog is opened with the text: "You have too many items, try completing one first". |
+    | 5a. The list exceeds the maximum todo-list size. | Repeat steps 3 to 5 ten times.<br>Check that a dialog is opened with the text: "You have too many items, try completing one first". | -->
 
   - **Test Logs:**
     ```
