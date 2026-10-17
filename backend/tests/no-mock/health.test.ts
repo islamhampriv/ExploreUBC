@@ -1,6 +1,6 @@
 import request from 'supertest';
 
-import { createApp } from '../../src/app';
+import { createApp } from '../../src/index';
 
 // Interface GET /health
 describe('Unmocked: GET /health', () => {
