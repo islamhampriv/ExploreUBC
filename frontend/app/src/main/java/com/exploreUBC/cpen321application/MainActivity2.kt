@@ -61,7 +61,7 @@ fun CPEN321ApplicationApp(
     itinerariesRepository: ItinerariesRepository,
     eventsRepository: EventsRepository,
 ) {
-    var currentDestination by rememberSaveable { mutableStateOf(AppDestinations.NOTIFICATIONS) }
+    var currentDestination by rememberSaveable { mutableStateOf(AppDestinations.EVENTS) }
     NavigationSuiteScaffold(
         navigationSuiteItems = {
             AppDestinations.entries.forEach {
@@ -115,7 +115,6 @@ enum class AppDestinations(
     val label: String,
     val icon: Int,
 ) {
-    NOTIFICATIONS("Notifications", R.drawable.notifications_24px),
     EVENTS("Events", R.drawable.notifications_24px),
     TRIPS("Trips", R.drawable.trip_24px),
     MAP("Map", R.drawable.map_24px),

@@ -21,7 +21,10 @@ export class EventDao implements EventRepository {
 
   /** Creates the indexes required by event queries. */
   async createIndexes(): Promise<void> {
-    await this.events.createIndex({ externalId: 1 }, { unique: true });
+    await this.events.createIndex(
+      { externalId: 1 },
+      { unique: true, name: 'unique_external_event' },
+    );
     await this.events.createIndex({ startDateTime: 1 });
     await this.events.createIndex({ category: 1, startDateTime: 1 });
     await this.events.createIndex({ location: '2dsphere' });
