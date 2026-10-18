@@ -1,4 +1,4 @@
-# CPEN321_26W1_ProjectName
+# CPEN321_26W1_ExploreUBC
 
 _Keep this README up to date with the steps required to build and run the frontend and backend (including any scripts, config files, and environment variables). TAs ill follow these instructions._
 
@@ -34,6 +34,8 @@ Install the following before the frontend or backend setup steps:
    Set at least:
    - `sdk.dir`: path to your Android SDK. Android Studio usually writes this the first time you open `frontend/`. On Mac it is often `sdk.dir=/Users/<username>/Library/Android/sdk`.
    - `API_BASE_URL`: backend URL baked into the APK. Use `http://10.0.2.2:3000` for the emulator (`10.0.2.2` is the host machine). For a physical device on the same Wi-Fi, use `http://<your-lan-ip>:3000`.
+   - `GOOGLE_CLIENT_ID`: Google OAuth web client ID used for sign-in.
+   - `MAPS_API_KEY`: API key used for Google Maps functionality.
 
 
 ### Build and Run
@@ -67,6 +69,8 @@ Set at least:
 - `JWT_SECRET`: a long random string used to sign auth tokens.
 - `MONGODB_URI`: only needed for local development (default in `.env.example` assumes MongoDB on `localhost:27017`). Ignored when running via Docker Compose.
 - `PORT` (optional): defaults to `3000` if unset.
+- `VERCEL_TOKEN`: your Vercel access token, required when deploying through the Vercel CLI.
+- `TICKETMASTER_API_KEY`: API key for live event updates functionality. 
 
 
 ### Option 1: Run locally
@@ -74,6 +78,8 @@ Set at least:
 **Requirements:** 
 - [Node.js](https://nodejs.org/en/download/) 22+
 - [npm](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm) 10+
+- [Docker](https://docs.docker.com/desktop/setup/install) and [Docker Compose](https://docs.docker.com/desktop/setup/install) v2.24+
+- [curl](https://curl.se/download.html)
 
 **Setup:** 
 1. Install dependencies:
@@ -96,11 +102,22 @@ Set at least:
    npm start
    ```
 
-### Option 2: Run with Docker Compose
+   Or run Compose directly:
+
+   ```bash
+   docker compose up --build -d
+   ```
+
+4. **Stop**:
+
+   ```bash
+   docker compose down
+   ```
+
+### Option 2: Deploy to Vercel
 
 **Requirements:** 
-- [Docker](https://docs.docker.com/desktop/setup/install) and [Docker Compose](https://docs.docker.com/desktop/setup/install) v2.24+
-- [curl](https://curl.se/download.html)
+- Vercel CLI (for deployment): install it with `npm install -g vercel`
 
 **Setup**
 1. **Start** (from the project root):
@@ -108,19 +125,3 @@ Set at least:
    ```bash
    ./scripts/run-backend.sh
    ```
-
-   Or run Compose directly:
-
-   ```bash
-   docker compose up --build -d
-   ```
-
-2. **Stop**:
-
-   ```bash
-   docker compose down
-   ```
-
-## Additional Setup
-
-_Please specify any other additional setup steps non-specific to either frontend nor backend_

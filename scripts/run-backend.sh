@@ -13,9 +13,6 @@ die()   { printf '\033[31mERROR:\033[0m %s\n' "$*" >&2; exit 1; }
 # ---------------------------------------------------------------------------
 # Prerequisites
 # ---------------------------------------------------------------------------
-command -v docker >/dev/null 2>&1 || die "Docker not found."
-docker info >/dev/null 2>&1       || die "Docker is not running."
-command -v curl >/dev/null 2>&1    || die "curl not found."
 command -v vercel >/dev/null 2>&1  || die "Vercel CLI not found. Install it with: npm install -g vercel"
 
 [[ -f backend/.env ]] || die "Missing backend/.env — follow the student setup guide first."
