@@ -41,7 +41,7 @@ The features in this app will facilitate the entire trip planning process for UB
 
 ### **3.2. Use Case Diagram**
 
-![My diagram](images/Usecase_diagram.png)
+![My diagram](https://raw.githubusercontent.com/islamhampriv/ExploreUBC/main/documentation/images/Usecase_diagram.png)
 
 ### **3.3. Actors Description**
 
@@ -490,173 +490,26 @@ The features in this app will facilitate the entire trip planning process for UB
     - **Reason**: It supports GeoJSON `2dsphere` indexes, upserts, and the MongoDB database already used by the project.
 
 ### **4.5. Dependencies Diagram**
-```mermaid
----
-config:
-  layout: elk
----
-flowchart LR
-    android[Android App]
-
-    subgraph backend[Node.js Backend]
-        api[Router]
-        account[Users]
-        itinerary[Itineraries]
-        recommendation[Recommendation]
-        liveEvents[LiveEvent]
-    end
-
-    mongo[(MongoDB)]
-
-    subgraph external[External Services]
-        authProvider[Authentication Provider]
-        llm[LLM Service]
-        routing[Routing Provider]
-        eventApi[Event API]
-        mapsSdk[Maps SDK]
-    end
-
-    android <-->|REST and WebSocket| api
-    android -.->|Render maps| mapsSdk
-
-    api --> account & itinerary & recommendation & liveEvents
-
-    account & itinerary & recommendation & liveEvents --> mongo
-    account -.->|Verify identity| authProvider
-    recommendation -.->|Generate itineraries ideas| llm
-    recommendation -.->|Calculate routes| routing
-    liveEvents -.->|Fetch events| eventApi
-    liveEvents -.->|Add to itinerary| itinerary
-
-    style backend fill:#C2E5FF,stroke:#3DADFF
-    style external fill:#FFECBD,stroke:#FFC943
-```
+![Dependencies diagram](https://raw.githubusercontent.com/islamhampriv/ExploreUBC/main/documentation/images/dependencies_diagram.png)
 
 ### **4.6. Use Case Sequence Diagram (5 Most Major Use Cases)**
 
 #### 4.6.1. [**Generate Itineraries**](#use-case-1-generate-itineraries)
-
-```mermaid
-sequenceDiagram
-    actor User
-    participant Frontend
-    participant Recommendations
-    participant Users
-    participant Itineraries
-    participant LLM as LLM Service
-    participant MongoDB
-
-    User->>Frontend: void openGenerationScreen()
-    Frontend-->>User: TripRequestForm getTripRequestForm()
-
-    User->>Frontend: void submitTripRequest(TripRequest tripRequest)
-    Frontend->>Frontend: ValidationResult validateTripRequest(TripRequest tripRequest)
-
-    alt ValidationResult.isValid() == false
-        Frontend-->>User: void displayValidationErrors(FieldError[] errors)
-
-    else ValidationResult.isValid() == true
-        Frontend->>Recommendations: RecommendationSet generateRecommendations(String userId, TripRequest tripRequest)
-
-        Recommendations->>Users: UserPreferences getPreferences(String userId)
-        Users-->>Recommendations: UserPreferences
-
-        Recommendations->>LLM: String generateItineraries(TripRequest tripRequest, UserPreferences preferences)
-        LLM-->>Recommendations: String itineraryJson
-
-        alt LLM response and itinerary JSON are valid
-            Recommendations->>Itineraries: Itinerary[] parseItineraries(String itineraryJson)
-            Itineraries-->>Recommendations: Itinerary[] itineraries
-
-            Recommendations->>Itineraries: Itinerary[] calculateCosts(Itinerary[] itineraries)
-            Itineraries-->>Recommendations: Itinerary[] costedItineraries
-
-            Recommendations->>Recommendations: Itinerary[] rankItineraries(Itinerary[] itineraries, UserPreferences preferences)
-
-            Recommendations->>MongoDB: bool replaceLatestRecommendations(String userId, Itinerary[] rankedItineraries)
-            MongoDB-->>Recommendations: bool stored
-
-            Recommendations-->>Frontend: RecommendationSet
-            Frontend-->>User: void displayRecommendations(RecommendationSet recommendations)
-
-        else LLM response or itinerary JSON is invalid
-            Note over Recommendations,MongoDB: Previous recommendations remain unchanged
-            Recommendations-->>Frontend: GenerationError
-            Frontend-->>User: void displayGenerationError(GenerationError error)
-        end
-    end
-```
+![Generate itineraries sequence diagram](https://raw.githubusercontent.com/islamhampriv/ExploreUBC/main/documentation/images/generate_itineraries_seq_diagram.png)
 
 #### 4.6.2. [**Edit Activities**](#use-case-2-edit-an-activity)
-
-```mermaid
-sequenceDiagram
-    actor User
-    participant Frontend
-    participant Itineraries
-    participant MongoDB
-
-    User->>Frontend: void openItinerary(String itineraryId)
-    Frontend->>Itineraries: Itinerary getItinerary(String userId, String itineraryId)
-    Itineraries->>MongoDB: Itinerary findItinerary(String userId, String itineraryId)
-    MongoDB-->>Itineraries: Itinerary
-    Itineraries-->>Frontend: Itinerary
-    Frontend-->>User: void displayItinerary(Itinerary itinerary)
-
-    User->>Frontend: void selectActivity(String activityId)
-    Frontend->>Frontend: Activity findActivity(Itinerary itinerary, String activityId)
-    Frontend-->>User: void displayActivityDetails(Activity activity)
-
-    User->>Frontend: void openActivityEditor(String activityId)
-    Frontend-->>User: ActivityForm getActivityForm(Activity activity)
-
-    User->>Frontend: void updateActivityForm(ActivityUpdate update)
-    Frontend->>Frontend: ValidationResult validateActivityUpdate(ActivityUpdate update)
-
-    alt ValidationResult.isValid() == false
-        Frontend-->>User: void disableSave()
-        Frontend-->>User: void displayValidationErrors(FieldError[] errors)
-
-    else ValidationResult.isValid() == true
-        Frontend-->>User: void enableSave()
-        User->>Frontend: void saveActivity()
-
-        Frontend->>Itineraries: Activity updateActivity(String userId, String itineraryId, String activityId, ActivityUpdate update)
-        Itineraries->>Itineraries: ValidationResult validateActivityUpdate(ActivityUpdate update)
-
-        alt ValidationResult.isValid() == false
-            Itineraries-->>Frontend: ValidationError
-            Frontend-->>User: void displayValidationErrors(FieldError[] errors)
-
-        else ValidationResult.isValid() == true
-            Itineraries->>MongoDB: bool updateEmbeddedActivity(String userId, String itineraryId, String activityId, ActivityUpdate update)
-
-            alt stored == true
-                MongoDB-->>Itineraries: bool stored
-                Itineraries-->>Frontend: Activity updatedActivity
-                Frontend->>Frontend: void replaceActivity(Itinerary itinerary, Activity updatedActivity)
-                Frontend-->>User: void displayActivityDetails(Activity updatedActivity)
-
-            else stored == false
-                MongoDB-->>Itineraries: StorageError
-                Note over Itineraries,MongoDB: Previously stored itinerary remains unchanged
-                Itineraries-->>Frontend: StorageError
-                Frontend-->>User: void displaySaveError(StorageError error)
-            end
-        end
-    end
-```
+![Edit activities sequence diagram](https://raw.githubusercontent.com/islamhampriv/ExploreUBC/main/documentation/images/edit_activities_seq_diagram.png)
 
 #### 4.6.3. [**View itinerary on map**](#use-case-3-view-itinerary-on-map)
-  ![View itinerary on map sequence diagram](images/View_itinerary_on_map.png)
+    ![View itinerary on map sequence diagram](https://raw.githubusercontent.com/islamhampriv/ExploreUBC/main/documentation/images/View_itinerary_on_map.png)
 
 #### 4.6.4. [**View Event Recommendations**](#use-case-4-view-event-recommendations)
 
-![View Event Recommendations sequence diagram](images/view_events_seq_diagram.png)
+![View Event Recommendations sequence diagram](https://raw.githubusercontent.com/islamhampriv/ExploreUBC/main/documentation/images/view_events_seq_diagram.png)
 
 #### 4.6.5. [**View Transportation Cost Estimate**](#use-case-5-view-transportation-cost-estimate)
 
-![View Transportation Cost Estimate sequence diagram](images/transportation_cost_seq_diagram.png)
+![View Transportation Cost Estimate sequence diagram](https://raw.githubusercontent.com/islamhampriv/ExploreUBC/main/documentation/images/transportation_cost_seq_diagram.png)
 
 ### **4.7. Design of Non-Functional Requirements**
 

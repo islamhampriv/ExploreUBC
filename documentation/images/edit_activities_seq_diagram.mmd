@@ -1,0 +1,55 @@
+sequenceDiagram
+    actor User
+    participant Frontend
+    participant Itineraries
+    participant MongoDB
+
+    User->>Frontend: void openItinerary(String itineraryId)
+    Frontend->>Itineraries: Itinerary getItinerary(String userId, String itineraryId)
+    Itineraries->>MongoDB: Itinerary findItinerary(String userId, String itineraryId)
+    MongoDB-->>Itineraries: Itinerary
+    Itineraries-->>Frontend: Itinerary
+    Frontend-->>User: void displayItinerary(Itinerary itinerary)
+
+    User->>Frontend: void selectActivity(String activityId)
+    Frontend->>Frontend: Activity findActivity(Itinerary itinerary, String activityId)
+    Frontend-->>User: void displayActivityDetails(Activity activity)
+
+    User->>Frontend: void openActivityEditor(String activityId)
+    Frontend-->>User: ActivityForm getActivityForm(Activity activity)
+
+    User->>Frontend: void updateActivityForm(ActivityUpdate update)
+    Frontend->>Frontend: ValidationResult validateActivityUpdate(ActivityUpdate update)
+
+    alt ValidationResult.isValid() == false
+        Frontend-->>User: void disableSave()
+        Frontend-->>User: void displayValidationErrors(FieldError[] errors)
+
+    else ValidationResult.isValid() == true
+        Frontend-->>User: void enableSave()
+        User->>Frontend: void saveActivity()
+
+        Frontend->>Itineraries: Activity updateActivity(String userId, String itineraryId, String activityId, ActivityUpdate update)
+        Itineraries->>Itineraries: ValidationResult validateActivityUpdate(ActivityUpdate update)
+
+        alt ValidationResult.isValid() == false
+            Itineraries-->>Frontend: ValidationError
+            Frontend-->>User: void displayValidationErrors(FieldError[] errors)
+
+        else ValidationResult.isValid() == true
+            Itineraries->>MongoDB: bool updateEmbeddedActivity(String userId, String itineraryId, String activityId, ActivityUpdate update)
+
+            alt stored == true
+                MongoDB-->>Itineraries: bool stored
+                Itineraries-->>Frontend: Activity updatedActivity
+                Frontend->>Frontend: void replaceActivity(Itinerary itinerary, Activity updatedActivity)
+                Frontend-->>User: void displayActivityDetails(Activity updatedActivity)
+
+            else stored == false
+                MongoDB-->>Itineraries: StorageError
+                Note over Itineraries,MongoDB: Previously stored itinerary remains unchanged
+                Itineraries-->>Frontend: StorageError
+                Frontend-->>User: void displaySaveError(StorageError error)
+            end
+        end
+    end

@@ -1,0 +1,48 @@
+sequenceDiagram
+    actor User
+    participant Frontend
+    participant Recommendations
+    participant Users
+    participant Itineraries
+    participant LLM as LLM Service
+    participant MongoDB
+
+    User->>Frontend: void openGenerationScreen()
+    Frontend-->>User: TripRequestForm getTripRequestForm()
+
+    User->>Frontend: void submitTripRequest(TripRequest tripRequest)
+    Frontend->>Frontend: ValidationResult validateTripRequest(TripRequest tripRequest)
+
+    alt ValidationResult.isValid() == false
+        Frontend-->>User: void displayValidationErrors(FieldError[] errors)
+
+    else ValidationResult.isValid() == true
+        Frontend->>Recommendations: RecommendationSet generateRecommendations(String userId, TripRequest tripRequest)
+
+        Recommendations->>Users: UserPreferences getPreferences(String userId)
+        Users-->>Recommendations: UserPreferences
+
+        Recommendations->>LLM: String generateItineraries(TripRequest tripRequest, UserPreferences preferences)
+        LLM-->>Recommendations: String itineraryJson
+
+        alt LLM response and itinerary JSON are valid
+            Recommendations->>Itineraries: Itinerary[] parseItineraries(String itineraryJson)
+            Itineraries-->>Recommendations: Itinerary[] itineraries
+
+            Recommendations->>Itineraries: Itinerary[] calculateCosts(Itinerary[] itineraries)
+            Itineraries-->>Recommendations: Itinerary[] costedItineraries
+
+            Recommendations->>Recommendations: Itinerary[] rankItineraries(Itinerary[] itineraries, UserPreferences preferences)
+
+            Recommendations->>MongoDB: bool replaceLatestRecommendations(String userId, Itinerary[] rankedItineraries)
+            MongoDB-->>Recommendations: bool stored
+
+            Recommendations-->>Frontend: RecommendationSet
+            Frontend-->>User: void displayRecommendations(RecommendationSet recommendations)
+
+        else LLM response or itinerary JSON is invalid
+            Note over Recommendations,MongoDB: Previous recommendations remain unchanged
+            Recommendations-->>Frontend: GenerationError
+            Frontend-->>User: void displayGenerationError(GenerationError error)
+        end
+    end
