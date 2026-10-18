@@ -89,7 +89,7 @@ async function runManualSync(): Promise<void> {
   await mongoClient.connect();
 
   try {
-    const eventDao = new EventDao(mongoClient.db());
+    const eventDao = new EventDao(mongoClient.db('cpen321'));
     await eventDao.createIndexes();
     const result = await syncEvents(eventDao);
     console.log('Event sync completed:', result);

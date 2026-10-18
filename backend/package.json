@@ -6,7 +6,7 @@
   "main": "dist/index.js",
   "scripts": {
     "db:init": "node scripts/initialize-atlas.js",
-    "vercel-build": "npm run db:init && npm run build",
+    "vercel-build": "npm run db:init && npm run build && npm run sync:events",
     "dev": "tsx watch src/index.ts",
     "build": "tsc -p tsconfig.build.json",
     "start": "node dist/index.js",

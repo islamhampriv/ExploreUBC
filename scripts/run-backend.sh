@@ -28,4 +28,4 @@ info "Deploying backend to Vercel production..."
 (cd backend && vercel deploy --prod --token "$VERCEL_TOKEN" --name exploreubc --yes)
 
 echo
-info "Backend is up. Stop with: docker compose down"
+info "Backend is up."
