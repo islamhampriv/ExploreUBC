@@ -16,25 +16,19 @@ die()   { printf '\033[31mERROR:\033[0m %s\n' "$*" >&2; exit 1; }
 command -v docker >/dev/null 2>&1 || die "Docker not found."
 docker info >/dev/null 2>&1       || die "Docker is not running."
 command -v curl >/dev/null 2>&1    || die "curl not found."
+command -v vercel >/dev/null 2>&1  || die "Vercel CLI not found. Install it with: npm install -g vercel"
 
 [[ -f backend/.env ]] || die "Missing backend/.env — follow the student setup guide first."
 
-BACKEND_PORT="$(grep -E '^PORT=' backend/.env | head -1 | cut -d= -f2- | tr -d ' "' || true)"
-BACKEND_HEALTH_URL="${BACKEND_HEALTH_URL:-http://localhost:${BACKEND_PORT:-3000}/health}"
+VERCEL_TOKEN="$(grep -E '^VERCEL_TOKEN=' backend/.env | head -1 | cut -d= -f2- | tr -d ' \"' || true)"
+[[ -n "$VERCEL_TOKEN" ]] || die "Missing VERCEL_TOKEN in backend/.env."
 
 # ---------------------------------------------------------------------------
 # Backend
 # ---------------------------------------------------------------------------
 
-info "Starting backend (docker compose up --build -d)..."
-docker compose up --build -d
-
-info "Waiting for $BACKEND_HEALTH_URL ..."
-for _ in $(seq 1 120); do
-  curl -sf "$BACKEND_HEALTH_URL" >/dev/null 2>&1 && break
-  sleep 1
-done
-curl -sf "$BACKEND_HEALTH_URL" >/dev/null 2>&1 || die "Backend not healthy. Try: docker compose logs backend"
+info "Deploying backend to Vercel production..."
+(cd backend && vercel deploy --prod --token "$VERCEL_TOKEN" --name exploreubc --yes)
 
 echo
 info "Backend is up. Stop with: docker compose down"
