@@ -255,9 +255,12 @@ The features in this app will facilitate the entire trip planning process for UB
 
 ### **3.7. Non-Functional Requirements**
 
-1. **[WRITE_NAME_HERE]**
-   - **Description**: ...
-   - **Justification**: ...
+1. <a id="nfr1"></a>**Security**
+    - **Description**: For 100% of authentication requests, the backend must verify the Google identity token's signature, issuer, audience, and expiration before granting access. Invalid or expired tokens must be rejected with no user record created and no session issued. For a valid first-time identity, exactly one ExploreUBC user record must be created; subsequent sign-ins must resolve to that same account. All client-server authentication traffic must use HTTPS, and automated tests and log checks must find zero session or identity tokens in application logs.
+    - **Justification**: These criteria make identity verification, account linking, and token handling testable and reduce the risk of unauthorized access to user profiles and itineraries.
+2. <a id="nfr2"></a>**Accessibility**
+    - **Description**: 100% of the primary navigation destinations (Events, Trips, Map, and Profile) must expose their destination names to TalkBack, consistent with WCAG 2.2 Success Criterion 4.1.2 (Name, Role, Value). Each navigation target must be at least 48 x 48 dp, addressing WCAG 2.2 Success Criterion 2.5.8 (Target Size (Minimum)); the 48 dp target follows Android guidance and is larger than WCAG's minimum target. At 200% Android font scaling, the primary navigation labels must remain visible and each destination must remain operable, consistent with WCAG 2.2 Success Criterion 1.4.4 (Resize Text).
+    - **Justification**: Clear navigation labels, sufficiently large touch targets, and support for larger text make the app's main sections easier to identify and access.
 
 ---
 
@@ -657,7 +660,8 @@ sequenceDiagram
 
 ### **4.7. Design of Non-Functional Requirements**
 
-1. **[[WRITE_NAME_HERE]](#nfr1)**
-  - **Implementation**: ...
-2. ...
+1. **[Security](#nfr1)**
+    - **Implementation**: In [MainActivity.kt](../frontend/app/src/main/java/com/exploreUBC/cpen321application/MainActivity.kt), pass the Google ID token from Credential Manager to a dedicated backend sign-in endpoint over HTTPS; do not treat the client-side credential result alone as an authenticated ExploreUBC session. Add the endpoint in [userRouter.ts](../backend/src/users/userRouter.ts) and authentication logic in [userService.ts](../backend/src/users/userService.ts). Verify the token's signature and claims (issuer, configured audience, and expiration) using Google's supported verification library. Use the verified Google subject as the account key: create a user only if that subject is not already stored, otherwise return the existing user. Define the persistence operations in [userRepository.ts](../backend/src/users/userRepository.ts) and implement them in [userDao.ts](../backend/src/users/userDao.ts). Return a short-lived ExploreUBC session credential after verification; store it on Android using Keystore-backed secure storage, attach it to subsequent protected requests, and clear it on sign-out. Never log either token. Add backend tests for valid, invalid, expired, and wrong-audience tokens, first-time and repeat sign-in, and token-free error/log paths; verify the deployed authentication endpoint uses HTTPS. These backend files currently handle profile operations, so the authentication endpoint, verification, and session issuance remain to be implemented.
+2. **[Accessibility](#nfr2)**
+    - **Implementation**: In [MainActivity2.kt](../frontend/app/src/main/java/com/exploreUBC/cpen321application/MainActivity2.kt), keep the visible text labels for Events, Trips, Map, and Profile and set each navigation icon's `contentDescription` to the same destination name so TalkBack announces a useful label. Give every navigation item a minimum interactive size of 48 x 48 dp, using Compose sizing modifiers where the navigation component does not already guarantee it. On an emulator, enable TalkBack and confirm each destination is announced and can be activated; then set Android font size/display scaling to 200% and verify all four labels remain visible and usable without overlap or clipping.
 
