@@ -67,9 +67,9 @@ cp backend/.env.example backend/.env
 
 Set at least:
 - `JWT_SECRET`: a long random string used to sign auth tokens.
-- `MONGODB_URI`: only needed for local development (default in `.env.example` assumes MongoDB on `localhost:27017`). Ignored when running via Docker Compose.
+- `MONGODB_URI`: MongoDB connection string. Required for local development and for Vercel deployments; `run-backend.sh` forwards backend `.env` values to both the Vercel build and runtime.
 - `PORT` (optional): defaults to `3000` if unset.
-- `VERCEL_TOKEN`: your Vercel access token, required when deploying through the Vercel CLI.
+- `VERCEL_TOKEN`: your Vercel access token, required when deploying through the Vercel CLI. It is used only for authentication and is not forwarded as an application variable.
 - `TICKETMASTER_API_KEY`: API key for live event updates functionality. 
 
 

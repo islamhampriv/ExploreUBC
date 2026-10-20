@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Assumes config (e.g., backend/.env) is already setup, starts docker compose.
+# Deploys backend to Vercel using application settings from backend/.env.
 
 set -euo pipefail
 
@@ -17,15 +17,37 @@ command -v vercel >/dev/null 2>&1  || die "Vercel CLI not found. Install it with
 
 [[ -f backend/.env ]] || die "Missing backend/.env — follow the student setup guide first."
 
-VERCEL_TOKEN="$(grep -E '^VERCEL_TOKEN=' backend/.env | head -1 | cut -d= -f2- | tr -d ' \"' || true)"
-[[ -n "$VERCEL_TOKEN" ]] || die "Missing VERCEL_TOKEN in backend/.env."
-
 # ---------------------------------------------------------------------------
 # Backend
 # ---------------------------------------------------------------------------
 
 info "Deploying backend to Vercel production..."
-(cd backend && vercel deploy --prod --token "$VERCEL_TOKEN" --name exploreubc --yes)
+node <<'NODE'
+const { spawnSync } = require("node:child_process");
+const { readFileSync } = require("node:fs");
+const { parseEnv } = require("node:util");
+
+const environment = parseEnv(readFileSync("backend/.env", "utf8"));
+
+const token = environment.VERCEL_TOKEN?.trim();
+if (!token) {
+	console.error("Missing VERCEL_TOKEN in backend/.env.");
+	process.exit(1);
+}
+
+const args = ["deploy", "--prod", "--token", token, "--name", "exploreubc", "--yes"];
+for (const [name, value] of Object.entries(environment)) {
+	if (name === "VERCEL_TOKEN") continue;
+	args.push("--env", `${name}=${value}`, "--build-env", `${name}=${value}`);
+}
+
+const result = spawnSync("vercel", args, { cwd: "backend", stdio: "inherit" });
+if (result.error) {
+	console.error(`Could not start Vercel CLI: ${result.error.message}`);
+	process.exit(1);
+}
+process.exit(result.status ?? 1);
+NODE
 
 echo
 info "Backend is up."
