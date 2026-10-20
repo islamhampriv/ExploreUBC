@@ -69,7 +69,6 @@ Set at least:
 - `JWT_SECRET`: a long random string used to sign auth tokens.
 - `MONGODB_URI`: only needed for local development (default in `.env.example` assumes MongoDB on `localhost:27017`). Ignored when running via Docker Compose.
 - `PORT` (optional): defaults to `3000` if unset.
-- `VERCEL_TOKEN`: your Vercel access token, required when deploying through the Vercel CLI.
 - `TICKETMASTER_API_KEY`: API key for live event updates functionality. 
 
 
@@ -78,8 +77,6 @@ Set at least:
 **Requirements:** 
 - [Node.js](https://nodejs.org/en/download/) 22+
 - [npm](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm) 10+
-- [Docker](https://docs.docker.com/desktop/setup/install) and [Docker Compose](https://docs.docker.com/desktop/setup/install) v2.24+
-- [curl](https://curl.se/download.html)
 
 **Setup:** 
 1. Install dependencies:
@@ -102,26 +99,27 @@ Set at least:
    npm start
    ```
 
-   Or run Compose directly:
-
-   ```bash
-   docker compose up --build -d
-   ```
-
-4. **Stop**:
-
-   ```bash
-   docker compose down
-   ```
-
-### Option 2: Deploy to Vercel
+### Option 2: Run with Docker Compose
 
 **Requirements:** 
-- Vercel CLI (for deployment): install it with `npm install -g vercel`
+- [Docker](https://docs.docker.com/desktop/setup/install) and [Docker Compose](https://docs.docker.com/desktop/setup/install) v2.24+
+- [curl](https://curl.se/download.html)
 
 **Setup**
 1. **Start** (from the project root):
 
    ```bash
    ./scripts/run-backend.sh
+   ```
+
+   Or run Compose directly:
+
+   ```bash
+   docker compose up --build -d
+   ```
+
+2. **Stop**:
+
+   ```bash
+   docker compose down
    ```
