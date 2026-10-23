@@ -986,16 +986,44 @@ private fun ItineraryItemCard(
             .testTag("itinerary_item_${item.id}"),
     ) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            when (item) {
-                is ActivityItem -> {
-                    Text(item.name, fontWeight = FontWeight.Bold)
-                    Text("Activity")
-                }
-                is TransportationItem -> {
-                    Text(item.mode.replaceFirstChar { it.uppercase() }, fontWeight = FontWeight.Bold)
-                    Text("Transportation")
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = when (item) {
+                        is ActivityItem -> item.name
+                        is TransportationItem -> item.mode.displayOption()
+                    },
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.weight(1f),
+                )
+                Surface(
+                    color = MaterialTheme.colorScheme.secondaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                    shape = MaterialTheme.shapes.small,
+                    modifier = Modifier.testTag("itinerary_item_type_${item.id}"),
+                ) {
+                    Text(
+                        text = when (item) {
+                            is ActivityItem -> "Activity"
+                            is TransportationItem -> "Transportation"
+                        },
+                        style = MaterialTheme.typography.labelMedium,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                    )
                 }
             }
+            Text(
+                text = "Start: ${item.startTime.toPacificDisplayDateTime()}",
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.testTag("itinerary_item_start_time_${item.id}"),
+            )
+            Text(
+                text = "End: ${item.endTime.toPacificDisplayDateTime()}",
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.testTag("itinerary_item_end_time_${item.id}"),
+            )
         }
     }
 }

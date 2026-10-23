@@ -1,9 +1,9 @@
-export class InvalidPreferencesUpdateError extends Error {
+export class InvalidUserUpdateError extends Error {
   readonly details: string[];
 
   constructor(details: string[]) {
-    super('The preference update is invalid.');
-    this.name = 'InvalidPreferencesUpdateError';
+    super('The user update is invalid.');
+    this.name = 'InvalidUserUpdateError';
     this.details = details;
   }
 }
@@ -14,4 +14,3 @@ export class UserNotFoundError extends Error {
     this.name = 'UserNotFoundError';
   }
 }
-

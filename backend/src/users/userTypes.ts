@@ -43,10 +43,8 @@ export type User = {
   updated_at: Date;
 };
 
-export type PreferencesUpdate = {
-  transportation?: {
-    mode: TransportationMode;
-  };
-  budget?: BudgetPreference;
-  interest?: InterestPreference;
+export type UserUpdate = Partial<
+  Pick<User, 'displayName' | 'start_location'>
+> & {
+  preferences?: Partial<UserPreferences>;
 };

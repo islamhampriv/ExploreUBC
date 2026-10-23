@@ -7,9 +7,9 @@ import {
 
 import type { UserRepository } from './userRepository';
 import type {
-  PreferencesUpdate,
   User,
   UserPreferences,
+  UserUpdate,
 } from './userTypes';
 
 type UserDocument = User & {
@@ -37,37 +37,7 @@ export class UserDao implements UserRepository {
     return user?.preferences ?? null;
   }
 
-  async updatePreferences(
-    userId: string,
-    update: PreferencesUpdate,
-  ): Promise<boolean> {
-    const objectId = this.parseUserId(userId);
-    if (objectId === null) {
-      return false;
-    }
-
-    const fields: Document = { updated_at: new Date() };
-
-    if (update.transportation !== undefined) {
-      fields['preferences.transportation'] = update.transportation;
-    }
-    if (update.budget !== undefined) {
-      fields['preferences.budget'] = update.budget;
-    }
-    if (update.interest !== undefined) {
-      fields['preferences.interest'] = update.interest;
-    }
-
-    const result = await this.users.updateOne(
-      { _id: objectId },
-      { $set: fields },
-    );
-
-    return result.matchedCount === 1;
-  }
-
   async findUser(userId: string): Promise<User | null> {
-
     const objectId = this.parseUserId(userId);
     if (objectId === null) {
       return null;
@@ -75,10 +45,40 @@ export class UserDao implements UserRepository {
 
     const user = await this.users.findOne(
       { _id: objectId },
-      { projection: { preferences: 1 } },
+      { projection: { _id: 0 } },
     );
 
-    return user || null;
+    return user ?? null;
+  }
+
+  async updateUser(userId: string, update: UserUpdate): Promise<boolean> {
+    const objectId = this.parseUserId(userId);
+    if (objectId === null) {
+      return false;
+    }
+
+    const fields: Document = { updated_at: new Date() };
+    if (update.displayName !== undefined) {
+      fields.displayName = update.displayName;
+    }
+    if (update.start_location !== undefined) {
+      fields.start_location = update.start_location;
+    }
+    if (update.preferences?.transportation !== undefined) {
+      fields['preferences.transportation'] = update.preferences.transportation;
+    }
+    if (update.preferences?.budget !== undefined) {
+      fields['preferences.budget'] = update.preferences.budget;
+    }
+    if (update.preferences?.interest !== undefined) {
+      fields['preferences.interest'] = update.preferences.interest;
+    }
+
+    const result = await this.users.updateOne(
+      { _id: objectId },
+      { $set: fields },
+    );
+    return result.matchedCount === 1;
   }
 
   private parseUserId(userId: string): ObjectId | null {
