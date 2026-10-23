@@ -316,14 +316,16 @@ The features in this app will facilitate the entire trip planning process for UB
 2. **Users**
      - **Purpose**: It represents ExploreUBC accounts and persistent traveler preferences. It supports CRUD operations on the account. It provides profile data to the `Recommendation` and `LiveEvents` components. It exchanges a verified external identity for an ExploreUBC session.
     - **Interfaces**:
-        1. `UserPreferences getPreferences(String userId)`
-            - **Purpose**: Retrieves a user's saved preferences.
-        2. `UserPreferences findPreferences(String userId)`
+        1. `User getUser(String userId)`
+            - **Purpose**: Retrieves a user's complete profile.
+        2. `User findUser(String userId)`
+            - **Purpose**: Retrieves a user's complete profile from MongoDB.
+        3. `UserPreferences findPreferences(String userId)`
             - **Purpose**: Retrieves a user's preferences from MongoDB.
-        3. `UserPreferences updatePreferences(String userId, PreferencesUpdate update)`
-            - **Purpose**: Updates a user's profile preferences.
-        4. `bool updatePreferences(String userId, PreferencesUpdate update)`
-            - **Purpose**: Stores updated preferences in MongoDB.
+        4. `User updateUser(String userId, UserUpdate update)`
+            - **Purpose**: Updates editable profile fields or preferences and returns the complete user.
+        5. `bool updateUser(String userId, UserUpdate update)`
+            - **Purpose**: Stores editable profile fields or nested preferences in MongoDB.
 3. **LiveEvents**
     - **Purpose**: Synchronizes Ticketmaster events into MongoDB and returns nearby upcoming events ranked using the user's saved interest, distance, and event date.
     - **Interfaces**:
@@ -517,4 +519,3 @@ The features in this app will facilitate the entire trip planning process for UB
     - **Implementation**: In [MainActivity.kt](../frontend/app/src/main/java/com/exploreUBC/cpen321application/MainActivity.kt), pass the Google ID token from Credential Manager to a dedicated backend sign-in endpoint over HTTPS; do not treat the client-side credential result alone as an authenticated ExploreUBC session. Add the endpoint in [userRouter.ts](../backend/src/users/userRouter.ts) and authentication logic in [userService.ts](../backend/src/users/userService.ts). Verify the token's signature and claims (issuer, configured audience, and expiration) using Google's supported verification library. Use the verified Google subject as the account key: create a user only if that subject is not already stored, otherwise return the existing user. Define the persistence operations in [userRepository.ts](../backend/src/users/userRepository.ts) and implement them in [userDao.ts](../backend/src/users/userDao.ts). Return a short-lived ExploreUBC session credential after verification; store it on Android using Keystore-backed secure storage, attach it to subsequent protected requests, and clear it on sign-out. Never log either token. Add backend tests for valid, invalid, expired, and wrong-audience tokens, first-time and repeat sign-in, and token-free error/log paths; verify the deployed authentication endpoint uses HTTPS. These backend files currently handle profile operations, so the authentication endpoint, verification, and session issuance remain to be implemented.
 2. **[Accessibility](#nfr2)**
     - **Implementation**: In [MainActivity2.kt](../frontend/app/src/main/java/com/exploreUBC/cpen321application/MainActivity2.kt), keep the visible text labels for Events, Trips, Map, and Profile and set each navigation icon's `contentDescription` to the same destination name so TalkBack announces a useful label. Give every navigation item a minimum interactive size of 48 x 48 dp, using Compose sizing modifiers where the navigation component does not already guarantee it. On an emulator, enable TalkBack and confirm each destination is announced and can be activated; then set Android font size/display scaling to 200% and verify all four labels remain visible and usable without overlap or clipping.
-

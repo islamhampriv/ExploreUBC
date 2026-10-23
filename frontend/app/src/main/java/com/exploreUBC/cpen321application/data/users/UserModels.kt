@@ -51,18 +51,18 @@ data class TransportationPreference(
     val mode: TransportationMode,
 )
 
-data class PreferencesUpdate(
-    val transportation: TransportationPreference? = null,
-    val budget: BudgetPreference? = null,
-    val interest: InterestPreference? = null,
+data class UserUpdate(
+    val displayName: String? = null,
+    val startLocation: String? = null,
+    val preferences: UserPreferences? = null,
 )
 
 data class User(
     val googleSubject: String,
     val email: String,
     val displayName: String,
-    val start_location: String,
+    val startLocation: String,
     val preferences: UserPreferences,
-    val create_at: String,
-    val updated_at: String,
+    val createdAt: String,
+    val updatedAt: String,
 )

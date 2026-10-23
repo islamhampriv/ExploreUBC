@@ -10,48 +10,56 @@ import kotlinx.coroutines.withContext
 import org.json.JSONObject
 
 interface UsersRepository {
-    suspend fun getPreferences(userId: String): UserPreferences
+    suspend fun getUser(userId: String): User
 
-    suspend fun updatePreferences(userId: String, update: PreferencesUpdate): UserPreferences
+    suspend fun updateUser(userId: String, update: UserUpdate): User
 }
 
 class UsersApi(private val apiBaseUrl: String) : UsersRepository {
-    override suspend fun getPreferences(userId: String): UserPreferences = withContext(Dispatchers.IO) {
-        execute(
+    override suspend fun getUser(userId: String): User = withContext(Dispatchers.IO) {
+        val encodedUserId = encode(userId)
+        val response = execute(
             method = "GET",
-            userId = userId,
+            endpoint = "${apiBaseUrl.trimEnd('/')}/api/v1/users/$encodedUserId",
         )
+        parseUser(JSONObject(response).getJSONObject("user"))
     }
 
-    override suspend fun updatePreferences(
-        userId: String,
-        update: PreferencesUpdate,
-    ): UserPreferences = withContext(Dispatchers.IO) {
-        val requestBody = JSONObject().apply {
-            update.transportation?.let {
-                put(
-                    "transportation",
-                    JSONObject().put("mode", it.mode.apiValue),
-                )
+    override suspend fun updateUser(userId: String, update: UserUpdate): User =
+        withContext(Dispatchers.IO) {
+            val requestBody = JSONObject().apply {
+                update.displayName?.let { put("displayName", it) }
+                update.startLocation?.let { put("start_location", it) }
+                update.preferences?.let { preferences ->
+                    put(
+                        "preferences",
+                        JSONObject().apply {
+                            put(
+                                "transportation",
+                                JSONObject().put(
+                                    "mode",
+                                    preferences.transportation.mode.apiValue,
+                                ),
+                            )
+                            put("budget", preferences.budget.apiValue)
+                            put("interest", preferences.interest.apiValue)
+                        },
+                    )
+                }
             }
-            update.budget?.let { put("budget", it.apiValue) }
-            update.interest?.let { put("interest", it.apiValue) }
+            val response = execute(
+                method = "PATCH",
+                endpoint = "${apiBaseUrl.trimEnd('/')}/api/v1/users/${encode(userId)}",
+                requestBody = requestBody.toString(),
+            )
+            parseUser(JSONObject(response).getJSONObject("user"))
         }
-        execute(
-            method = "PATCH",
-            userId = userId,
-            requestBody = requestBody.toString(),
-        )
-    }
 
     private fun execute(
         method: String,
-        userId: String,
+        endpoint: String,
         requestBody: String? = null,
-    ): UserPreferences {
-        val encodedUserId = URLEncoder.encode(userId, StandardCharsets.UTF_8.toString())
-        val endpoint =
-            "${apiBaseUrl.trimEnd('/')}/api/v1/users/$encodedUserId/preferences"
+    ): String {
         val connection = URL(endpoint).openConnection() as HttpURLConnection
 
         return try {
@@ -79,11 +87,21 @@ class UsersApi(private val apiBaseUrl: String) : UsersRepository {
                 throw IOException("Profile request failed with HTTP $responseCode: $responseText")
             }
 
-            parsePreferences(JSONObject(responseText).getJSONObject("preferences"))
+            responseText
         } finally {
             connection.disconnect()
         }
     }
+
+    private fun parseUser(json: JSONObject): User = User(
+        googleSubject = json.getString("googleSubject"),
+        email = json.getString("email"),
+        displayName = json.getString("displayName"),
+        startLocation = json.getString("start_location"),
+        preferences = parsePreferences(json.getJSONObject("preferences")),
+        createdAt = json.getString("create_at"),
+        updatedAt = json.getString("updated_at"),
+    )
 
     private fun parsePreferences(json: JSONObject): UserPreferences {
         return UserPreferences(
@@ -96,4 +114,7 @@ class UsersApi(private val apiBaseUrl: String) : UsersRepository {
             interest = InterestPreference.fromApiValue(json.getString("interest")),
         )
     }
+
+    private fun encode(value: String): String =
+        URLEncoder.encode(value, StandardCharsets.UTF_8.toString())
 }
