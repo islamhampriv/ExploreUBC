@@ -1,5 +1,4 @@
-// Explicit local test data. This directory is not mounted into
-// /docker-entrypoint-initdb.d, so this script never runs automatically.
+// Explicit local test data loaded when Docker creates a fresh Mongo volume.
 
 const exploreUbcDb = db.getSiblingDB("cpen321");
 const testUserId = ObjectId("6acd519c76376cefc61e97f1");
@@ -12,6 +11,7 @@ exploreUbcDb.users.replaceOne(
     googleSubject: "dev-seed-user-google-subject",
     email: "test.user@student.ubc.ca",
     displayName: "Test User",
+    profileImageUrl: null,
     start_location: "UBC Bus Exchange",
     preferences: {
       transportation: {
@@ -20,6 +20,7 @@ exploreUbcDb.users.replaceOne(
       budget: "balanced",
       interest: "outdoors",
     },
+    onboardingCompletedAt: now,
     create_at: now,
     updated_at: now,
   },

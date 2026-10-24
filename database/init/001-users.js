@@ -12,8 +12,10 @@ const userValidator = {
       "googleSubject",
       "email",
       "displayName",
+      "profileImageUrl",
       "start_location",
       "preferences",
+      "onboardingCompletedAt",
       "create_at",
       "updated_at",
     ],
@@ -33,6 +35,10 @@ const userValidator = {
       displayName: {
         bsonType: "string",
         description: "User display name; must be a string",
+      },
+      profileImageUrl: {
+        bsonType: ["string", "null"],
+        description: "Google profile image URL, or null when unavailable",
       },
       start_location: {
         bsonType: "string",
@@ -67,6 +73,10 @@ const userValidator = {
             ],
           },
         },
+      },
+      onboardingCompletedAt: {
+        bsonType: ["date", "null"],
+        description: "Completion time for initial profile setup",
       },
       create_at: { bsonType: "date" },
       updated_at: { bsonType: "date" },
