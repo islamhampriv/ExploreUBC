@@ -2,6 +2,13 @@ import { attachDatabasePool } from '@vercel/functions';
 import express, { type Express } from 'express';
 import { MongoClient } from 'mongodb';
 
+import { createAuthRouter } from './auth/authRouter';
+import { AuthService } from './auth/authService';
+import {
+  authenticateSession,
+  requireUserOwnership,
+} from './auth/authMiddleware';
+import { GoogleIdTokenVerifier } from './auth/googleTokenVerifier';
 import { env } from './config/env';
 import { EventDao } from './events/eventDao';
 import type { EventRepository } from './events/eventRepository';
@@ -11,18 +18,22 @@ import { ItineraryDao } from './itineraries/itineraryDao';
 import type { ItineraryRepository } from './itineraries/itineraryRepository';
 import { createItineraryRouter } from './itineraries/itineraryRouter';
 import { ItineraryService } from './itineraries/itineraryService';
+import { SessionDao } from './session/sessionDao';
+import { SessionService } from './session/sessionService';
 import { UserDao } from './users/userDao';
 import type { UserRepository } from './users/userRepository';
 import { createUserRouter } from './users/userRouter';
 import { UserService } from './users/userService';
 
 export type AppDependencies = {
+  authService?: AuthService;
   eventRepository?: EventRepository;
   itineraryRepository?: ItineraryRepository;
+  sessionService: Pick<SessionService, 'validateSession'>;
   userRepository?: UserRepository;
 };
 
-export function createApp(dependencies: AppDependencies = {}): Express {
+export function createApp(dependencies: AppDependencies): Express {
   const app = express();
 
   app.use(express.json());
@@ -31,9 +42,19 @@ export function createApp(dependencies: AppDependencies = {}): Express {
     res.json({ status: 'ok' });
   });
 
+  if (dependencies.authService !== undefined) {
+    app.use('/api/v1/auth', createAuthRouter(dependencies.authService));
+  }
+
+  app.use(
+    '/api/v1/users/:userId',
+    authenticateSession(dependencies.sessionService),
+    requireUserOwnership,
+  );
+
   if (dependencies.userRepository !== undefined) {
     const userService = new UserService(dependencies.userRepository);
-    app.use('/api/v1/users', createUserRouter(userService));
+    app.use('/api/v1/users/:userId', createUserRouter(userService));
   }
 
   if (dependencies.itineraryRepository !== undefined) {
@@ -74,10 +95,21 @@ if (process.env.VERCEL === '1') {
 
 const database = mongoClient.db('cpen321');
 const eventDao = new EventDao(database);
+const userDao = new UserDao(database);
+const sessionService = new SessionService(
+  new SessionDao(database),
+  env.sessionTtlDays,
+);
 const app = createApp({
+  authService: new AuthService(
+    new GoogleIdTokenVerifier(env.googleClientId),
+    userDao,
+    sessionService,
+  ),
   eventRepository: eventDao,
   itineraryRepository: new ItineraryDao(database),
-  userRepository: new UserDao(database),
+  sessionService,
+  userRepository: userDao,
 });
 
 async function start(): Promise<void> {

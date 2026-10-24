@@ -22,6 +22,7 @@ import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuAnchorType
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -64,6 +65,7 @@ fun ProfileRoute(
     modifier: Modifier = Modifier,
     displayName: String? = null,
     startLocation: String? = null,
+    onLogout: () -> Unit = {},
 ) {
     var user by remember(userId) { mutableStateOf<User?>(null) }
     var fallbackDisplayName by remember(userId, displayName) { mutableStateOf(displayName) }
@@ -179,6 +181,7 @@ fun ProfileRoute(
                     saveUpdate(update, "Preferences saved.")
                 }
             },
+            onLogout = onLogout,
         ),
         modifier = modifier,
     )
@@ -198,6 +201,7 @@ data class ProfileScreenActions(
     val onCancelProfileEdit: () -> Unit = {},
     val onSaveProfile: (UserUpdate) -> Unit = {},
     val onSavePreferences: (UserUpdate) -> Unit = {},
+    val onLogout: () -> Unit = {},
 )
 
 @Composable
@@ -215,6 +219,16 @@ fun ProfilePreferencesForm(
         ProfileDetailsSection(state = state, actions = actions)
         Spacer(modifier = Modifier.height(24.dp))
         PreferencesSection(state = state, onSave = actions.onSavePreferences)
+        Spacer(modifier = Modifier.height(32.dp))
+        OutlinedButton(
+            onClick = actions.onLogout,
+            enabled = !state.isSaving,
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("profile_logout"),
+        ) {
+            Text("Log out")
+        }
     }
 }
 

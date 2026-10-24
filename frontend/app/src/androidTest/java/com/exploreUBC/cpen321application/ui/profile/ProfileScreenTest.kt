@@ -17,6 +17,7 @@ import com.exploreUBC.cpen321application.data.users.UserUpdate
 import com.exploreUBC.cpen321application.data.users.UsersRepository
 import kotlinx.coroutines.CompletableDeferred
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 
@@ -202,5 +203,28 @@ class ProfileScreenTest {
             assertEquals(BudgetPreference.PREMIUM, savedUpdate?.preferences?.budget)
             assertEquals(InterestPreference.GAMING, savedUpdate?.preferences?.interest)
         }
+    }
+
+    @Test
+    fun logoutCallsTheProvidedAction() {
+        var loggedOut = false
+
+        composeRule.setContent {
+            ProfilePreferencesForm(
+                state = ProfileScreenState(
+                    preferences = UserPreferences(
+                        transportation = TransportationPreference(TransportationMode.WALKING),
+                        budget = BudgetPreference.ECONOMICAL,
+                        interest = InterestPreference.FOOD,
+                    ),
+                    isSaving = false,
+                ),
+                actions = ProfileScreenActions(onLogout = { loggedOut = true }),
+            )
+        }
+
+        composeRule.onNodeWithTag("profile_logout").performScrollTo().performClick()
+
+        composeRule.runOnIdle { assertTrue(loggedOut) }
     }
 }
