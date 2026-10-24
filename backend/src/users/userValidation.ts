@@ -1,10 +1,11 @@
-import { InvalidUserUpdateError } from './userErrors';
+import { InvalidOnboardingError, InvalidUserUpdateError } from './userErrors';
 import {
   BUDGET_PREFERENCES,
   INTEREST_PREFERENCES,
   TRANSPORTATION_MODES,
   type BudgetPreference,
   type InterestPreference,
+  type OnboardingInput,
   type TransportationMode,
   type UserUpdate,
 } from './userTypes';
@@ -80,16 +81,17 @@ function parsePreferences(
   return update;
 }
 
-export function parseUserUpdate(value: unknown): UserUpdate {
-  if (!isObject(value)) {
-    throw new InvalidUserUpdateError(['Request body must be an object.']);
-  }
+const USER_UPDATE_FIELDS = new Set([
+  'displayName',
+  'start_location',
+  'preferences',
+]);
+const ONBOARDING_FIELDS = new Set(['start_location', 'preferences']);
 
-  const allowedFields = new Set([
-    'displayName',
-    'start_location',
-    'preferences',
-  ]);
+function parseUserFields(
+  value: Record<string, unknown>,
+  allowedFields: ReadonlySet<string>,
+): { update: UserUpdate; details: string[] } {
   const details = Object.keys(value)
     .filter((field) => !allowedFields.has(field))
     .map((field) => `Unexpected field '${field}'.`);
@@ -99,7 +101,7 @@ export function parseUserUpdate(value: unknown): UserUpdate {
     ['displayName', 200],
     ['start_location', 500],
   ] as const) {
-    if (field in value) {
+    if (allowedFields.has(field) && field in value) {
       const fieldValue = value[field];
       if (
         typeof fieldValue !== 'string' ||
@@ -115,7 +117,7 @@ export function parseUserUpdate(value: unknown): UserUpdate {
     }
   }
 
-  if ('preferences' in value) {
+  if (allowedFields.has('preferences') && 'preferences' in value) {
     if (!isObject(value.preferences)) {
       details.push('preferences must be an object.');
     } else {
@@ -126,6 +128,16 @@ export function parseUserUpdate(value: unknown): UserUpdate {
     }
   }
 
+  return { update, details };
+}
+
+export function parseUserUpdate(value: unknown): UserUpdate {
+  if (!isObject(value)) {
+    throw new InvalidUserUpdateError(['Request body must be an object.']);
+  }
+
+  const { update, details } = parseUserFields(value, USER_UPDATE_FIELDS);
+
   if (Object.keys(update).length === 0 && details.length === 0) {
     details.push('At least one user field must be provided.');
   }
@@ -135,4 +147,48 @@ export function parseUserUpdate(value: unknown): UserUpdate {
   }
 
   return update;
+}
+
+export function parseOnboarding(value: unknown): OnboardingInput {
+  if (!isObject(value)) {
+    throw new InvalidOnboardingError(['Request body must be an object.']);
+  }
+
+  const { update, details } = parseUserFields(value, ONBOARDING_FIELDS);
+
+  if (!('start_location' in value)) {
+    details.push('start_location is required.');
+  }
+
+  if (!('preferences' in value)) {
+    details.push('preferences is required.');
+  } else if (isObject(value.preferences)) {
+    if (!('transportation' in value.preferences)) {
+      details.push('preferences.transportation is required.');
+    }
+    if (!('budget' in value.preferences)) {
+      details.push('preferences.budget is required.');
+    }
+    if (!('interest' in value.preferences)) {
+      details.push('preferences.interest is required.');
+    }
+  }
+
+  const transportation = update.preferences?.transportation;
+  const budget = update.preferences?.budget;
+  const interest = update.preferences?.interest;
+  if (
+    details.length > 0 ||
+    update.start_location === undefined ||
+    transportation === undefined ||
+    budget === undefined ||
+    interest === undefined
+  ) {
+    throw new InvalidOnboardingError(details);
+  }
+
+  return {
+    start_location: update.start_location,
+    preferences: { transportation, budget, interest },
+  };
 }

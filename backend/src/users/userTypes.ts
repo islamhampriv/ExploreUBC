@@ -34,13 +34,28 @@ export type UserPreferences = {
 };
 
 export type User = {
+  id: string;
   googleSubject: string;
   email: string;
   displayName: string;
+  profileImageUrl: string | null;
   start_location: string;
   preferences: UserPreferences;
+  onboardingCompletedAt: Date | null;
   create_at: Date;
   updated_at: Date;
+};
+
+export type GoogleUserIdentity = {
+  googleSubject: string;
+  email: string;
+  displayName: string;
+  profileImageUrl: string | null;
+};
+
+export type OnboardingInput = {
+  start_location: string;
+  preferences: UserPreferences;
 };
 
 export type UserUpdate = Partial<

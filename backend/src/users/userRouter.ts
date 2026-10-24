@@ -1,13 +1,25 @@
 import { Router, type Response } from 'express';
 
 import {
+  InvalidOnboardingError,
   InvalidUserUpdateError,
   UserNotFoundError,
 } from './userErrors';
 import type { UserService } from './userService';
-import { parseUserUpdate } from './userValidation';
+import { parseOnboarding, parseUserUpdate } from './userValidation';
 
 function sendError(response: Response, error: unknown): void {
+  if (error instanceof InvalidOnboardingError) {
+    response.status(400).json({
+      error: {
+        code: 'INVALID_ONBOARDING',
+        message: error.message,
+        details: error.details,
+      },
+    });
+    return;
+  }
+
   if (error instanceof InvalidUserUpdateError) {
     response.status(400).json({
       error: {
@@ -38,22 +50,41 @@ function sendError(response: Response, error: unknown): void {
 }
 
 export function createUserRouter(userService: UserService): Router {
-  const router = Router();
+  const router = Router({ mergeParams: true });
 
-  router.get('/:userId', async (request, response) => {
+  router.get('/', async (request, response) => {
     try {
-      const user = await userService.getUser(request.params.userId);
+      const { userId } = request.params as { userId: string };
+      const user = await userService.getUser(userId);
       response.json({ user });
     } catch (error: unknown) {
       sendError(response, error);
     }
   });
 
-  router.patch('/:userId', async (request, response) => {
+  router.patch('/', async (request, response) => {
     try {
+      const { userId } = request.params as { userId: string };
       const update = parseUserUpdate(request.body);
-      const user = await userService.updateUser(request.params.userId, update);
+      const user = await userService.updateUser(userId, update);
       response.json({ user });
+    } catch (error: unknown) {
+      sendError(response, error);
+    }
+  });
+
+  router.put('/onboarding', async (request, response) => {
+    try {
+      const { userId } = request.params as { userId: string };
+      const onboarding = parseOnboarding(request.body);
+      const user = await userService.completeOnboarding(
+        userId,
+        onboarding,
+      );
+      response.json({
+        onboardingRequired: false,
+        user,
+      });
     } catch (error: unknown) {
       sendError(response, error);
     }

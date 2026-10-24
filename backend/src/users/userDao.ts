@@ -2,18 +2,27 @@ import {
   type Collection,
   type Db,
   type Document,
+  MongoServerError,
   ObjectId,
 } from 'mongodb';
 
 import type { UserRepository } from './userRepository';
 import type {
+  GoogleUserIdentity,
+  OnboardingInput,
   User,
   UserPreferences,
   UserUpdate,
 } from './userTypes';
 
-type UserDocument = User & {
+type UserDocument = Omit<User, 'id'> & {
   _id: ObjectId;
+};
+
+const NEW_USER_PREFERENCES: UserPreferences = {
+  transportation: { mode: 'walking' },
+  budget: 'economical',
+  interest: 'food',
 };
 
 export class UserDao implements UserRepository {
@@ -21,6 +30,56 @@ export class UserDao implements UserRepository {
 
   constructor(database: Db) {
     this.users = database.collection<UserDocument>('users');
+  }
+
+  async findOrCreateByGoogleIdentity(
+    identity: GoogleUserIdentity,
+  ): Promise<User> {
+    const now = new Date();
+
+    try {
+      const result = await this.users.findOneAndUpdate(
+        { googleSubject: identity.googleSubject },
+        {
+          $setOnInsert: {
+            _id: new ObjectId(),
+            googleSubject: identity.googleSubject,
+            email: identity.email,
+            displayName: identity.displayName,
+            profileImageUrl: identity.profileImageUrl,
+            start_location: '',
+            preferences: NEW_USER_PREFERENCES,
+            onboardingCompletedAt: null,
+            create_at: now,
+            updated_at: now,
+          },
+        },
+        {
+          upsert: true,
+          returnDocument: 'after',
+          includeResultMetadata: true,
+        },
+      );
+
+      if (result.value === null) {
+        throw new Error('MongoDB did not return the found or created user.');
+      }
+
+      return this.toUser(result.value);
+    } catch (error: unknown) {
+      if (!(error instanceof MongoServerError) || error.code !== 11000) {
+        throw error;
+      }
+
+      const existingUser = await this.users.findOne({
+        googleSubject: identity.googleSubject,
+      });
+      if (existingUser === null) {
+        throw error;
+      }
+
+      return this.toUser(existingUser);
+    }
   }
 
   async findPreferences(userId: string): Promise<UserPreferences | null> {
@@ -43,21 +102,39 @@ export class UserDao implements UserRepository {
       return null;
     }
 
-    const user = await this.users.findOne(
-      { _id: objectId },
-      { projection: { _id: 0 } },
-    );
+    const user = await this.users.findOne({ _id: objectId });
 
-    return user ?? null;
+    return user === null ? null : this.toUser(user);
   }
 
-  async updateUser(userId: string, update: UserUpdate): Promise<boolean> {
+  async completeOnboarding(
+    userId: string,
+    onboarding: OnboardingInput,
+    completedAt: Date,
+  ): Promise<User | null> {
+    return this.saveUserUpdate(userId, onboarding, completedAt);
+  }
+
+  async updateUser(userId: string, update: UserUpdate): Promise<User | null> {
+    return this.saveUserUpdate(userId, update);
+  }
+
+  private async saveUserUpdate(
+    userId: string,
+    update: UserUpdate,
+    onboardingCompletedAt?: Date,
+  ): Promise<User | null> {
     const objectId = this.parseUserId(userId);
     if (objectId === null) {
-      return false;
+      return null;
     }
 
-    const fields: Document = { updated_at: new Date() };
+    const fields: Document = {
+      updated_at: onboardingCompletedAt ?? new Date(),
+    };
+    if (onboardingCompletedAt !== undefined) {
+      fields.onboardingCompletedAt = onboardingCompletedAt;
+    }
     if (update.displayName !== undefined) {
       fields.displayName = update.displayName;
     }
@@ -74,14 +151,30 @@ export class UserDao implements UserRepository {
       fields['preferences.interest'] = update.preferences.interest;
     }
 
-    const result = await this.users.updateOne(
+    const user = await this.users.findOneAndUpdate(
       { _id: objectId },
       { $set: fields },
+      { returnDocument: 'after' },
     );
-    return result.matchedCount === 1;
+    return user === null ? null : this.toUser(user);
   }
 
   private parseUserId(userId: string): ObjectId | null {
     return ObjectId.isValid(userId) ? new ObjectId(userId) : null;
+  }
+
+  private toUser(document: UserDocument): User {
+    return {
+      id: document._id.toHexString(),
+      googleSubject: document.googleSubject,
+      email: document.email,
+      displayName: document.displayName,
+      profileImageUrl: document.profileImageUrl,
+      start_location: document.start_location,
+      preferences: document.preferences,
+      onboardingCompletedAt: document.onboardingCompletedAt,
+      create_at: document.create_at,
+      updated_at: document.updated_at,
+    };
   }
 }
