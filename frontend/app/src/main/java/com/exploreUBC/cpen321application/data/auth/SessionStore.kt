@@ -6,13 +6,16 @@ import android.security.keystore.KeyProperties
 import android.util.AtomicFile
 import com.exploreUBC.cpen321application.data.AppConstants
 import java.io.File
+import java.io.IOException
 import java.nio.charset.StandardCharsets
+import java.security.GeneralSecurityException
 import java.security.KeyStore
 import java.util.Base64
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
+import org.json.JSONException
 import org.json.JSONObject
 
 internal data class EncryptedSessionPayload(
@@ -126,40 +129,60 @@ class SessionStore internal constructor(
         try {
             output.write(encoded)
             atomicFile.finishWrite(output)
-        } catch (error: Exception) {
+        } catch (error: IOException) {
             atomicFile.failWrite(output)
             throw error
         }
     }
 
-    fun load(): AuthenticatedSession? = synchronized(lock) {
-        if (!atomicFile.baseFile.exists()) return@synchronized null
+    fun load(): AuthenticatedSession? {
+        synchronized(lock) {
+            if (!atomicFile.baseFile.exists()) return null
 
-        try {
-            val encoded = atomicFile.openRead().use { input ->
-                input.readBytes().toString(StandardCharsets.UTF_8)
+            return try {
+                readSession()
+            } catch (_: IOException) {
+                discardInvalidSession()
+            } catch (_: GeneralSecurityException) {
+                discardInvalidSession()
+            } catch (_: JSONException) {
+                discardInvalidSession()
+            } catch (_: IllegalArgumentException) {
+                discardInvalidSession()
+            } catch (_: IllegalStateException) {
+                discardInvalidSession()
+            } catch (_: SecurityException) {
+                discardInvalidSession()
             }
-            val container = JSONObject(encoded)
-            check(container.getInt("version") == AppConstants.Session.FILE_VERSION) {
-                "Unsupported stored session version."
-            }
-            val encrypted = EncryptedSessionPayload(
-                initializationVector = Base64.getDecoder().decode(
-                    container.getString("initializationVector"),
-                ),
-                ciphertext = Base64.getDecoder().decode(container.getString("ciphertext")),
-            )
-            val plaintext = cipher.decrypt(encrypted).toString(StandardCharsets.UTF_8)
-            val session = JSONObject(plaintext)
-            AuthenticatedSession(
-                token = session.getString("token"),
-                userId = session.getString("userId"),
-                expiresAtEpochMillis = session.getLong("expiresAtEpochMillis"),
-            )
-        } catch (_: Exception) {
-            atomicFile.delete()
-            null
         }
+    }
+
+    private fun readSession(): AuthenticatedSession {
+        val encoded = atomicFile.openRead().use { input ->
+            input.readBytes().toString(StandardCharsets.UTF_8)
+        }
+        val container = JSONObject(encoded)
+        check(container.getInt("version") == AppConstants.Session.FILE_VERSION) {
+            "Unsupported stored session version."
+        }
+        val encrypted = EncryptedSessionPayload(
+            initializationVector = Base64.getDecoder().decode(
+                container.getString("initializationVector"),
+            ),
+            ciphertext = Base64.getDecoder().decode(container.getString("ciphertext")),
+        )
+        val plaintext = cipher.decrypt(encrypted).toString(StandardCharsets.UTF_8)
+        val session = JSONObject(plaintext)
+        return AuthenticatedSession(
+            token = session.getString("token"),
+            userId = session.getString("userId"),
+            expiresAtEpochMillis = session.getLong("expiresAtEpochMillis"),
+        )
+    }
+
+    private fun discardInvalidSession(): AuthenticatedSession? {
+        atomicFile.delete()
+        return null
     }
 
     fun clear() = synchronized(lock) {

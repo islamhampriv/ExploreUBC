@@ -22,27 +22,21 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.credentials.exceptions.GetCredentialCancellationException
+import androidx.credentials.exceptions.GetCredentialException
 import androidx.credentials.exceptions.NoCredentialException
 import androidx.lifecycle.lifecycleScope
-import com.exploreUBC.cpen321application.data.auth.AuthRepository
-import com.exploreUBC.cpen321application.data.auth.GoogleAuthenticationResult
-import com.exploreUBC.cpen321application.data.auth.GoogleCredentialProvider
-import com.exploreUBC.cpen321application.data.auth.SessionManager
-import com.exploreUBC.cpen321application.data.auth.SessionStartupCoordinator
+import com.exploreUBC.cpen321application.data.auth.AuthComponentFactory
+import com.exploreUBC.cpen321application.data.auth.LoginAuthComponents
 import com.exploreUBC.cpen321application.data.auth.SessionStartupResult
-import com.exploreUBC.cpen321application.data.auth.SessionStore
-import com.exploreUBC.cpen321application.data.network.ApiClient
 import com.exploreUBC.cpen321application.data.network.ApiException
 import com.exploreUBC.cpen321application.ui.theme.CPEN321ApplicationTheme
+import com.google.android.libraries.identity.googleid.GoogleIdTokenParsingException
+import java.io.IOException
+import java.security.GeneralSecurityException
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 private const val TAG = "MainActivity"
-const val EXTRA_USER_ID = "userId"
-const val EXTRA_DISPLAY_NAME = "displayName"
-const val EXTRA_ONBOARDING_REQUIRED = "onboardingRequired"
 
 private sealed interface AuthenticationUiState {
     data object Loading : AuthenticationUiState
@@ -54,49 +48,18 @@ private sealed interface AuthenticationUiState {
 }
 
 class MainActivity : ComponentActivity() {
-    private lateinit var authRepository: AuthRepository
-    private lateinit var credentialProvider: GoogleCredentialProvider
-    private lateinit var startupCoordinator: SessionStartupCoordinator
+    private lateinit var authComponents: LoginAuthComponents
     private var uiState by mutableStateOf<AuthenticationUiState>(AuthenticationUiState.Loading)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        val sessionManager = SessionManager()
-        val sessionStore = SessionStore(applicationContext)
-        val authTransport = ApiClient(
+        authComponents = AuthComponentFactory(
+            context = applicationContext,
             apiBaseUrl = BuildConfig.API_BASE_URL,
-            sessionManager = sessionManager,
-        )
-        authRepository = AuthRepository(
-            backendClient = authTransport,
-            sessionManager = sessionManager,
-            persistSession = { session ->
-                withContext(Dispatchers.IO) { sessionStore.save(session) }
-            },
-        )
-        credentialProvider = GoogleCredentialProvider(
-            activity = this,
-            serverClientId = BuildConfig.GOOGLE_CLIENT_ID,
-        )
-        startupCoordinator = SessionStartupCoordinator(
-            sessionManager = sessionManager,
-            loadSession = { withContext(Dispatchers.IO) { sessionStore.load() } },
-            clearPersistedSession = {
-                withContext(Dispatchers.IO) { sessionStore.clear() }
-            },
-            restoreSession = authRepository::restoreSession,
-            renewSession = {
-                try {
-                    authRepository.authenticateWithGoogle(
-                        credentialProvider.requestAuthorizedIdToken(),
-                    )
-                } catch (_: NoCredentialException) {
-                    null
-                }
-            },
-        )
+            googleClientId = BuildConfig.GOOGLE_CLIENT_ID,
+        ).createLoginComponents(this)
 
         setContent {
             CPEN321ApplicationTheme {
@@ -113,12 +76,8 @@ class MainActivity : ComponentActivity() {
 
     private suspend fun restoreOnStartup() {
         uiState = AuthenticationUiState.Loading
-        when (val result = startupCoordinator.restore()) {
-            is SessionStartupResult.Authenticated -> openAuthenticatedApp(
-                userId = result.userId,
-                displayName = result.displayName,
-                onboardingRequired = result.onboardingRequired,
-            )
+        when (authComponents.restoreSession()) {
+            is SessionStartupResult.Authenticated -> openAuthenticatedApp()
             SessionStartupResult.SignedOut -> {
                 uiState = AuthenticationUiState.Login()
             }
@@ -134,10 +93,8 @@ class MainActivity : ComponentActivity() {
     private suspend fun loginInteractively() {
         uiState = AuthenticationUiState.Loading
         try {
-            val authentication = authRepository.authenticateWithGoogle(
-                credentialProvider.requestInteractiveIdToken(),
-            )
-            openAuthenticatedApp(authentication)
+            authComponents.authenticateInteractively()
+            openAuthenticatedApp()
         } catch (_: GetCredentialCancellationException) {
             uiState = AuthenticationUiState.Login("Sign-in was cancelled.")
         } catch (_: NoCredentialException) {
@@ -147,32 +104,24 @@ class MainActivity : ComponentActivity() {
             uiState = AuthenticationUiState.Login(error.message)
         } catch (error: CancellationException) {
             throw error
-        } catch (error: Exception) {
-            Log.e(TAG, "Authentication could not be completed", error)
-            uiState = AuthenticationUiState.Login("Sign in could not be completed. Please retry.")
+        } catch (error: GetCredentialException) {
+            showUnexpectedLoginFailure(error)
+        } catch (error: GoogleIdTokenParsingException) {
+            showUnexpectedLoginFailure(error)
+        } catch (error: IOException) {
+            showUnexpectedLoginFailure(error)
+        } catch (error: GeneralSecurityException) {
+            showUnexpectedLoginFailure(error)
         }
     }
 
-    private fun openAuthenticatedApp(authentication: GoogleAuthenticationResult) {
-        openAuthenticatedApp(
-            userId = authentication.userId,
-            displayName = authentication.displayName,
-            onboardingRequired = authentication.onboardingRequired,
-        )
+    private fun showUnexpectedLoginFailure(error: Exception) {
+        Log.e(TAG, "Authentication could not be completed", error)
+        uiState = AuthenticationUiState.Login("Sign in could not be completed. Please retry.")
     }
 
-    private fun openAuthenticatedApp(
-        userId: String,
-        displayName: String,
-        onboardingRequired: Boolean,
-    ) {
-        startActivity(
-            Intent(this, MainActivity2::class.java).apply {
-                putExtra(EXTRA_USER_ID, userId)
-                putExtra(EXTRA_DISPLAY_NAME, displayName)
-                putExtra(EXTRA_ONBOARDING_REQUIRED, onboardingRequired)
-            },
-        )
+    private fun openAuthenticatedApp() {
+        startActivity(Intent(this, MainActivity2::class.java))
         finish()
     }
 }

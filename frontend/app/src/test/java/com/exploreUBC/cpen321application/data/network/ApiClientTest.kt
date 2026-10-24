@@ -117,11 +117,7 @@ class ApiClientTest {
             error = ApiErrorPayload("SESSION_EXPIRED"),
         )
 
-        val error = assertThrows(ApiException::class.java) {
-            runBlocking { client.execute(ApiRequest("GET", "/protected")) }
-        }
-        assertEquals(401, error.statusCode)
-        assertEquals("SESSION_EXPIRED", error.errorCode)
+        val error = assertUnauthorized(client, "SESSION_EXPIRED")
         assertEquals("Your session is no longer valid. Please sign in again.", error.message)
         assertEquals(1, renewalCount)
     }
@@ -140,11 +136,7 @@ class ApiClientTest {
             nowEpochMillis = 10_000L,
         )
 
-        val error = assertThrows(ApiException::class.java) {
-            runBlocking { client.execute(ApiRequest("GET", "/protected")) }
-        }
-        assertEquals(401, error.statusCode)
-        assertEquals("INVALID_SESSION", error.errorCode)
+        assertUnauthorized(client, "INVALID_SESSION")
         assertEquals(0, renewalCount)
     }
 
@@ -182,6 +174,15 @@ class ApiClientTest {
             openConnection = { remaining.removeFirst() },
             parseError = { error },
         )
+    }
+
+    private fun assertUnauthorized(client: ApiClient, errorCode: String): ApiException {
+        val error = assertThrows(ApiException::class.java) {
+            runBlocking { client.execute(ApiRequest("GET", "/protected")) }
+        }
+        assertEquals(401, error.statusCode)
+        assertEquals(errorCode, error.errorCode)
+        return error
     }
 }
 

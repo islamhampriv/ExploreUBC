@@ -2,6 +2,9 @@ package com.exploreUBC.cpen321application.data.network
 
 import com.exploreUBC.cpen321application.data.auth.AuthenticatedSession
 import com.exploreUBC.cpen321application.data.auth.SessionManager
+import java.io.IOException
+import java.security.GeneralSecurityException
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -25,16 +28,14 @@ class SingleFlightSessionRenewer(
 
         var leadsRenewal = false
         val sharedResult: CompletableDeferred<AuthenticatedSession?> = stateMutex.withLock {
-            sessionManager.currentSession()?.let { current ->
-                if (current.token != failedSession.token) {
-                    return@withLock CompletableDeferred<AuthenticatedSession?>().also {
-                        it.complete(current)
-                    }
+            val current = sessionManager.currentSession()
+            if (current != null && current.token != failedSession.token) {
+                completedResult(current)
+            } else {
+                inFlight ?: CompletableDeferred<AuthenticatedSession?>().also {
+                    inFlight = it
+                    leadsRenewal = true
                 }
-            }
-            inFlight ?: CompletableDeferred<AuthenticatedSession?>().also {
-                inFlight = it
-                leadsRenewal = true
             }
         }
 
@@ -46,9 +47,19 @@ class SingleFlightSessionRenewer(
                     sessionManager.replace(replacement)
                 }
                 sharedResult.complete(replacement)
-            } catch (error: Throwable) {
+            } catch (error: CancellationException) {
+                sharedResult.cancel(error)
+                throw error
+            } catch (error: IOException) {
+                sharedResult.completeExceptionally(error)
+            } catch (error: GeneralSecurityException) {
                 sharedResult.completeExceptionally(error)
             } finally {
+                if (!sharedResult.isCompleted) {
+                    sharedResult.cancel(
+                        CancellationException("Session renewal ended unexpectedly."),
+                    )
+                }
                 stateMutex.withLock {
                     if (inFlight === sharedResult) inFlight = null
                 }
@@ -57,4 +68,9 @@ class SingleFlightSessionRenewer(
 
         return sharedResult.await()
     }
+
+    private fun completedResult(
+        session: AuthenticatedSession,
+    ): CompletableDeferred<AuthenticatedSession?> =
+        CompletableDeferred<AuthenticatedSession?>().also { it.complete(session) }
 }

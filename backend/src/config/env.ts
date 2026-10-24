@@ -18,11 +18,19 @@ if (googleClientId === undefined || googleClientId === "") {
   throw new Error("GOOGLE_CLIENT_ID is required.");
 }
 
-const rawSessionTtlDays = process.env.SESSION_TTL_DAYS;
+const rawSessionTtlDays = process.env.SESSION_TTL_DAYS?.trim();
+if (
+  rawSessionTtlDays !== undefined &&
+  rawSessionTtlDays !== "" &&
+  !/^\d+$/u.test(rawSessionTtlDays)
+) {
+  throw new Error(`Invalid SESSION_TTL_DAYS: ${rawSessionTtlDays}`);
+}
+
 const sessionTtlDays =
   rawSessionTtlDays === undefined || rawSessionTtlDays === ""
-    ? 30
-    : Number.parseInt(rawSessionTtlDays, 10);
+    ? 1
+    : Number(rawSessionTtlDays);
 
 if (
   !Number.isInteger(sessionTtlDays) ||

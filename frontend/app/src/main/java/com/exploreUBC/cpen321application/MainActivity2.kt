@@ -23,20 +23,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.credentials.exceptions.GetCredentialException
-import androidx.credentials.exceptions.NoCredentialException
 import androidx.lifecycle.lifecycleScope
-import com.exploreUBC.cpen321application.data.auth.AuthRepository
-import com.exploreUBC.cpen321application.data.auth.GoogleCredentialProvider
-import com.exploreUBC.cpen321application.data.auth.SessionManager
-import com.exploreUBC.cpen321application.data.auth.SessionStore
+import com.exploreUBC.cpen321application.data.auth.AuthComponentFactory
+import com.exploreUBC.cpen321application.data.auth.AuthenticatedAuthComponents
 import com.exploreUBC.cpen321application.data.events.EventsApi
 import com.exploreUBC.cpen321application.data.events.EventsRepository
 import com.exploreUBC.cpen321application.data.itineraries.ItinerariesApi
 import com.exploreUBC.cpen321application.data.itineraries.ItinerariesRepository
-import com.exploreUBC.cpen321application.data.network.ApiClient
-import com.exploreUBC.cpen321application.data.network.ApiException
-import com.exploreUBC.cpen321application.data.network.SingleFlightSessionRenewer
 import com.exploreUBC.cpen321application.data.users.UsersApi
 import com.exploreUBC.cpen321application.data.users.UsersRepository
 import com.exploreUBC.cpen321application.ui.events.LiveEventsScreen
@@ -44,8 +37,9 @@ import com.exploreUBC.cpen321application.ui.map.MapRoute
 import com.exploreUBC.cpen321application.ui.profile.ProfileRoute
 import com.exploreUBC.cpen321application.ui.theme.CPEN321ApplicationTheme
 import com.exploreUBC.cpen321application.ui.trips.TripsRoute
-import kotlinx.coroutines.Dispatchers
+import java.io.IOException
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -61,99 +55,49 @@ class MainActivity2 : ComponentActivity() {
     }
 
     private suspend fun initializeAuthenticatedApp() {
-        val sessionStore = SessionStore(applicationContext)
-        val storedSession = withContext(Dispatchers.IO) { sessionStore.load() }
-        if (storedSession == null) {
+        val auth = AuthComponentFactory(
+            context = applicationContext,
+            apiBaseUrl = BuildConfig.API_BASE_URL,
+            googleClientId = BuildConfig.GOOGLE_CLIENT_ID,
+        ).createAuthenticatedComponents(
+            activity = this,
+            onSessionInvalidated = {
+                withContext(Dispatchers.Main.immediate) {
+                    returnToLogin()
+                }
+            },
+        )
+        if (auth == null) {
             returnToLogin()
             return
         }
 
-        val sessionManager = SessionManager(storedSession)
-        val authTransport = ApiClient(
-            apiBaseUrl = BuildConfig.API_BASE_URL,
-            sessionManager = sessionManager,
-        )
-        val authRepository = AuthRepository(
-            backendClient = authTransport,
-            sessionManager = sessionManager,
-            persistSession = { session ->
-                withContext(Dispatchers.IO) { sessionStore.save(session) }
-            },
-        )
-        val credentialProvider = GoogleCredentialProvider(
-            activity = this,
-            serverClientId = BuildConfig.GOOGLE_CLIENT_ID,
-        )
-        val renewer = SingleFlightSessionRenewer(
-            sessionManager = sessionManager,
-            persistSession = { session ->
-                withContext(Dispatchers.IO) { sessionStore.save(session) }
-            },
-            requestReplacement = { failedSession ->
-                try {
-                    val replacement = authRepository.requestReplacementSession(
-                        credentialProvider.requestAuthorizedIdToken(),
-                    )
-                    if (replacement.userId != failedSession.userId) {
-                        clearSessionAndReturnToLogin(sessionStore, sessionManager)
-                        null
-                    } else {
-                        replacement
-                    }
-                } catch (_: NoCredentialException) {
-                    clearSessionAndReturnToLogin(sessionStore, sessionManager)
-                    null
-                } catch (_: GetCredentialException) {
-                    clearSessionAndReturnToLogin(sessionStore, sessionManager)
-                    null
-                } catch (error: ApiException) {
-                    if (error.statusCode == 401) {
-                        clearSessionAndReturnToLogin(sessionStore, sessionManager)
-                        null
-                    } else {
-                        throw error
-                    }
-                }
-            },
-        )
-        val apiClient = ApiClient(
-            apiBaseUrl = BuildConfig.API_BASE_URL,
-            sessionManager = sessionManager,
-            renewalHandler = renewer,
-        )
-
         showAuthenticatedApp(
-            userId = storedSession.userId,
-            displayName = intent.getStringExtra(EXTRA_DISPLAY_NAME),
-            usersRepository = UsersApi(apiClient),
-            itinerariesRepository = ItinerariesApi(apiClient),
-            eventsRepository = EventsApi(apiClient),
-            onLogout = {
-                if (!isLoggingOut) {
-                    isLoggingOut = true
-                    lifecycleScope.launch {
-                        try {
-                            authRepository.logout()
-                        } catch (error: CancellationException) {
-                            throw error
-                        } catch (error: Exception) {
-                            Log.w("MainActivity2", "Backend logout failed", error)
-                        } finally {
-                            clearSessionAndReturnToLogin(sessionStore, sessionManager)
-                        }
-                    }
-                }
-            },
+            userId = auth.userId,
+            usersRepository = UsersApi(auth.apiClient),
+            itinerariesRepository = ItinerariesApi(auth.apiClient),
+            eventsRepository = EventsApi(auth.apiClient),
+            onLogout = createLogoutAction(auth),
         )
     }
 
-    private suspend fun clearSessionAndReturnToLogin(
-        sessionStore: SessionStore,
-        sessionManager: SessionManager,
-    ) {
-        withContext(Dispatchers.IO) { sessionStore.clear() }
-        sessionManager.clear()
-        withContext(Dispatchers.Main.immediate) { returnToLogin() }
+    private fun createLogoutAction(
+        auth: AuthenticatedAuthComponents,
+    ): () -> Unit = {
+        if (!isLoggingOut) {
+            isLoggingOut = true
+            lifecycleScope.launch {
+                try {
+                    auth.logout()
+                } catch (error: CancellationException) {
+                    throw error
+                } catch (error: IOException) {
+                    Log.w(TAG, "Backend logout failed", error)
+                } finally {
+                    returnToLogin()
+                }
+            }
+        }
     }
 
     private fun showLoading() {
@@ -168,7 +112,6 @@ class MainActivity2 : ComponentActivity() {
 
     private fun showAuthenticatedApp(
         userId: String,
-        displayName: String?,
         usersRepository: UsersRepository,
         itinerariesRepository: ItinerariesRepository,
         eventsRepository: EventsRepository,
@@ -178,7 +121,6 @@ class MainActivity2 : ComponentActivity() {
             CPEN321ApplicationTheme {
                 CPEN321ApplicationApp(
                     userId = userId,
-                    displayName = displayName,
                     usersRepository = usersRepository,
                     itinerariesRepository = itinerariesRepository,
                     eventsRepository = eventsRepository,
@@ -198,12 +140,15 @@ class MainActivity2 : ComponentActivity() {
         )
         finish()
     }
+
+    private companion object {
+        const val TAG = "MainActivity2"
+    }
 }
 
 @Composable
 fun CPEN321ApplicationApp(
     userId: String?,
-    displayName: String?,
     usersRepository: UsersRepository,
     itinerariesRepository: ItinerariesRepository,
     eventsRepository: EventsRepository,
@@ -231,7 +176,6 @@ fun CPEN321ApplicationApp(
             when (currentDestination) {
                 AppDestinations.PROFILE -> ProfileRoute(
                     userId = userId,
-                    displayName = displayName,
                     startLocation = null,
                     usersRepository = usersRepository,
                     modifier = Modifier.padding(innerPadding),

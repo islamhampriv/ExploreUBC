@@ -119,10 +119,12 @@ class TestUserRepository implements UserRepository {
 }
 
 class TestSessionRepository implements SessionRepository {
+  readonly createdInputs: NewSession[] = [];
   private readonly sessions = new Map<string, Session>();
   private nextId = 1;
 
   async create(session: NewSession): Promise<Session> {
+    this.createdInputs.push(session);
     const stored = {
       ...session,
       id: `6705f100000000000000${String(this.nextId).padStart(4, '0')}`,
@@ -486,38 +488,6 @@ describe('Authentication endpoints', () => {
   const USER_ID = '6705f0000000000000000001';
   const FIXED_RANDOM_BYTES = Buffer.alloc(32, 7);
 
-  class MemorySessionRepository implements SessionRepository {
-    readonly createdInputs: NewSession[] = [];
-    private readonly sessions = new Map<string, Session>();
-
-    async create(session: NewSession): Promise<Session> {
-      this.createdInputs.push(session);
-      const stored = { ...session, id: '6705f1000000000000000001' };
-      this.sessions.set(session.tokenHash, stored);
-      return stored;
-    }
-
-    async findByTokenHash(tokenHash: string): Promise<Session | null> {
-      return this.sessions.get(tokenHash) ?? null;
-    }
-
-    async updateExpiryByTokenHash(
-      tokenHash: string,
-      expiresAt: Date,
-    ): Promise<Session | null> {
-      const session = this.sessions.get(tokenHash);
-      if (session === undefined) return null;
-
-      const updated = { ...session, expiresAt };
-      this.sessions.set(tokenHash, updated);
-      return updated;
-    }
-
-    async deleteByTokenHash(tokenHash: string): Promise<boolean> {
-      return this.sessions.delete(tokenHash);
-    }
-  }
-
   function service(
     repository: SessionRepository,
     now = NOW,
@@ -532,7 +502,7 @@ describe('Authentication endpoints', () => {
 
   describe('Session lifecycle', () => {
     test('creates a URL-safe token but persists only its hash', async () => {
-      const repository = new MemorySessionRepository();
+      const repository = new TestSessionRepository();
 
       const created = await service(repository).createSession(USER_ID);
 
@@ -549,7 +519,7 @@ describe('Authentication endpoints', () => {
     });
 
     test('resolves a valid session from its raw token', async () => {
-      const repository = new MemorySessionRepository();
+      const repository = new TestSessionRepository();
       const sessionService = service(repository);
       const created = await sessionService.createSession(USER_ID);
 
@@ -560,7 +530,7 @@ describe('Authentication endpoints', () => {
     });
 
     test('extends a valid session from the current time', async () => {
-      const repository = new MemorySessionRepository();
+      const repository = new TestSessionRepository();
       let now = NOW;
       const sessionService = new SessionService(
         repository,
@@ -580,7 +550,7 @@ describe('Authentication endpoints', () => {
     });
 
     test('rejects an unknown or revoked session', async () => {
-      const repository = new MemorySessionRepository();
+      const repository = new TestSessionRepository();
       const sessionService = service(repository);
 
       await expect(
@@ -595,7 +565,7 @@ describe('Authentication endpoints', () => {
     });
 
     test('rejects and removes an expired session', async () => {
-      const repository = new MemorySessionRepository();
+      const repository = new TestSessionRepository();
       const creator = service(repository);
       const created = await creator.createSession(USER_ID);
       const afterExpiry = new Date('2026-11-21T12:00:00.001Z');
@@ -609,7 +579,7 @@ describe('Authentication endpoints', () => {
     });
 
     test('uses injected randomness and requests exactly 32 bytes', async () => {
-      const repository = new MemorySessionRepository();
+      const repository = new TestSessionRepository();
       const random = jest.fn(() => FIXED_RANDOM_BYTES);
       const sessionService = new SessionService(
         repository,

@@ -83,26 +83,13 @@ export class UserDao implements UserRepository {
   }
 
   async findPreferences(userId: string): Promise<UserPreferences | null> {
-    const objectId = this.parseUserId(userId);
-    if (objectId === null) {
-      return null;
-    }
-
-    const user = await this.users.findOne(
-      { _id: objectId },
-      { projection: { preferences: 1 } },
-    );
+    const user = await this.findUserDocument(userId, { preferences: 1 });
 
     return user?.preferences ?? null;
   }
 
   async findUser(userId: string): Promise<User | null> {
-    const objectId = this.parseUserId(userId);
-    if (objectId === null) {
-      return null;
-    }
-
-    const user = await this.users.findOne({ _id: objectId });
+    const user = await this.findUserDocument(userId);
 
     return user === null ? null : this.toUser(user);
   }
@@ -161,6 +148,21 @@ export class UserDao implements UserRepository {
 
   private parseUserId(userId: string): ObjectId | null {
     return ObjectId.isValid(userId) ? new ObjectId(userId) : null;
+  }
+
+  private async findUserDocument(
+    userId: string,
+    projection?: Document,
+  ): Promise<UserDocument | null> {
+    const objectId = this.parseUserId(userId);
+    if (objectId === null) {
+      return null;
+    }
+
+    return this.users.findOne(
+      { _id: objectId },
+      projection === undefined ? {} : { projection },
+    );
   }
 
   private toUser(document: UserDocument): User {
