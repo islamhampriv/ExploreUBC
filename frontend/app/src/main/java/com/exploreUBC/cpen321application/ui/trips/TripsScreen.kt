@@ -578,26 +578,23 @@ fun ItineraryScreen(
                 onClick = { onItemClick(item) },
             )
         }
-        Row(modifier = Modifier.fillMaxWidth()) {
-            Button(
-                onClick = onAddActivity,
-                enabled = itinerary.saved,
-                modifier = Modifier
-                    .weight(1f)
-                    .testTag("itinerary_add_activity"),
-            ) {
-                Text("+ Activity")
-            }
-            Spacer(Modifier.width(12.dp))
-            Button(
-                onClick = onAddTransportation,
-                enabled = itinerary.saved,
-                modifier = Modifier
-                    .weight(1f)
-                    .testTag("itinerary_add_transportation"),
-            ) {
-                Text("+ Transportation")
-            }
+        Button(
+            onClick = onAddActivity,
+            enabled = itinerary.saved,
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("itinerary_add_activity"),
+        ) {
+            Text("+ Activity")
+        }
+        Button(
+            onClick = onAddTransportation,
+            enabled = itinerary.saved,
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("itinerary_add_transportation"),
+        ) {
+            Text("+ Transportation")
         }
         Spacer(Modifier.height(16.dp))
     }

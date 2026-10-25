@@ -102,10 +102,6 @@ fun CPEN321ApplicationApp(
                 AppDestinations.MAP -> MapRoute(
                     modifier = Modifier.padding(innerPadding),
                 )
-                else -> Greeting2(
-                    name = currentDestination.label,
-                    modifier = Modifier.padding(innerPadding),
-                )
             }
         }
     }
@@ -118,7 +114,6 @@ enum class AppDestinations(
     EVENTS("Events", R.drawable.notifications_24px),
     TRIPS("Trips", R.drawable.trip_24px),
     MAP("Map", R.drawable.map_24px),
-    CALCULATOR("Calculator", R.drawable.calculate_24px),
     PROFILE("Profile", R.drawable.ic_account_box),
 }
 
