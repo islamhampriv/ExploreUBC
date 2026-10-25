@@ -25,10 +25,12 @@ interface ItinerariesRepository {
 
     suspend fun getItinerary(userId: String, itineraryId: String): Itinerary
 
-    suspend fun updateItineraryDetails(
+    suspend fun generateRecommendations(userId: String): List<Itinerary>
+
+    suspend fun updateItinerary(
         userId: String,
         itineraryId: String,
-        details: ItineraryDetails,
+        update: ItineraryUpdate,
     ): Itinerary
 
     suspend fun addActivity(
@@ -121,16 +123,32 @@ class ItinerariesApi(private val apiBaseUrl: String) : ItinerariesRepository {
         parseItinerary(response.getJSONObject("itinerary"))
     }
 
-    override suspend fun updateItineraryDetails(
+    override suspend fun generateRecommendations(userId: String): List<Itinerary> =
+        withContext(Dispatchers.IO) {
+            val response = execute(
+                method = "POST",
+                path = "/api/v1/users/${encode(userId)}/recommendations",
+                requestBody = JSONObject().toString(),
+                timeoutMillis = 60_000,
+            )
+            val itineraries = response.getJSONArray("itineraries")
+            List(itineraries.length()) { index ->
+                parseItinerary(itineraries.getJSONObject(index))
+            }
+        }
+
+    override suspend fun updateItinerary(
         userId: String,
         itineraryId: String,
-        details: ItineraryDetails,
+        update: ItineraryUpdate,
     ): Itinerary = withContext(Dispatchers.IO) {
         val requestBody = JSONObject()
-            .put("name", details.name)
             .apply {
-                details.description?.let { put("description", it) }
-                details.startingLocation?.let { put("startingLocation", it) }
+                update.name?.let { put("name", it) }
+                update.description?.let { put("description", it) }
+                update.startingLocation?.let { put("startingLocation", it) }
+                update.saved?.let { put("saved", it) }
+                update.inRecommendation?.let { put("inRecommendation", it) }
             }
             .toString()
         val response = execute(
@@ -264,13 +282,14 @@ class ItinerariesApi(private val apiBaseUrl: String) : ItinerariesRepository {
         method: String,
         path: String,
         requestBody: String? = null,
+        timeoutMillis: Int = 5_000,
     ): JSONObject {
         val connection = URL("${apiBaseUrl.trimEnd('/')}$path")
             .openConnection() as HttpURLConnection
         return try {
             connection.requestMethod = method
-            connection.connectTimeout = 5_000
-            connection.readTimeout = 5_000
+            connection.connectTimeout = timeoutMillis
+            connection.readTimeout = timeoutMillis
             connection.setRequestProperty("Accept", "application/json")
             if (requestBody != null) {
                 connection.doOutput = true

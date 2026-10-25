@@ -448,7 +448,7 @@ export function parseItineraryDetailsUpdate(
   const details: string[] = [];
   addUnexpectedFields(
     value,
-    ['name', 'description', 'startingLocation'],
+    ['name', 'description', 'startingLocation', 'saved', 'inRecommendation'],
     '',
     details,
   );
@@ -467,11 +467,21 @@ export function parseItineraryDetailsUpdate(
     500,
     details,
   );
+  const saved = value.saved;
+  if (saved !== undefined && typeof saved !== 'boolean') {
+    details.push('saved must be a boolean.');
+  }
+  const inRecommendation = value.inRecommendation;
+  if (inRecommendation !== undefined && typeof inRecommendation !== 'boolean') {
+    details.push('inRecommendation must be a boolean.');
+  }
 
   if (
     name === undefined &&
     description === undefined &&
     startingLocation === undefined &&
+    saved === undefined &&
+    inRecommendation === undefined &&
     details.length === 0
   ) {
     details.push('At least one itinerary detail must be provided.');
@@ -485,6 +495,8 @@ export function parseItineraryDetailsUpdate(
     ...(name === undefined ? {} : { name }),
     ...(description === undefined ? {} : { description }),
     ...(startingLocation === undefined ? {} : { startingLocation }),
+    ...(typeof saved === 'boolean' ? { saved } : {}),
+    ...(typeof inRecommendation === 'boolean' ? { inRecommendation } : {}),
   };
 }
 

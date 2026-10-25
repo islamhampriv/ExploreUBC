@@ -70,6 +70,14 @@ data class ItineraryDetails(
     val startingLocation: String? = null,
 )
 
+data class ItineraryUpdate(
+    val name: String? = null,
+    val description: String? = null,
+    val startingLocation: String? = null,
+    val saved: Boolean? = null,
+    val inRecommendation: Boolean? = null,
+)
+
 data class CreateItineraryInput(
     val name: String,
     val description: String? = null,
