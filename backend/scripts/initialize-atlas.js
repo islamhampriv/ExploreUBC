@@ -10,8 +10,10 @@ const userValidator = {
       'googleSubject',
       'email',
       'displayName',
+      'profileImageUrl',
       'start_location',
       'preferences',
+      'onboardingCompletedAt',
       'create_at',
       'updated_at',
     ],
@@ -20,6 +22,7 @@ const userValidator = {
       googleSubject: { bsonType: 'string' },
       email: { bsonType: 'string' },
       displayName: { bsonType: 'string' },
+      profileImageUrl: { bsonType: ['string', 'null'] },
       start_location: { bsonType: 'string' },
       preferences: {
         bsonType: 'object',
@@ -42,8 +45,25 @@ const userValidator = {
           },
         },
       },
+      onboardingCompletedAt: { bsonType: ['date', 'null'] },
       create_at: { bsonType: 'date' },
       updated_at: { bsonType: 'date' },
+    },
+  },
+};
+
+const sessionValidator = {
+  $jsonSchema: {
+    bsonType: 'object',
+    title: 'ExploreUBC session',
+    additionalProperties: false,
+    required: ['_id', 'userId', 'tokenHash', 'createdAt', 'expiresAt'],
+    properties: {
+      _id: { bsonType: 'objectId' },
+      userId: { bsonType: 'objectId' },
+      tokenHash: { bsonType: 'string' },
+      createdAt: { bsonType: 'date' },
+      expiresAt: { bsonType: 'date' },
     },
   },
 };
@@ -181,6 +201,17 @@ async function initializeDatabase() {
     ]);
     await ensureCollection(database, 'itineraries', itineraryValidator, [
       [{ ownerId: 1, updatedAt: -1 }, { name: 'owner_updated_at' }],
+    ]);
+    await ensureCollection(database, 'sessions', sessionValidator, [
+      [
+        { tokenHash: 1 },
+        { unique: true, name: 'unique_session_token_hash' },
+      ],
+      [
+        { expiresAt: 1 },
+        { expireAfterSeconds: 0, name: 'expire_sessions' },
+      ],
+      [{ userId: 1 }, { name: 'sessions_by_user' }],
     ]);
 
     const liveEvents = database.collection('liveevents');

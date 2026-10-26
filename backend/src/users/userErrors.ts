@@ -14,3 +14,13 @@ export class UserNotFoundError extends Error {
     this.name = 'UserNotFoundError';
   }
 }
+
+export class InvalidOnboardingError extends Error {
+  readonly details: string[];
+
+  constructor(details: string[]) {
+    super('The onboarding form is invalid.');
+    this.name = 'InvalidOnboardingError';
+    this.details = details;
+  }
+}

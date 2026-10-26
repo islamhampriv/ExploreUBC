@@ -1,10 +1,8 @@
 package com.exploreUBC.cpen321application.data.events
 
-import java.net.HttpURLConnection
-import java.net.URL
+import com.exploreUBC.cpen321application.data.network.ApiRequest
+import com.exploreUBC.cpen321application.data.network.BackendClient
 import java.net.URLEncoder
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import org.json.JSONObject
 
 interface EventsRepository {
@@ -18,7 +16,7 @@ interface EventsRepository {
     ): List<Event>
 }
 
-class EventsApi(private val apiBaseUrl: String) : EventsRepository {
+class EventsApi(private val backendClient: BackendClient) : EventsRepository {
     /** Retrieves recommended events from the backend. */
     override suspend fun getEvents(
         userId: String,
@@ -26,45 +24,31 @@ class EventsApi(private val apiBaseUrl: String) : EventsRepository {
         longitude: Double,
         page: Int,
         limit: Int,
-    ): List<Event> = withContext(Dispatchers.IO) {
+    ): List<Event> {
         val encodedUserId = URLEncoder.encode(userId, "UTF-8")
-        val eventsUrl =
-            "${apiBaseUrl.trimEnd('/')}/api/v1/users/$encodedUserId/events" +
+        val path =
+            "/users/$encodedUserId/events" +
                 "?latitude=$latitude&longitude=$longitude&page=$page&limit=$limit"
-        val connection = URL(eventsUrl).openConnection() as HttpURLConnection
+        val body = backendClient.execute(ApiRequest(method = "GET", path = path))
+        val eventArray = JSONObject(body).getJSONArray("events")
 
-        try {
-            connection.requestMethod = "GET"
-            connection.connectTimeout = 5_000
-            connection.readTimeout = 5_000
-
-            if (connection.responseCode != HttpURLConnection.HTTP_OK) {
-                throw Exception("Backend returned HTTP ${connection.responseCode}")
-            }
-
-            val body = connection.inputStream.bufferedReader().use { it.readText() }
-            val eventArray = JSONObject(body).getJSONArray("events")
-
-            List(eventArray.length()) { index ->
-                val event = eventArray.getJSONObject(index)
-                Event(
-                    id = event.getString("id"),
-                    title = event.getString("title"),
-                    description = event.optionalString("description"),
-                    imageUrl = event.getString("imageUrl"),
-                    startDateTime = event.getString("startDateTime"),
-                    venueName = event.getString("venueName"),
-                    city = event.getString("city"),
-                    category = event.getString("category"),
-                    ticketUrl = event.getString("ticketUrl"),
-                    priceMin = event.optionalDouble("priceMin"),
-                    priceMax = event.optionalDouble("priceMax"),
-                    currency = event.optionalString("currency"),
-                    distanceKm = event.getDouble("distanceKm")
-                )
-            }
-        } finally {
-            connection.disconnect()
+        return List(eventArray.length()) { index ->
+            val event = eventArray.getJSONObject(index)
+            Event(
+                id = event.getString("id"),
+                title = event.getString("title"),
+                description = event.optionalString("description"),
+                imageUrl = event.getString("imageUrl"),
+                startDateTime = event.getString("startDateTime"),
+                venueName = event.getString("venueName"),
+                city = event.getString("city"),
+                category = event.getString("category"),
+                ticketUrl = event.getString("ticketUrl"),
+                priceMin = event.optionalDouble("priceMin"),
+                priceMax = event.optionalDouble("priceMax"),
+                currency = event.optionalString("currency"),
+                distanceKm = event.getDouble("distanceKm")
+            )
         }
     }
 }

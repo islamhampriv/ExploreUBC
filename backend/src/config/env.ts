@@ -13,6 +13,33 @@ if (mongodbUri === undefined || mongodbUri === "") {
   throw new Error("MONGODB_URI is required.");
 }
 
+const googleClientId = process.env.GOOGLE_CLIENT_ID?.trim();
+if (googleClientId === undefined || googleClientId === "") {
+  throw new Error("GOOGLE_CLIENT_ID is required.");
+}
+
+const rawSessionTtlDays = process.env.SESSION_TTL_DAYS?.trim();
+if (
+  rawSessionTtlDays !== undefined &&
+  rawSessionTtlDays !== "" &&
+  !/^\d+$/u.test(rawSessionTtlDays)
+) {
+  throw new Error(`Invalid SESSION_TTL_DAYS: ${rawSessionTtlDays}`);
+}
+
+const sessionTtlDays =
+  rawSessionTtlDays === undefined || rawSessionTtlDays === ""
+    ? 1
+    : Number(rawSessionTtlDays);
+
+if (
+  !Number.isInteger(sessionTtlDays) ||
+  sessionTtlDays < 1 ||
+  sessionTtlDays > 365
+) {
+  throw new Error(`Invalid SESSION_TTL_DAYS: ${rawSessionTtlDays}`);
+}
+
 const rawEventSearchPageSize = process.env.EVENT_SEARCH_PAGE_SIZE;
 const eventSearchPageSize =
   rawEventSearchPageSize === undefined || rawEventSearchPageSize === ""
@@ -30,6 +57,8 @@ if (
 export const env = {
   port,
   mongodbUri,
+  googleClientId,
+  sessionTtlDays,
   ticketmaster: {
     apiKey: process.env.TICKETMASTER_API_KEY,
     baseUrl:

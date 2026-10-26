@@ -1,8 +1,8 @@
 package com.exploreUBC.cpen321application.data.itineraries
 
 import java.io.IOException
-import java.net.HttpURLConnection
-import java.net.URL
+import com.exploreUBC.cpen321application.data.network.ApiRequest
+import com.exploreUBC.cpen321application.data.network.BackendClient
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 import kotlinx.coroutines.Dispatchers
@@ -66,7 +66,7 @@ interface ItinerariesRepository {
     )
 }
 
-class ItinerariesApi(private val apiBaseUrl: String) : ItinerariesRepository {
+class ItinerariesApi(private val backendClient: BackendClient) : ItinerariesRepository {
     /** Creates an empty saved itinerary for a user. */
     override suspend fun createItinerary(
         userId: String,
@@ -258,46 +258,21 @@ class ItinerariesApi(private val apiBaseUrl: String) : ItinerariesRepository {
     }
 
     private fun itineraryCollectionPath(userId: String): String =
-        "/api/v1/users/${encode(userId)}/itineraries"
+        "/users/${encode(userId)}/itineraries"
 
-    private fun execute(
+    private suspend fun execute(
         method: String,
         path: String,
         requestBody: String? = null,
     ): JSONObject {
-        val connection = URL("${apiBaseUrl.trimEnd('/')}$path")
-            .openConnection() as HttpURLConnection
-        return try {
-            connection.requestMethod = method
-            connection.connectTimeout = 5_000
-            connection.readTimeout = 5_000
-            connection.setRequestProperty("Accept", "application/json")
-            if (requestBody != null) {
-                connection.doOutput = true
-                connection.setRequestProperty("Content-Type", "application/json")
-                connection.outputStream.bufferedWriter().use { it.write(requestBody) }
-            }
-
-            val status = connection.responseCode
-            val responseText = if (status in 200..299) {
-                connection.inputStream.bufferedReader().use { it.readText() }
-            } else {
-                connection.errorStream?.bufferedReader()?.use { it.readText() }.orEmpty()
-            }
-            if (status !in 200..299) {
-                val message = runCatching {
-                    JSONObject(responseText)
-                        .getJSONObject("error")
-                        .getString("message")
-                }.getOrNull()
-                throw IOException(
-                    message ?: "Itinerary request failed with HTTP $status"
-                )
-            }
-            if (responseText.isBlank()) JSONObject() else JSONObject(responseText)
-        } finally {
-            connection.disconnect()
-        }
+        val responseText = backendClient.execute(
+            ApiRequest(
+                method = method,
+                path = path,
+                body = requestBody,
+            ),
+        )
+        return if (responseText.isBlank()) JSONObject() else JSONObject(responseText)
     }
 
     private fun parseItinerary(json: JSONObject): Itinerary {
