@@ -74,6 +74,11 @@ export class ItineraryMapService {
       throw error;
     }
   }
+
+  /** Deletes cached map data after its itinerary is deleted. */
+  async deleteItineraryMap(itineraryId: string): Promise<void> {
+    await this.itineraryMapRepository.deleteByItineraryId(itineraryId);
+  }
 }
 
 /** Sorts itinerary items into chronological order. */
