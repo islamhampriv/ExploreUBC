@@ -1,7 +1,12 @@
 import { type Collection, type Db, ObjectId } from 'mongodb';
 
 import type { ItineraryMapRepository } from './itineraryMapRepository';
-import type { ItineraryMap, MapMarker, MapRoute } from './mapTypes';
+import type {
+  ItineraryMap,
+  MapMarker,
+  MapRoute,
+  UnmappedActivity,
+} from './mapTypes';
 
 type ItineraryMapDocument = {
   _id: ObjectId;
@@ -10,6 +15,7 @@ type ItineraryMapDocument = {
   itineraryUpdatedAt: Date;
   markers: MapMarker[];
   routes: MapRoute[];
+  unmappedActivities?: UnmappedActivity[];
   generatedAt: Date;
 };
 
@@ -57,6 +63,7 @@ export class ItineraryMapDao implements ItineraryMapRepository {
           itineraryUpdatedAt: new Date(mapData.itineraryUpdatedAt),
           markers: mapData.markers,
           routes: mapData.routes,
+          unmappedActivities: mapData.unmappedActivities,
           generatedAt: new Date(mapData.generatedAt),
         },
         $setOnInsert: { _id: new ObjectId() },
@@ -84,6 +91,7 @@ export class ItineraryMapDao implements ItineraryMapRepository {
       itineraryUpdatedAt: document.itineraryUpdatedAt.toISOString(),
       markers: document.markers,
       routes: document.routes,
+      unmappedActivities: document.unmappedActivities ?? [],
       generatedAt: document.generatedAt.toISOString(),
     };
   }
