@@ -1,6 +1,7 @@
 package com.exploreUBC.cpen321application.ui.trips
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -36,6 +37,8 @@ import com.exploreUBC.cpen321application.data.itineraries.ItinerariesRepository
 import com.exploreUBC.cpen321application.data.itineraries.Itinerary
 import com.exploreUBC.cpen321application.data.itineraries.ItineraryDetails
 import com.exploreUBC.cpen321application.data.itineraries.ItineraryItem
+import com.exploreUBC.cpen321application.ui.map.CampusMapView
+import com.exploreUBC.cpen321application.ui.map.MapLayerMode
 import java.util.Locale
 
 private const val MISSING_USER_MESSAGE = "A user ID is required to load itineraries."
@@ -63,6 +66,7 @@ private fun TripsRouteContent(state: TripsRouteState, modifier: Modifier) {
     val itinerary = state.selectedItinerary
     val item = state.selectedItem
     val itemType = state.newItemType
+    var showMap by remember(itinerary?.id) { mutableStateOf(false) }
     val listStatus = if (state.hasUser) state.statusMessage else MISSING_USER_MESSAGE
     if (itinerary == null) {
         TripsList(
@@ -79,6 +83,12 @@ private fun TripsRouteContent(state: TripsRouteState, modifier: Modifier) {
                 state.createItinerary,
                 state.showGenerateConfirmationAction,
             ),
+            modifier = modifier,
+        )
+    } else if (showMap) {
+        ItineraryMap(
+            itinerary = itinerary,
+            onClose = { showMap = false },
             modifier = modifier,
         )
     } else if (item != null) {
@@ -115,9 +125,34 @@ private fun TripsRouteContent(state: TripsRouteState, modifier: Modifier) {
                 onSaveDetails = state.saveDetails,
                 onSaveRecommendation = state.saveRecommendation,
                 onDelete = state.deleteItinerary,
+                onViewMap = { showMap = true },
             ),
             modifier = modifier,
         )
+    }
+}
+
+@Composable
+private fun ItineraryMap(
+    itinerary: Itinerary,
+    onClose: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Box(modifier = modifier.fillMaxSize()) {
+        CampusMapView(
+            mode = MapLayerMode.TRIP_ROUTES,
+            itineraries = listOf(itinerary),
+            modifier = Modifier.fillMaxSize(),
+        )
+        Button(
+            onClick = onClose,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(start = 16.dp, end = 16.dp, bottom = 88.dp)
+                .testTag("itinerary_hide_map"),
+        ) {
+            Text("Hide Map")
+        }
     }
 }
 
@@ -333,6 +368,7 @@ data class ItineraryScreenActions(
     val onSaveDetails: (ItineraryDetails) -> Unit,
     val onSaveRecommendation: () -> Unit,
     val onDelete: () -> Unit,
+    val onViewMap: () -> Unit = {},
 )
 
 private class ItineraryEditorState(itinerary: Itinerary) {
@@ -373,6 +409,12 @@ fun ItineraryScreen(
     ) {
         TextButton(onClick = actions.onBack, modifier = Modifier.testTag("itinerary_back")) {
             Text("Back to itineraries")
+        }
+        Button(
+            onClick = actions.onViewMap,
+            modifier = Modifier.fillMaxWidth().testTag("itinerary_view_on_map"),
+        ) {
+            Text("View on Map")
         }
         ItineraryDetailsHeader(model, editor)
         if (editor.isEditing) {
@@ -458,12 +500,14 @@ private fun ItineraryDetailsEditor(
         "itinerary_description",
         maxLength = DESCRIPTION_MAX_LENGTH,
     )
-    FormField(
-        editor.startingLocation,
-        { editor.startingLocation = it },
-        "Starting location",
-        "itinerary_starting_location",
+    AddressAutocompleteField(
+        value = editor.startingLocation,
+        onValueChange = { editor.startingLocation = it },
+        label = "Starting location",
+        tag = "itinerary_starting_location",
         maxLength = LOCATION_MAX_LENGTH,
+        placeholder = "e.g. 6138 Student Union Blvd, Vancouver",
+        supportingText = "Pick a recommended address to use as the itinerary's starting pin.",
     )
     Button(
         onClick = { onSave(editor.details()) },
