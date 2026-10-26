@@ -10,6 +10,7 @@ import {
   ItineraryTimeConflictError,
 } from './itineraryErrors';
 import type { ItineraryService } from './itineraryService';
+import type { ItineraryMapService } from '../maps/itineraryMapService';
 import {
   parseItinerary,
   parseItineraryDetailsUpdate,
@@ -104,6 +105,7 @@ function sendError(response: Response, error: unknown): void {
 
 export function createItineraryRouter(
   itineraryService: ItineraryService,
+  itineraryMapService?: ItineraryMapService,
 ): Router {
   const router = Router({ mergeParams: true });
 
@@ -167,6 +169,21 @@ export function createItineraryRouter(
       sendError(response, error);
     }
   });
+
+  if (itineraryMapService !== undefined) {
+    router.get('/:itineraryId/map', async (request, response) => {
+      try {
+        const { userId, itineraryId } = getRouteIds(request.params);
+        const itineraryMap = await itineraryMapService.getItineraryMap(
+          userId,
+          itineraryId,
+        );
+        response.json({ itineraryMap });
+      } catch (error: unknown) {
+        sendError(response, error);
+      }
+    });
+  }
 
   router.get('/:itineraryId', async (request, response) => {
     try {
@@ -312,6 +329,7 @@ export function createItineraryRouter(
     try {
       const { userId, itineraryId } = getRouteIds(request.params);
       await itineraryService.deleteItinerary(userId, itineraryId);
+      await itineraryMapService?.deleteItineraryMap(itineraryId);
       response.status(204).send();
     } catch (error: unknown) {
       sendError(response, error);

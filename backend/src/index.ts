@@ -12,6 +12,8 @@ import type { ItineraryRepository } from './itineraries/itineraryRepository';
 import { createItineraryRouter } from './itineraries/itineraryRouter';
 import { ItineraryService } from './itineraries/itineraryService';
 import { ItineraryMapDao } from './maps/itineraryMapDao';
+import type { ItineraryMapRepository } from './maps/itineraryMapRepository';
+import { ItineraryMapService } from './maps/itineraryMapService';
 import { RecommendationDao } from './recommendation/recommendationDao';
 import type { RecommendationRepository } from './recommendation/recommendationRepository';
 import { createRecommendationRouter } from './recommendation/recommendationRouter';
@@ -29,6 +31,7 @@ import { UserService } from './users/userService';
 
 export type AppDependencies = {
   eventRepository?: EventRepository;
+  itineraryMapRepository?: ItineraryMapRepository;
   itineraryRepository?: ItineraryRepository;
   recommendationGenerator?: ItineraryGenerator;
   recommendationRanker?: ItineraryRanker;
@@ -54,9 +57,16 @@ export function createApp(dependencies: AppDependencies = {}): Express {
     const itineraryService = new ItineraryService(
       dependencies.itineraryRepository,
     );
+    const itineraryMapService =
+      dependencies.itineraryMapRepository === undefined
+        ? undefined
+        : new ItineraryMapService(
+            dependencies.itineraryRepository,
+            dependencies.itineraryMapRepository,
+          );
     app.use(
       '/api/v1/users/:userId/itineraries',
-      createItineraryRouter(itineraryService),
+      createItineraryRouter(itineraryService, itineraryMapService),
     );
   }
 
@@ -107,10 +117,12 @@ if (process.env.VERCEL === '1') {
 const database = mongoClient.db('cpen321');
 const eventDao = new EventDao(database);
 const userDao = new UserDao(database);
+const itineraryDao = new ItineraryDao(database);
 const itineraryMapDao = new ItineraryMapDao(database);
 const app = createApp({
   eventRepository: eventDao,
-  itineraryRepository: new ItineraryDao(database),
+  itineraryMapRepository: itineraryMapDao,
+  itineraryRepository: itineraryDao,
   recommendationGenerator: new SoclaasClient(env.soclaas),
   recommendationRanker: new UniversalSentenceEncoderItineraryRanker(),
   recommendationRepository: new RecommendationDao(database),
