@@ -47,6 +47,21 @@ android {
             "MAPS_API_KEY",
             "\"${localProperty("MAPS_API_KEY")}\""
         )
+        buildConfigField(
+            "String",
+            "GEOCODING_API_KEY",
+            "\"${localProperty("GEOCODING_API_KEY")}\""
+        )
+        buildConfigField(
+            "String",
+            "ROUTES_API_KEY",
+            "\"${localProperty("ROUTES_API_KEY")}\""
+        )
+        buildConfigField(
+            "String",
+            "PLACES_API_KEY",
+            "\"${localProperty("PLACES_API_KEY")}\""
+        )
         resValue("string", "google_maps_key", localProperty("MAPS_API_KEY", "YOUR_API_KEY"))
     }
 

@@ -50,6 +50,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import com.exploreUBC.cpen321application.R
+import com.exploreUBC.cpen321application.ui.map.CampusMapView
+import com.exploreUBC.cpen321application.ui.map.MapLayerMode
 import com.exploreUBC.cpen321application.data.itineraries.ActivityItem
 import com.exploreUBC.cpen321application.data.itineraries.ActivityUpdate
 import com.exploreUBC.cpen321application.data.itineraries.CreateActivityInput
@@ -110,6 +112,7 @@ fun TripsRoute(
     var isLoading by remember(userId) { mutableStateOf(false) }
     var isSaving by remember(userId) { mutableStateOf(false) }
     var statusMessage by remember(userId) { mutableStateOf<String?>(null) }
+    var showMap by remember(userId, selectedItinerary?.id) { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(userId, itinerariesRepository) {
@@ -320,51 +323,69 @@ fun TripsRoute(
             },
             modifier = modifier,
         )
+    } else if (showMap) {
+        Box(modifier = modifier.fillMaxSize()) {
+            CampusMapView(
+                mode = MapLayerMode.TRIP_ROUTES,
+                itineraries = listOf(itinerary),
+                modifier = Modifier.fillMaxSize(),
+            )
+            Button(
+                onClick = { showMap = false },
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(start = 16.dp, end = 16.dp, bottom = 88.dp)
+                    .testTag("itinerary_hide_map"),
+            ) {
+                Text("Hide Map")
+            }
+        }
     } else {
         ItineraryScreen(
             itinerary = itinerary,
+            onViewMap = { showMap = true },
             isSaving = isSaving,
             statusMessage = statusMessage,
-            onBack = {
-                selectedItem = null
-                newItemType = null
-                selectedItinerary = null
-                statusMessage = null
-            },
-            onItemClick = {
-                statusMessage = null
-                selectedItem = it
-            },
-            onAddActivity = {
-                statusMessage = null
-                newItemType = NewItemType.ACTIVITY
-            },
-            onAddTransportation = {
-                statusMessage = null
-                newItemType = NewItemType.TRANSPORTATION
-            },
-            onSave = { details ->
-                if (userId.isNullOrBlank()) return@ItineraryScreen
-                scope.launch {
-                    isSaving = true
+                onBack = {
+                    selectedItem = null
+                    newItemType = null
+                    selectedItinerary = null
                     statusMessage = null
-                    runCatching {
-                        itinerariesRepository.updateItineraryDetails(
-                            userId,
-                            itinerary.id,
-                            details,
-                        )
-                    }.onSuccess { updated ->
-                        selectedItinerary = updated
-                        savedItineraries = savedItineraries.replace(updated)
-                        recommendedItineraries = recommendedItineraries.replace(updated)
-                        statusMessage = "Itinerary details saved."
-                    }.onFailure {
-                        statusMessage = it.message ?: "Could not save itinerary details."
+                },
+                onItemClick = {
+                    statusMessage = null
+                    selectedItem = it
+                },
+                onAddActivity = {
+                    statusMessage = null
+                    newItemType = NewItemType.ACTIVITY
+                },
+                onAddTransportation = {
+                    statusMessage = null
+                    newItemType = NewItemType.TRANSPORTATION
+                },
+                onSave = { details ->
+                    if (userId.isNullOrBlank()) return@ItineraryScreen
+                    scope.launch {
+                        isSaving = true
+                        statusMessage = null
+                        runCatching {
+                            itinerariesRepository.updateItineraryDetails(
+                                userId,
+                                itinerary.id,
+                                details,
+                            )
+                        }.onSuccess { updated ->
+                            selectedItinerary = updated
+                            savedItineraries = savedItineraries.replace(updated)
+                            recommendedItineraries = recommendedItineraries.replace(updated)
+                            statusMessage = "Itinerary details saved."
+                        }.onFailure {
+                            statusMessage = it.message ?: "Could not save itinerary details."
+                        }
+                        isSaving = false
                     }
-                    isSaving = false
-                }
-            },
+                },
             modifier = modifier,
         )
     }
@@ -456,6 +477,10 @@ private fun androidx.compose.foundation.lazy.LazyListScope.itinerarySection(
                 Column(Modifier.padding(16.dp)) {
                     Text(itinerary.name, fontWeight = FontWeight.Bold)
                     itinerary.description?.takeIf { it.isNotBlank() }?.let { Text(it) }
+                    Text(
+                        itinerary.startingLocation?.takeIf { it.isNotBlank() }
+                            ?: "No address set",
+                    )
                     Text("${itinerary.items.size} items")
                 }
             }
@@ -466,6 +491,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.itinerarySection(
 @Composable
 fun ItineraryScreen(
     itinerary: Itinerary,
+    onViewMap: () -> Unit,
     isSaving: Boolean,
     statusMessage: String?,
     onBack: () -> Unit,
@@ -492,6 +518,14 @@ fun ItineraryScreen(
     ) {
         TextButton(onClick = onBack, modifier = Modifier.testTag("itinerary_back")) {
             Text("Back to itineraries")
+        }
+        Button(
+            onClick = onViewMap,
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("itinerary_view_on_map"),
+        ) {
+            Text("View on Map")
         }
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -532,19 +566,13 @@ fun ItineraryScreen(
                 label = { Text("Description") },
                 modifier = Modifier.fillMaxWidth().testTag("itinerary_description"),
             )
-            OutlinedTextField(
-                value = startingLocation,
-                onValueChange = { startingLocation = it },
-                label = { Text("Starting location") },
-                modifier = Modifier.fillMaxWidth().testTag("itinerary_starting_location"),
-            )
             Button(
                 onClick = {
                     onSave(
                         ItineraryDetails(
                             name = name,
                             description = description,
-                            startingLocation = startingLocation,
+                            startingLocation = startingLocation.trim(),
                         ),
                     )
                 },
@@ -556,10 +584,29 @@ fun ItineraryScreen(
         } else {
             DetailField("Name", itinerary.name)
             DetailField("Description", itinerary.description?.takeIf { it.isNotBlank() } ?: "Not set")
-            DetailField(
-                "Starting location",
-                itinerary.startingLocation?.takeIf { it.isNotBlank() } ?: "Not set",
-            )
+        }
+        AddressAutocompleteField(
+            value = startingLocation,
+            onValueChange = { startingLocation = it },
+            label = "Address",
+            tag = "itinerary_starting_location",
+            placeholder = "e.g. 6138 Student Union Blvd, Vancouver",
+            supportingText = "Pick a recommended address. It is shown as a blue pin on this tab.",
+        )
+        Button(
+            onClick = {
+                onSave(
+                    ItineraryDetails(
+                        name = name,
+                        description = description,
+                        startingLocation = startingLocation.trim(),
+                    ),
+                )
+            },
+            enabled = !isSaving && name.isNotBlank(),
+            modifier = Modifier.fillMaxWidth().testTag("itinerary_save_address"),
+        ) {
+            Text(if (isSaving) "Saving…" else "Save address")
         }
         statusMessage?.let { Text(it, modifier = Modifier.testTag("itinerary_status")) }
 
@@ -680,7 +727,12 @@ private fun NewActivityScreen(
             onSelected = { category = it },
             tag = "new_activity_category",
         )
-        FormField(location, { location = it }, "Location", "new_activity_location")
+        AddressAutocompleteField(
+            value = location,
+            onValueChange = { location = it },
+            label = "Location",
+            tag = "new_activity_location",
+        )
         DateTimePickerField(
             label = "Start time",
             value = startTime,
@@ -742,8 +794,18 @@ private fun NewTransportationScreen(
             onSelected = { mode = it },
             tag = "new_transportation_mode",
         )
-        FormField(startLocation, { startLocation = it }, "Start location", "new_transportation_start_location")
-        FormField(endLocation, { endLocation = it }, "End location", "new_transportation_end_location")
+        AddressAutocompleteField(
+            value = startLocation,
+            onValueChange = { startLocation = it },
+            label = "Start location",
+            tag = "new_transportation_start_location",
+        )
+        AddressAutocompleteField(
+            value = endLocation,
+            onValueChange = { endLocation = it },
+            label = "End location",
+            tag = "new_transportation_end_location",
+        )
         FormField(distanceMeters, { distanceMeters = it }, "Distance in meters", "new_transportation_distance")
         DateTimePickerField(
             label = "Start time",
@@ -1163,7 +1225,12 @@ private fun EditActivityForm(
         onSelected = { category = it },
         tag = "edit_activity_category",
     )
-    FormField(location, { location = it }, "Location", "edit_activity_location")
+    AddressAutocompleteField(
+        value = location,
+        onValueChange = { location = it },
+        label = "Location",
+        tag = "edit_activity_location",
+    )
     DateTimePickerField(
         label = "Start time",
         value = startTime,
@@ -1226,8 +1293,18 @@ private fun EditTransportationForm(
         onSelected = { mode = it },
         tag = "edit_transportation_mode",
     )
-    FormField(startLocation, { startLocation = it }, "Start location", "edit_transportation_start_location")
-    FormField(endLocation, { endLocation = it }, "End location", "edit_transportation_end_location")
+    AddressAutocompleteField(
+        value = startLocation,
+        onValueChange = { startLocation = it },
+        label = "Start location",
+        tag = "edit_transportation_start_location",
+    )
+    AddressAutocompleteField(
+        value = endLocation,
+        onValueChange = { endLocation = it },
+        label = "End location",
+        tag = "edit_transportation_end_location",
+    )
     FormField(distanceMeters, { distanceMeters = it }, "Distance in meters", "edit_transportation_distance")
     DateTimePickerField(
         label = "Start time",

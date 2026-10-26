@@ -8,7 +8,8 @@ data class ItineraryStop(
     val startTime: String,
     val endTime: String,
     val address: String,
-    val location: LatLng
+    val location: LatLng,
+    val itineraryName: String = "",
 )
 
 data class PopularPlace(
@@ -16,4 +17,10 @@ data class PopularPlace(
     val category: String,
     val address: String,
     val location: LatLng
+)
+
+data class AddressSuggestion(
+    val primaryText: String,
+    val fullAddress: String,
+    val placeId: String,
 )
