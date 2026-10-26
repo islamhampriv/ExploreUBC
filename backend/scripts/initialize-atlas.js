@@ -183,6 +183,12 @@ async function initializeDatabase() {
       [{ ownerId: 1, updatedAt: -1 }, { name: 'owner_updated_at' }],
     ]);
 
+    const itineraryMaps = database.collection('itineraryMaps');
+    await itineraryMaps.createIndex(
+      { itineraryId: 1 },
+      { unique: true, name: 'unique_itinerary_map' },
+    );
+
     const liveEvents = database.collection('liveevents');
     await liveEvents.createIndex(
       { externalId: 1 },
