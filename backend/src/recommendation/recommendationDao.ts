@@ -37,7 +37,7 @@ export class RecommendationDao implements RecommendationRepository {
         inRecommendation: true,
         saved: false,
       })
-      .sort({ updatedAt: -1 })
+      .sort({ 'score.interestSimilarity': -1, updatedAt: -1, _id: 1 })
       .limit(4)
       .toArray();
 
@@ -69,7 +69,7 @@ export class RecommendationDao implements RecommendationRepository {
       updatedAt: now,
       saved: false,
       inRecommendation: false,
-      score: {},
+      score: itinerary.score,
     }));
 
     await this.itineraries.insertMany(documents);

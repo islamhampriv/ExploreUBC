@@ -5,6 +5,7 @@ import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.runtime.mutableStateOf
@@ -128,6 +129,27 @@ class ItineraryScreenTest {
         composeRule.onNodeWithTag("generate_recommendations_loading").assertIsDisplayed()
     }
 
+    @Test
+    fun recommendedCardShowsScoreOutOfFive() {
+        composeRule.setContent {
+            TripsList(
+                savedItineraries = emptyList(),
+                recommendedItineraries = listOf(
+                    itinerary(saved = false, inRecommendation = true),
+                ),
+                isLoading = false,
+                isGenerating = false,
+                statusMessage = null,
+                onItineraryClick = {},
+                onGenerateRecommendations = {},
+            )
+        }
+
+        composeRule.onNodeWithText("4.9/5").assertIsDisplayed()
+        composeRule.onNodeWithTag("recommended_itinerary_score_itinerary-1")
+            .assertIsDisplayed()
+    }
+
     private fun itinerary(saved: Boolean, inRecommendation: Boolean) = Itinerary(
         id = "itinerary-1",
         ownerId = "user-1",
@@ -150,7 +172,10 @@ class ItineraryScreenTest {
         updatedAt = "2026-10-25T12:00:00.000Z",
         saved = saved,
         inRecommendation = inRecommendation,
-        score = emptyMap(),
+        score = mapOf(
+            "interestSimilarity" to 0.9,
+            "interestSimilarityOutOfFive" to 4.85,
+        ),
     )
 
     private fun assertTagAbsent(tag: String) {

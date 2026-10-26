@@ -4,8 +4,14 @@ import { createApp } from '../../../src/index';
 import type { Itinerary } from '../../../src/itineraries/itineraryTypes';
 import type { RecommendationRepository } from '../../../src/recommendation/recommendationRepository';
 import { SoclaasClient } from '../../../src/recommendation/soclaasClient';
+import {
+  cleanTextForRanking,
+  UniversalSentenceEncoderItineraryRanker,
+} from '../../../src/recommendation/universalSentenceEncoderRanker';
 import type {
+  GeneratedItineraryInput,
   ItineraryGenerator,
+  ItineraryRanker,
   RecommendationProfile,
   RecommendedItineraryInput,
 } from '../../../src/recommendation/recommendationTypes';
@@ -106,7 +112,6 @@ class TestRecommendationRepository implements RecommendationRepository {
       updatedAt: '2026-10-25T12:00:00.000Z',
       saved: false,
       inRecommendation: true,
-      score: {},
     }));
     return this.itineraries;
   }
@@ -123,25 +128,51 @@ class TestGenerator implements ItineraryGenerator {
   }
 }
 
+class TestRanker implements ItineraryRanker {
+  receivedInterest: string | undefined;
+
+  async rankItineraries(
+    itineraries: GeneratedItineraryInput[],
+    interest: UserPreferences['interest'],
+  ): Promise<RecommendedItineraryInput[]> {
+    this.receivedInterest = interest;
+    const scores = [0.25, 0.9, 0.5, 0.75];
+    return itineraries.map((itinerary, index) => {
+      const interestSimilarity = scores[index] ?? 0;
+      return {
+        ...itinerary,
+        score: {
+          interestSimilarity,
+          interestSimilarityOutOfFive:
+            3.5 + ((interestSimilarity - 0.25) / 0.65) * 1.5,
+        },
+      };
+    });
+  }
+}
+
 function buildApp(
   generator: ItineraryGenerator,
   repository = new TestRecommendationRepository(),
   userRepository: UserRepository = new TestUserRepository(),
+  ranker = new TestRanker(),
 ) {
   return {
     app: createApp({
       recommendationGenerator: generator,
+      recommendationRanker: ranker,
       recommendationRepository: repository,
       userRepository,
     }),
     repository,
+    ranker,
   };
 }
 
 describe('Mocked: POST /api/v1/users/:userId/recommendations', () => {
-  test('loads the route user profile and persists four candidates', async () => {
+  test('loads the profile and returns generated and fetched results by score', async () => {
     const generator = new TestGenerator(generatedJson());
-    const { app } = buildApp(generator);
+    const { app, ranker } = buildApp(generator);
 
     const response = await supertest(app)
       .post(`/api/v1/users/${USER_ID}/recommendations`)
@@ -152,14 +183,33 @@ describe('Mocked: POST /api/v1/users/:userId/recommendations', () => {
       start_location: 'UBC Bus Exchange',
       preferences: PREFERENCES,
     });
+    expect(ranker.receivedInterest).toBe('art');
     expect(response.body.itineraries).toHaveLength(4);
+    expect(response.body.itineraries.map((itinerary: Itinerary) => itinerary.name))
+      .toEqual([
+        'Generated itinerary 2',
+        'Generated itinerary 4',
+        'Generated itinerary 3',
+        'Generated itinerary 1',
+      ]);
     expect(response.body.itineraries[0]).toMatchObject({
       ownerId: USER_ID,
       startingLocation: 'UBC Bus Exchange',
       saved: false,
       inRecommendation: true,
-      score: {},
+      score: {
+        interestSimilarity: 0.9,
+        interestSimilarityOutOfFive: 5,
+      },
     });
+
+    const fetched = await supertest(app)
+      .get(`/api/v1/users/${USER_ID}/recommendations`);
+
+    expect(fetched.status).toBe(200);
+    expect(fetched.body.itineraries.map((itinerary: Itinerary) =>
+      itinerary.score.interestSimilarity,
+    )).toEqual([0.9, 0.75, 0.5, 0.25]);
   });
 
   test('keeps existing recommendations when the LLM returns fewer than four', async () => {
@@ -200,6 +250,55 @@ describe('Mocked: POST /api/v1/users/:userId/recommendations', () => {
 
     expect(response.status).toBe(404);
     expect(response.body.error.code).toBe('USER_NOT_FOUND');
+  });
+});
+
+describe('Universal Sentence Encoder itinerary ranking', () => {
+  test('removes punctuation and stop words before vector lookup', () => {
+    expect(cleanTextForRanking('The museum, and ART! at markets.'))
+      .toBe('museum art markets');
+  });
+
+  test('scores descriptions by cosine similarity and sorts descending', async () => {
+    const embeddingValues: Record<string, number[]> = {
+      art: [1, 0],
+      gallery: [0.9, 0.1],
+      painting: [0.8, 0.2],
+      hiking: [0, 1],
+    };
+    const dispose = jest.fn();
+    const ranker = new UniversalSentenceEncoderItineraryRanker(async () => ({
+      embed: async (texts: string[]) => ({
+        array: async () => texts.map((text) =>
+          embeddingValues[text] ?? embeddingValues[text.split(' ')[0]!] ?? [0, 0],
+        ),
+        dispose,
+      }),
+    }));
+    const candidates: GeneratedItineraryInput[] = [
+      { name: 'Hiking', description: 'The hiking trail.', items: [] },
+      { name: 'Gallery', description: 'A gallery!', items: [] },
+      { name: 'Unknown', description: 'Unmapped vocabulary.', items: [] },
+      { name: 'Painting', description: 'Painting and the arts.', items: [] },
+    ];
+
+    const ranked = await ranker.rankItineraries(candidates, 'art');
+
+    expect(ranked.map((itinerary) => itinerary.name)).toEqual([
+      'Gallery',
+      'Painting',
+      'Hiking',
+      'Unknown',
+    ]);
+    expect(ranked[0]?.score.interestSimilarity).toBeCloseTo(0.993884, 6);
+    expect(ranked[0]?.score.interestSimilarityOutOfFive).toBe(5);
+    expect(ranked[1]?.score.interestSimilarity).toBeCloseTo(0.970143, 6);
+    expect(ranked[1]?.score.interestSimilarityOutOfFive).toBeCloseTo(4.964169, 6);
+    expect(ranked[2]?.score.interestSimilarity).toBe(0);
+    expect(ranked[2]?.score.interestSimilarityOutOfFive).toBe(3.5);
+    expect(ranked[3]?.score.interestSimilarity).toBe(0);
+    expect(ranked[3]?.score.interestSimilarityOutOfFive).toBe(3.5);
+    expect(dispose).toHaveBeenCalledTimes(1);
   });
 });
 

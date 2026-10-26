@@ -1,20 +1,30 @@
 import type { CreateItineraryInput, Itinerary } from '../itineraries/itineraryTypes';
-import type { UserPreferences } from '../users/userTypes';
+import type { InterestPreference, UserPreferences } from '../users/userTypes';
 
 export type RecommendationProfile = {
   start_location: string;
   preferences: UserPreferences;
 };
 
-export type RecommendedItineraryInput = Omit<
+export type GeneratedItineraryInput = Omit<
   CreateItineraryInput,
   'ownerId' | 'saved' | 'inRecommendation' | 'score'
 >;
+
+export type RecommendedItineraryInput = GeneratedItineraryInput &
+  Pick<CreateItineraryInput, 'score'>;
 
 export type RecommendationSet = Itinerary[];
 
 export interface ItineraryGenerator {
   generateItineraries(profile: RecommendationProfile): Promise<string>;
+}
+
+export interface ItineraryRanker {
+  rankItineraries(
+    itineraries: GeneratedItineraryInput[],
+    interest: InterestPreference,
+  ): Promise<RecommendedItineraryInput[]>;
 }
 
 export type SoclaasResponsesApiResponse = {

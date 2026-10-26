@@ -6,17 +6,27 @@ import {
 } from './recommendationErrors';
 import { parseItineraries } from './recommendationParser';
 import type { RecommendationRepository } from './recommendationRepository';
-import type { ItineraryGenerator } from './recommendationTypes';
+import type { ItineraryGenerator, ItineraryRanker } from './recommendationTypes';
+
+function byDescendingInterestSimilarity(
+  left: Itinerary,
+  right: Itinerary,
+): number {
+  return (right.score.interestSimilarity ?? Number.NEGATIVE_INFINITY) -
+    (left.score.interestSimilarity ?? Number.NEGATIVE_INFINITY);
+}
 
 export class RecommendationService {
   constructor(
     private readonly repository: RecommendationRepository,
     private readonly userRepository: UserRepository,
     private readonly generator: ItineraryGenerator,
+    private readonly ranker: ItineraryRanker,
   ) {}
 
   async findLatestRecommendations(userId: string): Promise<Itinerary[]> {
-    return this.repository.findLatestRecommendations(userId);
+    const itineraries = await this.repository.findLatestRecommendations(userId);
+    return [...itineraries].sort(byDescendingInterestSimilarity);
   }
 
   async generateRecommendations(userId: string): Promise<Itinerary[]> {
@@ -34,7 +44,15 @@ export class RecommendationService {
       ...itinerary,
       startingLocation: user.start_location,
     }));
-    return this.repository.replaceLatestRecommendations(userId, itineraries);
+    const rankedItineraries = await this.ranker.rankItineraries(
+      itineraries,
+      user.preferences.interest,
+    );
+    const recommendations = await this.repository.replaceLatestRecommendations(
+      userId,
+      rankedItineraries,
+    );
+    return [...recommendations].sort(byDescendingInterestSimilarity);
   }
 
   parseItineraries(itineraryJson: string) {

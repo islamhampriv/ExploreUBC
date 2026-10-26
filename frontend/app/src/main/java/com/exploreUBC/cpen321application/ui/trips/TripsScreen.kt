@@ -68,6 +68,7 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 private val activityCategories = listOf(
     "",
@@ -186,88 +187,88 @@ fun TripsRoute(
                 statusMessage = null
             },
             onUpdateActivity = { update ->
-                if (itinerary.inRecommendation) return@ItineraryItemScreen
-                if (userId.isNullOrBlank()) return@ItineraryItemScreen
-                scope.launch {
-                    isSaving = true
-                    statusMessage = null
-                    runCatching {
-                        itinerariesRepository.updateActivity(
-                            userId,
-                            itinerary.id,
-                            item.id,
-                            update,
-                        )
-                    }.onSuccess { updatedItem ->
-                        val updated = itinerary.replaceItem(updatedItem)
-                        selectedItem = updatedItem
-                        selectedItinerary = updated
-                        savedItineraries = savedItineraries.replace(updated)
-                        recommendedItineraries = recommendedItineraries.replace(updated)
-                        statusMessage = "Activity saved."
-                    }.onFailure {
-                        statusMessage = it.message ?: "Could not save the activity."
-                    }
-                    isSaving = false
-                }
-            },
-            onUpdateTransportation = { update ->
-                if (itinerary.inRecommendation) return@ItineraryItemScreen
-                if (userId.isNullOrBlank()) return@ItineraryItemScreen
-                scope.launch {
-                    isSaving = true
-                    statusMessage = null
-                    runCatching {
-                        itinerariesRepository.updateTransportationSegment(
-                            userId,
-                            itinerary.id,
-                            item.id,
-                            update,
-                        )
-                    }.onSuccess { updatedItem ->
-                        val updated = itinerary.replaceItem(updatedItem)
-                        selectedItem = updatedItem
-                        selectedItinerary = updated
-                        savedItineraries = savedItineraries.replace(updated)
-                        recommendedItineraries = recommendedItineraries.replace(updated)
-                        statusMessage = "Transportation saved."
-                    }.onFailure {
-                        statusMessage = it.message ?: "Could not save transportation."
-                    }
-                    isSaving = false
-                }
-            },
-            onDelete = {
-                if (itinerary.inRecommendation) return@ItineraryItemScreen
-                if (userId.isNullOrBlank()) return@ItineraryItemScreen
-                scope.launch {
-                    isSaving = true
-                    statusMessage = null
-                    runCatching {
-                        when (item) {
-                            is ActivityItem -> itinerariesRepository.deleteActivity(
+                if (!itinerary.inRecommendation && !userId.isNullOrBlank()) {
+                    scope.launch {
+                        isSaving = true
+                        statusMessage = null
+                        runCatching {
+                            itinerariesRepository.updateActivity(
                                 userId,
                                 itinerary.id,
                                 item.id,
+                                update,
                             )
-                            is TransportationItem ->
-                                itinerariesRepository.deleteTransportationSegment(
+                        }.onSuccess { updatedItem ->
+                            val updated = itinerary.replaceItem(updatedItem)
+                            selectedItem = updatedItem
+                            selectedItinerary = updated
+                            savedItineraries = savedItineraries.replace(updated)
+                            recommendedItineraries = recommendedItineraries.replace(updated)
+                            statusMessage = "Activity saved."
+                        }.onFailure {
+                            statusMessage = it.message ?: "Could not save the activity."
+                        }
+                        isSaving = false
+                    }
+                }
+            },
+            onUpdateTransportation = { update ->
+                if (!itinerary.inRecommendation && !userId.isNullOrBlank()) {
+                    scope.launch {
+                        isSaving = true
+                        statusMessage = null
+                        runCatching {
+                            itinerariesRepository.updateTransportationSegment(
+                                userId,
+                                itinerary.id,
+                                item.id,
+                                update,
+                            )
+                        }.onSuccess { updatedItem ->
+                            val updated = itinerary.replaceItem(updatedItem)
+                            selectedItem = updatedItem
+                            selectedItinerary = updated
+                            savedItineraries = savedItineraries.replace(updated)
+                            recommendedItineraries = recommendedItineraries.replace(updated)
+                            statusMessage = "Transportation saved."
+                        }.onFailure {
+                            statusMessage = it.message ?: "Could not save transportation."
+                        }
+                        isSaving = false
+                    }
+                }
+            },
+            onDelete = {
+                if (!itinerary.inRecommendation && !userId.isNullOrBlank()) {
+                    scope.launch {
+                        isSaving = true
+                        statusMessage = null
+                        runCatching {
+                            when (item) {
+                                is ActivityItem -> itinerariesRepository.deleteActivity(
                                     userId,
                                     itinerary.id,
                                     item.id,
                                 )
+                                is TransportationItem ->
+                                    itinerariesRepository.deleteTransportationSegment(
+                                        userId,
+                                        itinerary.id,
+                                        item.id,
+                                    )
+                            }
+                        }.onSuccess {
+                            val updated = itinerary.removeItem(item.id)
+                            selectedItem = null
+                            selectedItinerary = updated
+                            savedItineraries = savedItineraries.replace(updated)
+                            recommendedItineraries = recommendedItineraries.replace(updated)
+                            statusMessage = "Item deleted."
+                        }.onFailure {
+                            statusMessage = it.message ?: "Could not delete the item."
                         }
-                    }.onSuccess {
-                        val updated = itinerary.removeItem(item.id)
-                        selectedItem = null
-                        selectedItinerary = updated
-                        savedItineraries = savedItineraries.replace(updated)
-                        recommendedItineraries = recommendedItineraries.replace(updated)
-                        statusMessage = "Item deleted."
-                    }.onFailure {
-                        statusMessage = it.message ?: "Could not delete the item."
+                        isSaving = false
                     }
-                    isSaving = false
                 }
             },
             modifier = modifier,
@@ -426,19 +427,21 @@ fun TripsRoute(
                 TextButton(
                     onClick = {
                         showGenerateConfirmation = false
-                        if (userId.isNullOrBlank()) return@TextButton
-                        scope.launch {
-                            isGenerating = true
-                            statusMessage = null
-                            runCatching {
-                                itinerariesRepository.generateRecommendations(userId)
-                            }.onSuccess { generated ->
-                                recommendedItineraries = generated
-                                statusMessage = "Recommendations generated."
-                            }.onFailure {
-                                statusMessage = it.message ?: "Could not generate recommendations."
+                        if (!userId.isNullOrBlank()) {
+                            scope.launch {
+                                isGenerating = true
+                                statusMessage = null
+                                runCatching {
+                                    itinerariesRepository.generateRecommendations(userId)
+                                }.onSuccess { generated ->
+                                    recommendedItineraries = generated
+                                    statusMessage = "Recommendations generated."
+                                }.onFailure {
+                                    statusMessage =
+                                        it.message ?: "Could not generate recommendations."
+                                }
+                                isGenerating = false
                             }
-                            isGenerating = false
                         }
                     },
                     modifier = Modifier.testTag("confirm_generate_recommendations"),
@@ -583,7 +586,28 @@ private fun androidx.compose.foundation.lazy.LazyListScope.itinerarySection(
                 Column(Modifier.padding(16.dp)) {
                     Text(itinerary.name, fontWeight = FontWeight.Bold)
                     itinerary.description?.takeIf { it.isNotBlank() }?.let { Text(it) }
-                    Text("${itinerary.items.size} items")
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.Bottom,
+                    ) {
+                        Text(
+                            text = "${itinerary.items.size} items",
+                            modifier = Modifier.weight(1f),
+                        )
+                        if (itinerary.inRecommendation) {
+                            val scoreOutOfFive =
+                                itinerary.score["interestSimilarityOutOfFive"]
+                            scoreOutOfFive?.let { score ->
+                                Text(
+                                    text = String.format(Locale.US, "%.1f/5", score),
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.testTag(
+                                        "recommended_itinerary_score_${itinerary.id}",
+                                    ),
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }

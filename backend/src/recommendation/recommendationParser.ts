@@ -5,7 +5,7 @@ import type {
   CreateTransportationInput,
 } from '../itineraries/itineraryTypes';
 import { InvalidRecommendationResponseError } from './recommendationErrors';
-import type { RecommendedItineraryInput } from './recommendationTypes';
+import type { GeneratedItineraryInput } from './recommendationTypes';
 
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -169,7 +169,7 @@ function jsonPayload(text: string): unknown {
   }
 }
 
-export function parseItineraries(text: string): RecommendedItineraryInput[] {
+export function parseItineraries(text: string): GeneratedItineraryInput[] {
   const payload = jsonPayload(text);
   const value = isObject(payload) ? payload.itineraries : undefined;
   if (!Array.isArray(value) || value.length !== 4) {
@@ -195,7 +195,7 @@ export function parseItineraries(text: string): RecommendedItineraryInput[] {
     if (name === undefined || items.length === 0) {
       return [];
     }
-    const itinerary: RecommendedItineraryInput = {
+    const itinerary: GeneratedItineraryInput = {
       name,
       items,
       ...(optionalString(candidate.description) === undefined
