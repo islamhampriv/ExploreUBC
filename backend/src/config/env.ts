@@ -40,4 +40,10 @@ export const env = {
     countryCode: process.env.EVENT_SEARCH_COUNTRY_CODE ?? "CA",
     pageSize: eventSearchPageSize,
   },
+  googleMaps: {
+    mapsApiKey: process.env.MAPS_API_KEY,
+    geocodingApiKey: process.env.GEOCODING_API_KEY,
+    routesApiKey: process.env.ROUTES_API_KEY,
+    placesApiKey: process.env.PLACES_API_KEY,
+  },
 } as const;
