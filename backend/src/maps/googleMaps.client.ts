@@ -1,9 +1,9 @@
 import { env } from '../config/env';
 import type { TransportationMode } from '../users/userTypes';
 import type {
+  CalculatedRoute,
   GeocodedLocation,
   MapCoordinates,
-  MapRoute,
 } from './mapTypes';
 
 const GEOCODING_URL = 'https://maps.googleapis.com/maps/api/geocode/json';
@@ -94,7 +94,7 @@ export async function getRoute(
   origin: MapCoordinates,
   destination: MapCoordinates,
   transportationMode: TransportationMode,
-): Promise<MapRoute | null> {
+): Promise<CalculatedRoute | null> {
   const apiKey = requireApiKey(
     env.googleMaps.routesApiKey,
     'ROUTES_API_KEY',

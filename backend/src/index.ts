@@ -11,6 +11,7 @@ import { ItineraryDao } from './itineraries/itineraryDao';
 import type { ItineraryRepository } from './itineraries/itineraryRepository';
 import { createItineraryRouter } from './itineraries/itineraryRouter';
 import { ItineraryService } from './itineraries/itineraryService';
+import { ItineraryMapDao } from './maps/itineraryMapDao';
 import { RecommendationDao } from './recommendation/recommendationDao';
 import type { RecommendationRepository } from './recommendation/recommendationRepository';
 import { createRecommendationRouter } from './recommendation/recommendationRouter';
@@ -106,6 +107,7 @@ if (process.env.VERCEL === '1') {
 const database = mongoClient.db('cpen321');
 const eventDao = new EventDao(database);
 const userDao = new UserDao(database);
+const itineraryMapDao = new ItineraryMapDao(database);
 const app = createApp({
   eventRepository: eventDao,
   itineraryRepository: new ItineraryDao(database),
@@ -118,6 +120,7 @@ const app = createApp({
 async function start(): Promise<void> {
   await mongoClient.connect();
   await eventDao.createIndexes();
+  await itineraryMapDao.createIndexes();
 
   const server = app.listen(env.port, () => {
     console.log(`Server listening on port ${env.port}`);
