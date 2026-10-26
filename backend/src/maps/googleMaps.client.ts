@@ -15,6 +15,7 @@ interface GeocodingResponse {
   results?: Array<{
     place_id?: string;
     formatted_address?: string;
+    partial_match?: boolean;
     geometry?: {
       location?: {
         lat?: number;
@@ -80,6 +81,7 @@ export async function geocodeAddress(
     coordinates: { latitude, longitude },
     formattedAddress: result.formatted_address,
     placeId: result.place_id,
+    isApproximate: result.partial_match ?? false,
   };
 }
 

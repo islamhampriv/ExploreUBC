@@ -9,6 +9,7 @@ export type GeocodedLocation = {
   coordinates: MapCoordinates;
   formattedAddress: string;
   placeId: string;
+  isApproximate: boolean;
 };
 
 export type MapMarker = {
@@ -17,6 +18,13 @@ export type MapMarker = {
   address: string;
   placeId: string;
   coordinates: MapCoordinates;
+  isApproximate: boolean;
+};
+
+export type UnmappedActivity = {
+  activityId: string;
+  title: string;
+  address: string;
 };
 
 export type CalculatedRoute = {
@@ -38,5 +46,6 @@ export type ItineraryMap = {
   itineraryUpdatedAt: string;
   markers: MapMarker[];
   routes: MapRoute[];
+  unmappedActivities: UnmappedActivity[];
   generatedAt: string;
 };
