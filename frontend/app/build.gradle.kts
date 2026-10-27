@@ -49,16 +49,6 @@ android {
         )
         buildConfigField(
             "String",
-            "GEOCODING_API_KEY",
-            "\"${localProperty("GEOCODING_API_KEY")}\""
-        )
-        buildConfigField(
-            "String",
-            "ROUTES_API_KEY",
-            "\"${localProperty("ROUTES_API_KEY")}\""
-        )
-        buildConfigField(
-            "String",
             "PLACES_API_KEY",
             "\"${localProperty("PLACES_API_KEY")}\""
         )

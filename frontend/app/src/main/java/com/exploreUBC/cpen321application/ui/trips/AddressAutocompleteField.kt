@@ -41,8 +41,6 @@ fun AddressAutocompleteField(
     val mapsApi = remember {
         GoogleMapsApiClient(
             mapsApiKey = BuildConfig.MAPS_API_KEY,
-            geocodingApiKey = BuildConfig.GEOCODING_API_KEY,
-            routesApiKey = BuildConfig.ROUTES_API_KEY,
             placesApiKey = BuildConfig.PLACES_API_KEY,
         )
     }

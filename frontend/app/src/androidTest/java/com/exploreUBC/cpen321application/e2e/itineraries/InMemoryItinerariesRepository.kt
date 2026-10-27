@@ -7,6 +7,7 @@ import com.exploreUBC.cpen321application.data.itineraries.CreateItineraryInput
 import com.exploreUBC.cpen321application.data.itineraries.CreateTransportationInput
 import com.exploreUBC.cpen321application.data.itineraries.ItinerariesRepository
 import com.exploreUBC.cpen321application.data.itineraries.Itinerary
+import com.exploreUBC.cpen321application.data.itineraries.ItineraryMap
 import com.exploreUBC.cpen321application.data.itineraries.ItineraryItem
 import com.exploreUBC.cpen321application.data.itineraries.ItineraryUpdate
 import com.exploreUBC.cpen321application.data.itineraries.TransportationItem
@@ -59,6 +60,22 @@ internal class InMemoryItinerariesRepository : ItinerariesRepository {
         requireItinerary(userId, itineraryId)
 
     override suspend fun generateRecommendations(userId: String): List<Itinerary> = emptyList()
+
+    override suspend fun getItineraryMap(
+        userId: String,
+        itineraryId: String,
+    ): ItineraryMap {
+        val itinerary = requireItinerary(userId, itineraryId)
+        return ItineraryMap(
+            itineraryId = itinerary.id,
+            ownerId = itinerary.ownerId,
+            itineraryUpdatedAt = itinerary.updatedAt,
+            markers = emptyList(),
+            routes = emptyList(),
+            unmappedActivities = emptyList(),
+            generatedAt = itinerary.updatedAt,
+        )
+    }
 
     override suspend fun updateItinerary(
         userId: String,

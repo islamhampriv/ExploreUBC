@@ -18,7 +18,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
-import com.exploreUBC.cpen321application.data.itineraries.Itinerary
+import com.exploreUBC.cpen321application.data.itineraries.ItineraryMap
 import com.exploreUBC.cpen321application.databinding.ActivityMapsBinding
 
 private val locationPermissions = arrayOf(
@@ -30,7 +30,8 @@ private val locationPermissions = arrayOf(
 fun CampusMapView(
     mode: MapLayerMode,
     modifier: Modifier = Modifier,
-    itineraries: List<Itinerary> = emptyList(),
+    itineraryMap: ItineraryMap? = null,
+    overlayTitle: String? = null,
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -93,9 +94,9 @@ fun CampusMapView(
         }
     }
 
-    LaunchedEffect(mode, itineraries) {
-        if (mode == MapLayerMode.TRIP_ROUTES) {
-            controller.showSavedItineraries(itineraries)
+    LaunchedEffect(mode, itineraryMap, overlayTitle) {
+        if (mode == MapLayerMode.TRIP_ROUTES && itineraryMap != null) {
+            controller.showItineraryMap(itineraryMap, overlayTitle.orEmpty())
         }
     }
 
