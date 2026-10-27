@@ -44,53 +44,50 @@ export async function geocodeAddress(
   address: string,
 ): Promise<GeocodedLocation | null> {
   const trimmed = address.trim();
-  const apiKey = configuredApiKey(env.googleMaps.geocodingApiKey);
-  if (trimmed === '' || apiKey === null) {
+  if (trimmed === '') {
     return null;
   }
+  const apiKey = requireApiKey(
+    env.googleMaps.geocodingApiKey,
+    'GEOCODING_API_KEY',
+  );
 
-  try {
-    const query = new URLSearchParams({
-      address: trimmed,
-      region: 'ca',
-      key: apiKey,
-    });
-    const response = await fetch(`${GEOCODING_URL}?${query.toString()}`);
-    if (!response.ok) {
-      console.error(`Geocoding request failed with status ${response.status}`);
-      return null;
-    }
+  const query = new URLSearchParams({
+    address: trimmed,
+    region: 'ca',
+    key: apiKey,
+  });
+  const response = await fetch(`${GEOCODING_URL}?${query.toString()}`);
+  if (!response.ok) {
+    throw new Error(`Geocoding request failed with status ${response.status}`);
+  }
 
-    const body = (await response.json()) as GeocodingResponse;
-    if (body.status !== 'OK') {
-      if (body.status !== 'ZERO_RESULTS') {
-        console.error(body.error_message ?? `Geocoding failed: ${body.status}`);
-      }
-      return null;
-    }
-
-    const result = body.results?.[0];
-    const latitude = result?.geometry?.location?.lat;
-    const longitude = result?.geometry?.location?.lng;
-    if (
-      result?.place_id === undefined ||
-      result.formatted_address === undefined ||
-      latitude === undefined ||
-      longitude === undefined
-    ) {
-      return null;
-    }
-
-    return {
-      coordinates: { latitude, longitude },
-      formattedAddress: result.formatted_address,
-      placeId: result.place_id,
-      isApproximate: result.partial_match ?? false,
-    };
-  } catch (error: unknown) {
-    console.error('Geocoding request failed', error);
+  const body = (await response.json()) as GeocodingResponse;
+  if (body.status === 'ZERO_RESULTS') {
     return null;
   }
+  if (body.status !== 'OK') {
+    throw new Error(body.error_message ?? `Geocoding failed: ${body.status}`);
+  }
+
+  const result = body.results?.[0];
+  const latitude = result?.geometry?.location?.lat;
+  const longitude = result?.geometry?.location?.lng;
+  if (
+    result?.place_id === undefined ||
+    result.formatted_address === undefined ||
+    latitude === undefined ||
+    longitude === undefined
+  ) {
+    throw new Error('Geocoding response is missing location data');
+  }
+
+  return {
+    coordinates: { latitude, longitude },
+    formattedAddress: result.formatted_address,
+    placeId: result.place_id,
+    isApproximate: result.partial_match ?? false,
+  };
 }
 
 /**
@@ -105,60 +102,54 @@ export async function getRoute(
   destination: MapCoordinates,
   transportationMode: TransportationMode,
 ): Promise<CalculatedRoute | null> {
-  const apiKey = configuredApiKey(env.googleMaps.routesApiKey);
-  if (apiKey === null) {
+  const apiKey = requireApiKey(env.googleMaps.routesApiKey, 'ROUTES_API_KEY');
+
+  const response = await fetch(ROUTES_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Goog-Api-Key': apiKey,
+      'X-Goog-FieldMask':
+        'routes.distanceMeters,routes.duration,routes.polyline.encodedPolyline',
+    },
+    body: JSON.stringify({
+      origin: toWaypoint(origin),
+      destination: toWaypoint(destination),
+      travelMode: toGoogleTravelMode(transportationMode),
+    }),
+  });
+  if (!response.ok) {
+    throw new Error(`Routes request failed with status ${response.status}`);
+  }
+
+  const body = (await response.json()) as RoutesResponse;
+  const route = body.routes?.[0];
+  const encodedPolyline = route?.polyline?.encodedPolyline;
+  if (route === undefined || encodedPolyline === undefined) {
     return null;
   }
 
-  try {
-    const response = await fetch(ROUTES_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Goog-Api-Key': apiKey,
-        'X-Goog-FieldMask':
-          'routes.distanceMeters,routes.duration,routes.polyline.encodedPolyline',
-      },
-      body: JSON.stringify({
-        origin: toWaypoint(origin),
-        destination: toWaypoint(destination),
-        travelMode: toGoogleTravelMode(transportationMode),
-      }),
-    });
-    if (!response.ok) {
-      console.error(`Routes request failed with status ${response.status}`);
-      return null;
-    }
-
-    const body = (await response.json()) as RoutesResponse;
-    const route = body.routes?.[0];
-    const encodedPolyline = route?.polyline?.encodedPolyline;
-    if (route === undefined || encodedPolyline === undefined) {
-      return null;
-    }
-
-    return {
-      transportationMode,
-      encodedPolyline,
-      distanceMeters: route.distanceMeters ?? 0,
-      durationSeconds: parseDurationSeconds(route.duration),
-    };
-  } catch (error: unknown) {
-    console.error('Routes request failed', error);
-    return null;
-  }
+  return {
+    transportationMode,
+    encodedPolyline,
+    distanceMeters: route.distanceMeters ?? 0,
+    durationSeconds: parseDurationSeconds(route.duration),
+  };
 }
 
-/** Returns a configured API key, or null when the value is missing. */
-function configuredApiKey(apiKey: string | undefined): string | null {
-  if (apiKey === undefined) {
-    return null;
+/** Returns a configured API key or throws a configuration error. */
+function requireApiKey(
+  apiKey: string | undefined,
+  variableName: string,
+): string {
+  if (
+    apiKey === undefined ||
+    apiKey.trim() === '' ||
+    apiKey.trim().startsWith('your')
+  ) {
+    throw new Error(`${variableName} is not configured`);
   }
-  const trimmed = apiKey.trim();
-  if (trimmed === '' || trimmed.startsWith('your')) {
-    return null;
-  }
-  return trimmed;
+  return apiKey.trim();
 }
 
 /** Converts coordinates into the waypoint format required by Routes API. */

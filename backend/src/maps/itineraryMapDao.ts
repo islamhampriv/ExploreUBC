@@ -88,19 +88,11 @@ export class ItineraryMapDao implements ItineraryMapRepository {
     return {
       itineraryId: document.itineraryId.toHexString(),
       ownerId: document.ownerId.toHexString(),
-      itineraryUpdatedAt: toIsoString(document.itineraryUpdatedAt),
+      itineraryUpdatedAt: document.itineraryUpdatedAt.toISOString(),
       markers: document.markers,
       routes: document.routes,
       unmappedActivities: document.unmappedActivities ?? [],
-      generatedAt: toIsoString(document.generatedAt),
+      generatedAt: document.generatedAt.toISOString(),
     };
   }
-}
-
-function toIsoString(value: Date | string): string {
-  if (value instanceof Date) {
-    return value.toISOString();
-  }
-  const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime()) ? String(value) : parsed.toISOString();
 }
