@@ -38,6 +38,7 @@ import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -46,6 +47,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -59,7 +61,9 @@ import com.exploreUBC.cpen321application.data.itineraries.CreateTransportationIn
 import com.exploreUBC.cpen321application.data.itineraries.ItinerariesRepository
 import com.exploreUBC.cpen321application.data.itineraries.Itinerary
 import com.exploreUBC.cpen321application.data.itineraries.ItineraryDetails
+import com.exploreUBC.cpen321application.data.itineraries.ItineraryHttpException
 import com.exploreUBC.cpen321application.data.itineraries.ItineraryItem
+import com.exploreUBC.cpen321application.data.itineraries.ItineraryMap
 import com.exploreUBC.cpen321application.data.itineraries.TransportationItem
 import com.exploreUBC.cpen321application.data.itineraries.TransportationSegmentUpdate
 import kotlinx.coroutines.async
@@ -324,22 +328,21 @@ fun TripsRoute(
             modifier = modifier,
         )
     } else if (showMap) {
-        Box(modifier = modifier.fillMaxSize()) {
-            CampusMapView(
-                mode = MapLayerMode.TRIP_ROUTES,
-                itineraries = listOf(itinerary),
-                modifier = Modifier.fillMaxSize(),
-            )
-            Button(
-                onClick = { showMap = false },
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(start = 16.dp, end = 16.dp, bottom = 88.dp)
-                    .testTag("itinerary_hide_map"),
-            ) {
-                Text("Hide Map")
-            }
-        }
+        ItineraryMapScreen(
+            userId = userId.orEmpty(),
+            itineraryId = itinerary.id,
+            itineraryName = itinerary.name,
+            itinerariesRepository = itinerariesRepository,
+            onHideMap = { showMap = false },
+            onItineraryMissing = {
+                showMap = false
+                selectedItem = null
+                newItemType = null
+                selectedItinerary = null
+                statusMessage = "This itinerary no longer exists."
+            },
+            modifier = modifier,
+        )
     } else {
         ItineraryScreen(
             itinerary = itinerary,
@@ -388,6 +391,120 @@ fun TripsRoute(
                 },
             modifier = modifier,
         )
+    }
+}
+
+private sealed interface ItineraryMapUiState {
+    data object Loading : ItineraryMapUiState
+    data class Ready(val map: ItineraryMap) : ItineraryMapUiState
+    data object NotFound : ItineraryMapUiState
+    data class Failed(val message: String) : ItineraryMapUiState
+}
+
+@Composable
+private fun ItineraryMapScreen(
+    userId: String,
+    itineraryId: String,
+    itineraryName: String,
+    itinerariesRepository: ItinerariesRepository,
+    onHideMap: () -> Unit,
+    onItineraryMissing: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    var reloadToken by remember(userId, itineraryId) { mutableIntStateOf(0) }
+    var state by remember(userId, itineraryId) {
+        mutableStateOf<ItineraryMapUiState>(ItineraryMapUiState.Loading)
+    }
+
+    LaunchedEffect(userId, itineraryId, reloadToken) {
+        state = ItineraryMapUiState.Loading
+        runCatching {
+            itinerariesRepository.getItineraryMap(userId, itineraryId)
+        }.onSuccess { map ->
+            state = ItineraryMapUiState.Ready(map)
+        }.onFailure { error ->
+            state = if (error is ItineraryHttpException && error.statusCode == 404) {
+                ItineraryMapUiState.NotFound
+            } else {
+                ItineraryMapUiState.Failed(
+                    error.message ?: "Could not load the map.",
+                )
+            }
+        }
+    }
+
+    Box(modifier = modifier.fillMaxSize()) {
+        when (val current = state) {
+            ItineraryMapUiState.Loading -> {
+                Column(
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    CircularProgressIndicator()
+                    Text(stringResource(R.string.map_loading_trips))
+                }
+            }
+            is ItineraryMapUiState.Ready -> {
+                CampusMapView(
+                    mode = MapLayerMode.TRIP_ROUTES,
+                    itineraryMap = current.map,
+                    overlayTitle = itineraryName,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
+            ItineraryMapUiState.NotFound -> {
+                Column(
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Text(stringResource(R.string.map_itinerary_missing))
+                    Button(
+                        onClick = onItineraryMissing,
+                        modifier = Modifier.testTag("itinerary_map_missing_back"),
+                    ) {
+                        Text(stringResource(R.string.map_back_to_trips))
+                    }
+                }
+            }
+            is ItineraryMapUiState.Failed -> {
+                Column(
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Text(current.message.ifBlank { stringResource(R.string.map_load_failed) })
+                    Button(
+                        onClick = { reloadToken += 1 },
+                        modifier = Modifier.testTag("itinerary_map_retry"),
+                    ) {
+                        Text(stringResource(R.string.map_retry))
+                    }
+                }
+            }
+        }
+        if (state !is ItineraryMapUiState.NotFound) {
+            Button(
+                onClick = onHideMap,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(
+                        start = 16.dp,
+                        end = 16.dp,
+                        bottom = if (state is ItineraryMapUiState.Ready) 88.dp else 24.dp,
+                    )
+                    .testTag("itinerary_hide_map"),
+            ) {
+                Text(stringResource(R.string.map_hide))
+            }
+        }
     }
 }
 

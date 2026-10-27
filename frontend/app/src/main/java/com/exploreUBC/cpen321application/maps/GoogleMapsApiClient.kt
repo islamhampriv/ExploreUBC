@@ -4,136 +4,16 @@ import android.net.Uri
 import com.google.android.gms.maps.model.LatLng
 import java.net.HttpURLConnection
 import java.net.URL
-import org.json.JSONArray
 import org.json.JSONObject
 
 class GoogleMapsApiClient(
     private val mapsApiKey: String,
-    private val geocodingApiKey: String = mapsApiKey,
-    private val routesApiKey: String = mapsApiKey,
     private val placesApiKey: String = mapsApiKey,
 ) {
-
-    fun geocode(address: String): LatLng? {
-        val trimmed = address.trim()
-        val key = geocodingApiKey.ifBlank { mapsApiKey }
-        if (trimmed.isEmpty() || key.isBlank() || key == "YOUR_API_KEY") return null
-        parseLatLng(trimmed)?.let { return it }
-
-        val uri = Uri.parse("https://maps.googleapis.com/maps/api/geocode/json").buildUpon()
-            .appendQueryParameter("address", trimmed)
-            .appendQueryParameter("region", "ca")
-            .appendQueryParameter("key", key)
-            .build()
-
-        val json = getJson(uri) ?: return null
-        if (json.optString("status") != "OK") return null
-        val location = json.optJSONArray("results")
-            ?.optJSONObject(0)
-            ?.optJSONObject("geometry")
-            ?.optJSONObject("location")
-            ?: return null
-        return LatLng(location.getDouble("lat"), location.getDouble("lng"))
-    }
-
-    fun fetchDrivingRoute(stops: List<ItineraryStop>): List<LatLng>? {
-        if (stops.size < 2) return null
-        fetchRoutesApiPolyline(stops)?.let { return it }
-        return fetchDirectionsApiPolyline(stops, travelMode = "driving")
-    }
-
-    fun fetchRoutePolyline(stops: List<ItineraryStop>): List<LatLng>? =
-        fetchDrivingRoute(stops)
-
-    private fun fetchRoutesApiPolyline(stops: List<ItineraryStop>): List<LatLng>? {
-        val key = routesApiKey.ifBlank { mapsApiKey }
-        if (key.isBlank() || key == "YOUR_API_KEY") return null
-
-        val origin = stops.first().location
-        val destination = stops.last().location
-        val body = JSONObject()
-            .put("origin", latLngWaypoint(origin))
-            .put("destination", latLngWaypoint(destination))
-            .put("travelMode", "DRIVE")
-            .put("routingPreference", "TRAFFIC_UNAWARE")
-            .apply {
-                if (stops.size > 2) {
-                    val intermediates = JSONArray()
-                    stops.drop(1).dropLast(1).forEach { stop ->
-                        intermediates.put(latLngWaypoint(stop.location))
-                    }
-                    put("intermediates", intermediates)
-                }
-            }
-
-        val connection = (URL("https://routes.googleapis.com/directions/v2:computeRoutes")
-            .openConnection() as HttpURLConnection).apply {
-            requestMethod = "POST"
-            connectTimeout = 8_000
-            readTimeout = 8_000
-            doOutput = true
-            setRequestProperty("Content-Type", "application/json")
-            setRequestProperty("X-Goog-Api-Key", key)
-            setRequestProperty("X-Goog-FieldMask", "routes.polyline.encodedPolyline")
-        }
-        return try {
-            connection.outputStream.bufferedWriter().use { it.write(body.toString()) }
-            if (connection.responseCode != HttpURLConnection.HTTP_OK) return null
-            val json = JSONObject(connection.inputStream.bufferedReader().use { it.readText() })
-            val encoded = json.optJSONArray("routes")
-                ?.optJSONObject(0)
-                ?.optJSONObject("polyline")
-                ?.optString("encodedPolyline")
-                .orEmpty()
-            encoded.takeIf { it.isNotBlank() }?.let { decodePolyline(it) }
-        } catch (_: Exception) {
-            null
-        } finally {
-            connection.disconnect()
-        }
-    }
-
-    private fun fetchDirectionsApiPolyline(
-        stops: List<ItineraryStop>,
-        travelMode: String,
-    ): List<LatLng>? {
-        val key = routesApiKey.ifBlank { mapsApiKey }
-        if (key.isBlank() || key == "YOUR_API_KEY") return null
-
-        val origin = stops.first().location
-        val destination = stops.last().location
-        val waypoints = stops.drop(1).dropLast(1).joinToString("|") {
-            "${it.location.latitude},${it.location.longitude}"
-        }
-
-        val uri = Uri.parse("https://maps.googleapis.com/maps/api/directions/json").buildUpon()
-            .appendQueryParameter("origin", "${origin.latitude},${origin.longitude}")
-            .appendQueryParameter("destination", "${destination.latitude},${destination.longitude}")
-            .appendQueryParameter("mode", travelMode)
-            .apply {
-                if (waypoints.isNotBlank()) {
-                    appendQueryParameter("waypoints", waypoints)
-                }
-            }
-            .appendQueryParameter("key", key)
-            .build()
-
-        val json = getJson(uri) ?: return null
-        if (json.optString("status") != "OK") return null
-
-        val encoded = json.getJSONArray("routes")
-            .optJSONObject(0)
-            ?.getJSONObject("overview_polyline")
-            ?.optString("points")
-            .orEmpty()
-
-        return encoded.takeIf { it.isNotBlank() }?.let { decodePolyline(it) }
-    }
-
     fun autocompleteAddresses(query: String): List<AddressSuggestion> {
         val trimmed = query.trim()
         if (trimmed.length < 3) return emptyList()
-        val keys = listOf(placesApiKey, geocodingApiKey, mapsApiKey)
+        val keys = listOf(placesApiKey, mapsApiKey)
             .map { it.trim() }
             .filter { it.isNotBlank() && it != "YOUR_API_KEY" }
             .distinct()
@@ -210,26 +90,6 @@ class GoogleMapsApiClient(
         }
     }
 
-    private fun latLngWaypoint(point: LatLng): JSONObject =
-        JSONObject().put(
-            "location",
-            JSONObject().put(
-                "latLng",
-                JSONObject()
-                    .put("latitude", point.latitude)
-                    .put("longitude", point.longitude),
-            ),
-        )
-
-    private fun parseLatLng(value: String): LatLng? {
-        val parts = value.split(',').map { it.trim() }
-        if (parts.size != 2) return null
-        val lat = parts[0].toDoubleOrNull() ?: return null
-        val lng = parts[1].toDoubleOrNull() ?: return null
-        if (lat !in -90.0..90.0 || lng !in -180.0..180.0) return null
-        return LatLng(lat, lng)
-    }
-
     private fun getJson(uri: Uri): JSONObject? {
         val connection = (URL(uri.toString()).openConnection() as HttpURLConnection).apply {
             requestMethod = "GET"
@@ -244,36 +104,5 @@ class GoogleMapsApiClient(
         } finally {
             connection.disconnect()
         }
-    }
-
-    private fun decodePolyline(encoded: String): List<LatLng> {
-        val points = mutableListOf<LatLng>()
-        var index = 0
-        var lat = 0
-        var lng = 0
-
-        while (index < encoded.length) {
-            var result = 0
-            var shift = 0
-            var byte: Int
-            do {
-                byte = encoded[index++].code - 63
-                result = result or ((byte and 0x1f) shl shift)
-                shift += 5
-            } while (byte >= 0x20)
-            lat += if (result and 1 != 0) (result shr 1).inv() else result shr 1
-
-            result = 0
-            shift = 0
-            do {
-                byte = encoded[index++].code - 63
-                result = result or ((byte and 0x1f) shl shift)
-                shift += 5
-            } while (byte >= 0x20)
-            lng += if (result and 1 != 0) (result shr 1).inv() else result shr 1
-
-            points.add(LatLng(lat / 1e5, lng / 1e5))
-        }
-        return points
     }
 }
