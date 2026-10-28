@@ -26,15 +26,19 @@ class ItineraryScreenTest {
 
         composeRule.setContent {
             ItineraryScreen(
-                itinerary = itinerary(saved = false, inRecommendation = true),
-                isSaving = false,
-                statusMessage = null,
-                onBack = {},
-                onItemClick = { itemClicks += 1 },
-                onAddActivity = { error("Recommendations cannot add activities") },
-                onAddTransportation = { error("Recommendations cannot add transportation") },
-                onSaveDetails = { error("Recommendation details must be read-only") },
-                onSaveRecommendation = { saveCalls += 1 },
+                model = ItineraryScreenModel(
+                    itinerary(saved = false, inRecommendation = true),
+                    isSaving = false,
+                    statusMessage = null,
+                ),
+                actions = ItineraryScreenActions(
+                    onBack = {},
+                    onItemClick = { itemClicks += 1 },
+                    onAddActivity = { error("Recommendations cannot add activities") },
+                    onAddTransportation = { error("Recommendations cannot add transportation") },
+                    onSaveDetails = { error("Recommendation details must be read-only") },
+                    onSaveRecommendation = { saveCalls += 1 },
+                ),
             )
         }
 
@@ -55,15 +59,21 @@ class ItineraryScreenTest {
     fun savedItineraryShowsEditingActionsInsteadOfRecommendationSave() {
         composeRule.setContent {
             ItineraryScreen(
-                itinerary = itinerary(saved = true, inRecommendation = false),
-                isSaving = false,
-                statusMessage = null,
-                onBack = {},
-                onItemClick = {},
-                onAddActivity = {},
-                onAddTransportation = {},
-                onSaveDetails = {},
-                onSaveRecommendation = { error("Saved itinerary must not show recommendation save") },
+                model = ItineraryScreenModel(
+                    itinerary(saved = true, inRecommendation = false),
+                    isSaving = false,
+                    statusMessage = null,
+                ),
+                actions = ItineraryScreenActions(
+                    onBack = {},
+                    onItemClick = {},
+                    onAddActivity = {},
+                    onAddTransportation = {},
+                    onSaveDetails = {},
+                    onSaveRecommendation = {
+                        error("Saved itinerary must not show recommendation save")
+                    },
+                ),
             )
         }
 
@@ -82,16 +92,20 @@ class ItineraryScreenTest {
 
         composeRule.setContent {
             ItineraryItemScreen(
-                item = activity,
-                isReadOnly = true,
-                isSaving = false,
-                statusMessage = null,
-                onBack = {},
-                onUpdateActivity = { error("Recommendation activity cannot be edited") },
-                onUpdateTransportation = {
-                    error("Recommendation transportation cannot be edited")
-                },
-                onDelete = { error("Recommendation item cannot be deleted") },
+                model = ItineraryItemScreenModel(
+                    item = activity,
+                    isReadOnly = true,
+                    isSaving = false,
+                    statusMessage = null,
+                ),
+                actions = ItineraryItemScreenActions(
+                    onBack = {},
+                    onUpdateActivity = { error("Recommendation activity cannot be edited") },
+                    onUpdateTransportation = {
+                        error("Recommendation transportation cannot be edited")
+                    },
+                    onDelete = { error("Recommendation item cannot be deleted") },
+                ),
             )
         }
 
@@ -107,13 +121,14 @@ class ItineraryScreenTest {
 
         composeRule.setContent {
             TripsList(
-                savedItineraries = emptyList(),
-                recommendedItineraries = emptyList(),
-                isLoading = false,
-                isGenerating = isGenerating.value,
-                statusMessage = null,
-                onItineraryClick = {},
-                onGenerateRecommendations = { generateCalls += 1 },
+                model = TripsListModel(
+                    savedItineraries = emptyList(),
+                    recommendedItineraries = emptyList(),
+                    isLoading = false,
+                    isGenerating = isGenerating.value,
+                    statusMessage = null,
+                ),
+                actions = TripsListActions({}, { generateCalls += 1 }),
             )
         }
 
@@ -133,15 +148,16 @@ class ItineraryScreenTest {
     fun recommendedCardShowsScoreOutOfFive() {
         composeRule.setContent {
             TripsList(
-                savedItineraries = emptyList(),
-                recommendedItineraries = listOf(
-                    itinerary(saved = false, inRecommendation = true),
+                model = TripsListModel(
+                    savedItineraries = emptyList(),
+                    recommendedItineraries = listOf(
+                        itinerary(saved = false, inRecommendation = true),
+                    ),
+                    isLoading = false,
+                    isGenerating = false,
+                    statusMessage = null,
                 ),
-                isLoading = false,
-                isGenerating = false,
-                statusMessage = null,
-                onItineraryClick = {},
-                onGenerateRecommendations = {},
+                actions = TripsListActions({}, {}),
             )
         }
 
