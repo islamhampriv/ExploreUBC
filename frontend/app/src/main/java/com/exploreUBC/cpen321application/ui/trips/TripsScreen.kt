@@ -58,6 +58,7 @@ import com.exploreUBC.cpen321application.data.itineraries.ItinerariesRepository
 import com.exploreUBC.cpen321application.data.itineraries.Itinerary
 import com.exploreUBC.cpen321application.data.itineraries.ItineraryDetails
 import com.exploreUBC.cpen321application.data.itineraries.ItineraryItem
+import com.exploreUBC.cpen321application.data.itineraries.ItineraryUpdate
 import com.exploreUBC.cpen321application.data.itineraries.TransportationItem
 import com.exploreUBC.cpen321application.data.itineraries.TransportationSegmentUpdate
 import kotlinx.coroutines.async
@@ -67,6 +68,7 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 private val activityCategories = listOf(
     "",
@@ -109,6 +111,8 @@ fun TripsRoute(
     var newItemType by remember(userId) { mutableStateOf<NewItemType?>(null) }
     var isLoading by remember(userId) { mutableStateOf(false) }
     var isSaving by remember(userId) { mutableStateOf(false) }
+    var isGenerating by remember(userId) { mutableStateOf(false) }
+    var showGenerateConfirmation by remember(userId) { mutableStateOf(false) }
     var statusMessage by remember(userId) { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
 
@@ -146,6 +150,7 @@ fun TripsRoute(
             savedItineraries = savedItineraries,
             recommendedItineraries = recommendedItineraries,
             isLoading = isLoading,
+            isGenerating = isGenerating,
             statusMessage = if (userId.isNullOrBlank()) {
                 "A user ID is required to load itineraries."
             } else {
@@ -166,11 +171,15 @@ fun TripsRoute(
                     isLoading = false
                 }
             },
+            onGenerateRecommendations = {
+                if (!userId.isNullOrBlank()) showGenerateConfirmation = true
+            },
             modifier = modifier,
         )
     } else if (item != null) {
         ItineraryItemScreen(
             item = item,
+            isReadOnly = itinerary.inRecommendation,
             isSaving = isSaving,
             statusMessage = statusMessage,
             onBack = {
@@ -178,85 +187,88 @@ fun TripsRoute(
                 statusMessage = null
             },
             onUpdateActivity = { update ->
-                if (userId.isNullOrBlank()) return@ItineraryItemScreen
-                scope.launch {
-                    isSaving = true
-                    statusMessage = null
-                    runCatching {
-                        itinerariesRepository.updateActivity(
-                            userId,
-                            itinerary.id,
-                            item.id,
-                            update,
-                        )
-                    }.onSuccess { updatedItem ->
-                        val updated = itinerary.replaceItem(updatedItem)
-                        selectedItem = updatedItem
-                        selectedItinerary = updated
-                        savedItineraries = savedItineraries.replace(updated)
-                        recommendedItineraries = recommendedItineraries.replace(updated)
-                        statusMessage = "Activity saved."
-                    }.onFailure {
-                        statusMessage = it.message ?: "Could not save the activity."
-                    }
-                    isSaving = false
-                }
-            },
-            onUpdateTransportation = { update ->
-                if (userId.isNullOrBlank()) return@ItineraryItemScreen
-                scope.launch {
-                    isSaving = true
-                    statusMessage = null
-                    runCatching {
-                        itinerariesRepository.updateTransportationSegment(
-                            userId,
-                            itinerary.id,
-                            item.id,
-                            update,
-                        )
-                    }.onSuccess { updatedItem ->
-                        val updated = itinerary.replaceItem(updatedItem)
-                        selectedItem = updatedItem
-                        selectedItinerary = updated
-                        savedItineraries = savedItineraries.replace(updated)
-                        recommendedItineraries = recommendedItineraries.replace(updated)
-                        statusMessage = "Transportation saved."
-                    }.onFailure {
-                        statusMessage = it.message ?: "Could not save transportation."
-                    }
-                    isSaving = false
-                }
-            },
-            onDelete = {
-                if (userId.isNullOrBlank()) return@ItineraryItemScreen
-                scope.launch {
-                    isSaving = true
-                    statusMessage = null
-                    runCatching {
-                        when (item) {
-                            is ActivityItem -> itinerariesRepository.deleteActivity(
+                if (!itinerary.inRecommendation && !userId.isNullOrBlank()) {
+                    scope.launch {
+                        isSaving = true
+                        statusMessage = null
+                        runCatching {
+                            itinerariesRepository.updateActivity(
                                 userId,
                                 itinerary.id,
                                 item.id,
+                                update,
                             )
-                            is TransportationItem ->
-                                itinerariesRepository.deleteTransportationSegment(
+                        }.onSuccess { updatedItem ->
+                            val updated = itinerary.replaceItem(updatedItem)
+                            selectedItem = updatedItem
+                            selectedItinerary = updated
+                            savedItineraries = savedItineraries.replace(updated)
+                            recommendedItineraries = recommendedItineraries.replace(updated)
+                            statusMessage = "Activity saved."
+                        }.onFailure {
+                            statusMessage = it.message ?: "Could not save the activity."
+                        }
+                        isSaving = false
+                    }
+                }
+            },
+            onUpdateTransportation = { update ->
+                if (!itinerary.inRecommendation && !userId.isNullOrBlank()) {
+                    scope.launch {
+                        isSaving = true
+                        statusMessage = null
+                        runCatching {
+                            itinerariesRepository.updateTransportationSegment(
+                                userId,
+                                itinerary.id,
+                                item.id,
+                                update,
+                            )
+                        }.onSuccess { updatedItem ->
+                            val updated = itinerary.replaceItem(updatedItem)
+                            selectedItem = updatedItem
+                            selectedItinerary = updated
+                            savedItineraries = savedItineraries.replace(updated)
+                            recommendedItineraries = recommendedItineraries.replace(updated)
+                            statusMessage = "Transportation saved."
+                        }.onFailure {
+                            statusMessage = it.message ?: "Could not save transportation."
+                        }
+                        isSaving = false
+                    }
+                }
+            },
+            onDelete = {
+                if (!itinerary.inRecommendation && !userId.isNullOrBlank()) {
+                    scope.launch {
+                        isSaving = true
+                        statusMessage = null
+                        runCatching {
+                            when (item) {
+                                is ActivityItem -> itinerariesRepository.deleteActivity(
                                     userId,
                                     itinerary.id,
                                     item.id,
                                 )
+                                is TransportationItem ->
+                                    itinerariesRepository.deleteTransportationSegment(
+                                        userId,
+                                        itinerary.id,
+                                        item.id,
+                                    )
+                            }
+                        }.onSuccess {
+                            val updated = itinerary.removeItem(item.id)
+                            selectedItem = null
+                            selectedItinerary = updated
+                            savedItineraries = savedItineraries.replace(updated)
+                            recommendedItineraries = recommendedItineraries.replace(updated)
+                            statusMessage = "Item deleted."
+                        }.onFailure {
+                            statusMessage = it.message ?: "Could not delete the item."
                         }
-                    }.onSuccess {
-                        val updated = itinerary.removeItem(item.id)
-                        selectedItem = null
-                        selectedItinerary = updated
-                        savedItineraries = savedItineraries.replace(updated)
-                        recommendedItineraries = recommendedItineraries.replace(updated)
-                        statusMessage = "Item deleted."
-                    }.onFailure {
-                        statusMessage = it.message ?: "Could not delete the item."
+                        isSaving = false
                     }
-                    isSaving = false
                 }
             },
             modifier = modifier,
@@ -336,23 +348,31 @@ fun TripsRoute(
                 selectedItem = it
             },
             onAddActivity = {
-                statusMessage = null
-                newItemType = NewItemType.ACTIVITY
+                if (!itinerary.inRecommendation) {
+                    statusMessage = null
+                    newItemType = NewItemType.ACTIVITY
+                }
             },
             onAddTransportation = {
-                statusMessage = null
-                newItemType = NewItemType.TRANSPORTATION
+                if (!itinerary.inRecommendation) {
+                    statusMessage = null
+                    newItemType = NewItemType.TRANSPORTATION
+                }
             },
-            onSave = { details ->
+            onSaveDetails = { details ->
                 if (userId.isNullOrBlank()) return@ItineraryScreen
                 scope.launch {
                     isSaving = true
                     statusMessage = null
                     runCatching {
-                        itinerariesRepository.updateItineraryDetails(
+                        itinerariesRepository.updateItinerary(
                             userId,
                             itinerary.id,
-                            details,
+                            ItineraryUpdate(
+                                name = details.name,
+                                description = details.description,
+                                startingLocation = details.startingLocation,
+                            ),
                         )
                     }.onSuccess { updated ->
                         selectedItinerary = updated
@@ -365,13 +385,87 @@ fun TripsRoute(
                     isSaving = false
                 }
             },
+            onSaveRecommendation = {
+                if (userId.isNullOrBlank()) return@ItineraryScreen
+                scope.launch {
+                    isSaving = true
+                    statusMessage = null
+                    runCatching {
+                        itinerariesRepository.updateItinerary(
+                            userId,
+                            itinerary.id,
+                            ItineraryUpdate(
+                                saved = true,
+                                inRecommendation = false,
+                            ),
+                        )
+                    }.onSuccess { updated ->
+                        selectedItinerary = updated
+                        savedItineraries = savedItineraries.upsert(updated)
+                        recommendedItineraries = recommendedItineraries.filterNot {
+                            it.id == updated.id
+                        }
+                        statusMessage = "Itinerary saved."
+                    }.onFailure {
+                        statusMessage = it.message ?: "Could not save the itinerary."
+                    }
+                    isSaving = false
+                }
+            },
             modifier = modifier,
+        )
+    }
+
+    if (showGenerateConfirmation) {
+        AlertDialog(
+            onDismissRequest = { showGenerateConfirmation = false },
+            title = { Text("Generate new recommendations?") },
+            text = {
+                Text("Your current recommended itineraries will be removed and replaced.")
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showGenerateConfirmation = false
+                        if (!userId.isNullOrBlank()) {
+                            scope.launch {
+                                isGenerating = true
+                                statusMessage = null
+                                runCatching {
+                                    itinerariesRepository.generateRecommendations(userId)
+                                }.onSuccess { generated ->
+                                    recommendedItineraries = generated
+                                    statusMessage = "Recommendations generated."
+                                }.onFailure {
+                                    statusMessage =
+                                        it.message ?: "Could not generate recommendations."
+                                }
+                                isGenerating = false
+                            }
+                        }
+                    },
+                    modifier = Modifier.testTag("confirm_generate_recommendations"),
+                ) {
+                    Text("Confirm")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { showGenerateConfirmation = false },
+                    modifier = Modifier.testTag("cancel_generate_recommendations"),
+                ) {
+                    Text("Cancel")
+                }
+            },
         )
     }
 }
 
 private fun List<Itinerary>.replace(updated: Itinerary): List<Itinerary> =
     map { if (it.id == updated.id) updated else it }
+
+private fun List<Itinerary>.upsert(updated: Itinerary): List<Itinerary> =
+    if (any { it.id == updated.id }) replace(updated) else this + updated
 
 private fun Itinerary.replaceItem(updated: ItineraryItem): Itinerary = copy(
     items = items.map { if (it.id == updated.id) updated else it },
@@ -386,8 +480,10 @@ fun TripsList(
     savedItineraries: List<Itinerary>,
     recommendedItineraries: List<Itinerary>,
     isLoading: Boolean,
+    isGenerating: Boolean,
     statusMessage: String?,
     onItineraryClick: (Itinerary) -> Unit,
+    onGenerateRecommendations: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     LazyColumn(
@@ -423,6 +519,9 @@ fun TripsList(
             itineraries = recommendedItineraries,
             tagPrefix = "recommended",
             onItineraryClick = onItineraryClick,
+            showGenerateAction = true,
+            isGenerating = isGenerating,
+            onGenerateRecommendations = onGenerateRecommendations,
         )
         item { Spacer(Modifier.height(16.dp)) }
     }
@@ -434,14 +533,45 @@ private fun androidx.compose.foundation.lazy.LazyListScope.itinerarySection(
     itineraries: List<Itinerary>,
     tagPrefix: String,
     onItineraryClick: (Itinerary) -> Unit,
+    showGenerateAction: Boolean = false,
+    isGenerating: Boolean = false,
+    onGenerateRecommendations: () -> Unit = {},
 ) {
     item {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(top = 12.dp),
-        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.weight(1f),
+            )
+            if (showGenerateAction) {
+                Button(
+                    onClick = onGenerateRecommendations,
+                    enabled = !isGenerating,
+                    modifier = Modifier.testTag("generate_recommendations"),
+                ) {
+                    if (isGenerating) {
+                        CircularProgressIndicator(
+                            modifier = Modifier
+                                .width(18.dp)
+                                .height(18.dp)
+                                .testTag("generate_recommendations_loading"),
+                            strokeWidth = 2.dp,
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text("Generating…")
+                    } else {
+                        Text("Generate")
+                    }
+                }
+            }
+        }
     }
     if (itineraries.isEmpty()) {
         item { Text(emptyMessage) }
@@ -456,7 +586,28 @@ private fun androidx.compose.foundation.lazy.LazyListScope.itinerarySection(
                 Column(Modifier.padding(16.dp)) {
                     Text(itinerary.name, fontWeight = FontWeight.Bold)
                     itinerary.description?.takeIf { it.isNotBlank() }?.let { Text(it) }
-                    Text("${itinerary.items.size} items")
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.Bottom,
+                    ) {
+                        Text(
+                            text = "${itinerary.items.size} items",
+                            modifier = Modifier.weight(1f),
+                        )
+                        if (itinerary.inRecommendation) {
+                            val scoreOutOfFive =
+                                itinerary.score["interestSimilarityOutOfFive"]
+                            scoreOutOfFive?.let { score ->
+                                Text(
+                                    text = String.format(Locale.US, "%.1f/5", score),
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.testTag(
+                                        "recommended_itinerary_score_${itinerary.id}",
+                                    ),
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -472,9 +623,11 @@ fun ItineraryScreen(
     onItemClick: (ItineraryItem) -> Unit,
     onAddActivity: () -> Unit,
     onAddTransportation: () -> Unit,
-    onSave: (ItineraryDetails) -> Unit,
+    onSaveDetails: (ItineraryDetails) -> Unit,
+    onSaveRecommendation: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val isRecommended = itinerary.inRecommendation
     var name by remember(itinerary.id, itinerary.updatedAt) { mutableStateOf(itinerary.name) }
     var description by remember(itinerary.id, itinerary.updatedAt) {
         mutableStateOf(itinerary.description.orEmpty())
@@ -503,19 +656,21 @@ fun ItineraryScreen(
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.weight(1f),
             )
-            TextButton(
-                onClick = {
-                    if (isEditing) {
-                        name = itinerary.name
-                        description = itinerary.description.orEmpty()
-                        startingLocation = itinerary.startingLocation.orEmpty()
-                    }
-                    isEditing = !isEditing
-                },
-                enabled = !isSaving,
-                modifier = Modifier.testTag("itinerary_details_edit"),
-            ) {
-                Text(if (isEditing) "Cancel" else "Edit")
+            if (!isRecommended) {
+                TextButton(
+                    onClick = {
+                        if (isEditing) {
+                            name = itinerary.name
+                            description = itinerary.description.orEmpty()
+                            startingLocation = itinerary.startingLocation.orEmpty()
+                        }
+                        isEditing = !isEditing
+                    },
+                    enabled = !isSaving,
+                    modifier = Modifier.testTag("itinerary_details_edit"),
+                ) {
+                    Text(if (isEditing) "Cancel" else "Edit")
+                }
             }
         }
         if (isEditing) {
@@ -540,7 +695,7 @@ fun ItineraryScreen(
             )
             Button(
                 onClick = {
-                    onSave(
+                    onSaveDetails(
                         ItineraryDetails(
                             name = name,
                             description = description,
@@ -578,23 +733,38 @@ fun ItineraryScreen(
                 onClick = { onItemClick(item) },
             )
         }
-        Button(
-            onClick = onAddActivity,
-            enabled = itinerary.saved,
-            modifier = Modifier
-                .fillMaxWidth()
-                .testTag("itinerary_add_activity"),
-        ) {
-            Text("+ Activity")
-        }
-        Button(
-            onClick = onAddTransportation,
-            enabled = itinerary.saved,
-            modifier = Modifier
-                .fillMaxWidth()
-                .testTag("itinerary_add_transportation"),
-        ) {
-            Text("+ Transportation")
+        if (!isRecommended) {
+            Row(modifier = Modifier.fillMaxWidth()) {
+                Button(
+                    onClick = onAddActivity,
+                    enabled = itinerary.saved,
+                    modifier = Modifier
+                        .weight(1f)
+                        .testTag("itinerary_add_activity"),
+                ) {
+                    Text("+ Activity")
+                }
+                Spacer(Modifier.width(12.dp))
+                Button(
+                    onClick = onAddTransportation,
+                    enabled = itinerary.saved,
+                    modifier = Modifier
+                        .weight(1f)
+                        .testTag("itinerary_add_transportation"),
+                ) {
+                    Text("+ Transportation")
+                }
+            }
+        } else {
+            Button(
+                onClick = onSaveRecommendation,
+                enabled = !isSaving,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("itinerary_save_recommendation"),
+            ) {
+                Text(if (isSaving) "Saving…" else "Save itinerary")
+            }
         }
         Spacer(Modifier.height(16.dp))
     }
@@ -976,58 +1146,65 @@ private fun ItineraryItemCard(
     item: ItineraryItem,
     onClick: () -> Unit,
 ) {
+    val modifier = Modifier
+        .fillMaxWidth()
+        .testTag("itinerary_item_${item.id}")
     Card(
         onClick = onClick,
-        modifier = Modifier
-            .fillMaxWidth()
-            .testTag("itinerary_item_${item.id}"),
+        modifier = modifier,
     ) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
+        ItineraryItemCardContent(item)
+    }
+}
+
+@Composable
+private fun ItineraryItemCardContent(item: ItineraryItem) {
+    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = when (item) {
+                    is ActivityItem -> item.name
+                    is TransportationItem -> item.mode.displayOption()
+                },
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.weight(1f),
+            )
+            Surface(
+                color = MaterialTheme.colorScheme.secondaryContainer,
+                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                shape = MaterialTheme.shapes.small,
+                modifier = Modifier.testTag("itinerary_item_type_${item.id}"),
             ) {
                 Text(
                     text = when (item) {
-                        is ActivityItem -> item.name
-                        is TransportationItem -> item.mode.displayOption()
+                        is ActivityItem -> "Activity"
+                        is TransportationItem -> "Transportation"
                     },
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.labelMedium,
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                 )
-                Surface(
-                    color = MaterialTheme.colorScheme.secondaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                    shape = MaterialTheme.shapes.small,
-                    modifier = Modifier.testTag("itinerary_item_type_${item.id}"),
-                ) {
-                    Text(
-                        text = when (item) {
-                            is ActivityItem -> "Activity"
-                            is TransportationItem -> "Transportation"
-                        },
-                        style = MaterialTheme.typography.labelMedium,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                    )
-                }
             }
-            Text(
-                text = "Start: ${item.startTime.toPacificDisplayDateTime()}",
-                style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.testTag("itinerary_item_start_time_${item.id}"),
-            )
-            Text(
-                text = "End: ${item.endTime.toPacificDisplayDateTime()}",
-                style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.testTag("itinerary_item_end_time_${item.id}"),
-            )
         }
+        Text(
+            text = "Start: ${item.startTime.toPacificDisplayDateTime()}",
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.testTag("itinerary_item_start_time_${item.id}"),
+        )
+        Text(
+            text = "End: ${item.endTime.toPacificDisplayDateTime()}",
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.testTag("itinerary_item_end_time_${item.id}"),
+        )
     }
 }
 
 @Composable
 fun ItineraryItemScreen(
     item: ItineraryItem,
+    isReadOnly: Boolean,
     isSaving: Boolean,
     statusMessage: String?,
     onBack: () -> Unit,
@@ -1058,12 +1235,14 @@ fun ItineraryItemScreen(
                 Text("Back to itinerary")
             }
             Spacer(Modifier.weight(1f))
-            TextButton(
-                onClick = { isEditing = !isEditing },
-                enabled = !isSaving,
-                modifier = Modifier.testTag("itinerary_item_edit"),
-            ) {
-                Text(if (isEditing) "Cancel" else "Edit")
+            if (!isReadOnly) {
+                TextButton(
+                    onClick = { isEditing = !isEditing },
+                    enabled = !isSaving,
+                    modifier = Modifier.testTag("itinerary_item_edit"),
+                ) {
+                    Text(if (isEditing) "Cancel" else "Edit")
+                }
             }
         }
 
@@ -1091,24 +1270,26 @@ fun ItineraryItemScreen(
             Text(it, modifier = Modifier.testTag("itinerary_item_status"))
         }
 
-        Spacer(Modifier.height(12.dp))
-        OutlinedButton(
-            onClick = { showDeleteConfirmation = true },
-            enabled = !isSaving,
-            modifier = Modifier
-                .fillMaxWidth()
-                .testTag("itinerary_item_delete"),
-        ) {
-            Icon(
-                painter = painterResource(R.drawable.delete_24px),
-                contentDescription = "Delete item",
-            )
-            Spacer(Modifier.width(8.dp))
-            Text("Delete")
+        if (!isReadOnly) {
+            Spacer(Modifier.height(12.dp))
+            OutlinedButton(
+                onClick = { showDeleteConfirmation = true },
+                enabled = !isSaving,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("itinerary_item_delete"),
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.delete_24px),
+                    contentDescription = "Delete item",
+                )
+                Spacer(Modifier.width(8.dp))
+                Text("Delete")
+            }
         }
     }
 
-    if (showDeleteConfirmation) {
+    if (!isReadOnly && showDeleteConfirmation) {
         AlertDialog(
             onDismissRequest = { showDeleteConfirmation = false },
             title = { Text("Delete item?") },

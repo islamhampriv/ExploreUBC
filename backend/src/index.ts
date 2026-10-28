@@ -11,6 +11,16 @@ import { ItineraryDao } from './itineraries/itineraryDao';
 import type { ItineraryRepository } from './itineraries/itineraryRepository';
 import { createItineraryRouter } from './itineraries/itineraryRouter';
 import { ItineraryService } from './itineraries/itineraryService';
+import { RecommendationDao } from './recommendation/recommendationDao';
+import type { RecommendationRepository } from './recommendation/recommendationRepository';
+import { createRecommendationRouter } from './recommendation/recommendationRouter';
+import { RecommendationService } from './recommendation/recommendationService';
+import { SoclaasClient } from './recommendation/soclaasClient';
+import type {
+  ItineraryGenerator,
+  ItineraryRanker,
+} from './recommendation/recommendationTypes';
+import { UniversalSentenceEncoderItineraryRanker } from './recommendation/universalSentenceEncoderRanker';
 import { UserDao } from './users/userDao';
 import type { UserRepository } from './users/userRepository';
 import { createUserRouter } from './users/userRouter';
@@ -19,6 +29,9 @@ import { UserService } from './users/userService';
 export type AppDependencies = {
   eventRepository?: EventRepository;
   itineraryRepository?: ItineraryRepository;
+  recommendationGenerator?: ItineraryGenerator;
+  recommendationRanker?: ItineraryRanker;
+  recommendationRepository?: RecommendationRepository;
   userRepository?: UserRepository;
 };
 
@@ -60,6 +73,24 @@ export function createApp(dependencies: AppDependencies = {}): Express {
     );
   }
 
+  if (
+    dependencies.recommendationRepository !== undefined &&
+    dependencies.recommendationGenerator !== undefined &&
+    dependencies.recommendationRanker !== undefined &&
+    dependencies.userRepository !== undefined
+  ) {
+    const recommendationService = new RecommendationService(
+      dependencies.recommendationRepository,
+      dependencies.userRepository,
+      dependencies.recommendationGenerator,
+      dependencies.recommendationRanker,
+    );
+    app.use(
+      '/api/v1/users/:userId/recommendations',
+      createRecommendationRouter(recommendationService),
+    );
+  }
+
   app.use((_req, res) => {
     res.status(404).json({ error: 'Not Found' });
   });
@@ -74,10 +105,14 @@ if (process.env.VERCEL === '1') {
 
 const database = mongoClient.db('cpen321');
 const eventDao = new EventDao(database);
+const userDao = new UserDao(database);
 const app = createApp({
   eventRepository: eventDao,
   itineraryRepository: new ItineraryDao(database),
-  userRepository: new UserDao(database),
+  recommendationGenerator: new SoclaasClient(env.soclaas),
+  recommendationRanker: new UniversalSentenceEncoderItineraryRanker(),
+  recommendationRepository: new RecommendationDao(database),
+  userRepository: userDao,
 });
 
 async function start(): Promise<void> {

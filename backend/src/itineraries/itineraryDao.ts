@@ -170,6 +170,12 @@ export class ItineraryDao implements ItineraryRepository {
     if (details.startingLocation !== undefined) {
       setFields.startingLocation = details.startingLocation;
     }
+    if (details.saved !== undefined) {
+      setFields.saved = details.saved;
+    }
+    if (details.inRecommendation !== undefined) {
+      setFields.inRecommendation = details.inRecommendation;
+    }
 
     const result = await this.itineraries.updateOne(
       { _id: ids.itineraryId, ownerId: ids.userId },

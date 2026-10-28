@@ -64,7 +64,9 @@ export type ItineraryDetails = {
   startingLocation?: string;
 };
 
-export type ItineraryDetailsUpdate = Partial<ItineraryDetails>;
+export type ItineraryDetailsUpdate = Partial<
+  ItineraryDetails & Pick<Itinerary, 'saved' | 'inRecommendation'>
+>;
 
 export type ItineraryFilters = Partial<
   Pick<Itinerary, 'saved' | 'inRecommendation'>
