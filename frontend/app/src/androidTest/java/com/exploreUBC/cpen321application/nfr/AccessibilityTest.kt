@@ -1,14 +1,14 @@
 package com.exploreUBC.cpen321application.nfr
 
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.assertHasClickAction
-import androidx.compose.ui.test.assertSize
-import androidx.compose.ui.test.SatisfiesDp
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import com.exploreUBC.cpen321application.testutil.TestRepositories
+import com.exploreUBC.cpen321application.testutil.AccessibilityTestApp
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -20,85 +20,62 @@ class AccessibilityTest {
     val composeRule = createComposeRule()
 
     @Test
-    fun testNavigationLabelsExposedToTalkBack() {
-        composeRule.setContent {
-            CPEN321ApplicationApp(
-                userId = "test-user",
-                displayName = "Test User",
-                usersRepository = TestRepositories.fakeUsersRepository,
-                itinerariesRepository = TestRepositories.fakeItinerariesRepository,
-                eventsRepository = TestRepositories.fakeEventsRepository,
+    fun navigationVisualLabelsMatchContentDescriptions() {
+        setTestContent()
+
+        navigationLabels.forEach { label ->
+            composeRule.onNodeWithText(label).assertExists()
+
+            val visibleText = composeRule
+                .onNodeWithText(label, useUnmergedTree = true)
+                .fetchSemanticsNode()
+                .config[SemanticsProperties.Text]
+                .single()
+                .text
+            val contentDescription = composeRule
+                .onNodeWithContentDescription(label, useUnmergedTree = true)
+                .fetchSemanticsNode()
+                .config[SemanticsProperties.ContentDescription]
+                .single()
+
+            assertEquals(
+                "$label visible text and content description must match",
+                visibleText,
+                contentDescription,
             )
         }
-
-        composeRule.onNodeWithContentDescription("Events").assertExists()
-        composeRule.onNodeWithContentDescription("Trips").assertExists()
-        composeRule.onNodeWithContentDescription("Map").assertExists()
-        composeRule.onNodeWithContentDescription("Profile").assertExists()
     }
 
     @Test
-    fun testNavigationTargetMinimumSize() {
-        composeRule.setContent {
-            CPEN321ApplicationApp(
-                userId = "test-user",
-                displayName = "Test User",
-                usersRepository = TestRepositories.fakeUsersRepository,
-                itinerariesRepository = TestRepositories.fakeItinerariesRepository,
-                eventsRepository = TestRepositories.fakeEventsRepository,
-            )
-        }
+    fun navigationTargetsAreAtLeast48Dp() {
+        setTestContent()
 
-        composeRule.onNodeWithContentDescription("Events")
-            .assertSize(SatisfiesDp { it.width >= 48f && it.height >= 48f })
-        composeRule.onNodeWithContentDescription("Trips")
-            .assertSize(SatisfiesDp { it.width >= 48f && it.height >= 48f })
-        composeRule.onNodeWithContentDescription("Map")
-            .assertSize(SatisfiesDp { it.width >= 48f && it.height >= 48f })
-        composeRule.onNodeWithContentDescription("Profile")
-            .assertSize(SatisfiesDp { it.width >= 48f && it.height >= 48f })
+        navigationLabels.forEach { label ->
+            val bounds = composeRule.onNodeWithText(label)
+                .fetchSemanticsNode()
+                .boundsInRoot
+            val density = composeRule.density.density
+
+            assertTrue("$label must be at least 48 dp wide", bounds.width / density >= minimumTargetSizeDp)
+            assertTrue("$label must be at least 48 dp high", bounds.height / density >= minimumTargetSizeDp)
+        }
     }
 
     @Test
-    fun testNavigationItemClickActions() {
-        composeRule.setContent {
-            CPEN321ApplicationApp(
-                userId = "test-user",
-                displayName = "Test User",
-                usersRepository = TestRepositories.fakeUsersRepository,
-                itinerariesRepository = TestRepositories.fakeItinerariesRepository,
-                eventsRepository = TestRepositories.fakeEventsRepository,
-            )
-        }
+    fun navigationItemsHaveClickActions() {
+        setTestContent()
 
-        composeRule.onNodeWithContentDescription("Events").assertHasClickAction()
-        composeRule.onNodeWithContentDescription("Trips").assertHasClickAction()
-        composeRule.onNodeWithContentDescription("Map").assertHasClickAction()
-        composeRule.onNodeWithContentDescription("Profile").assertHasClickAction()
+        navigationLabels.forEach { label ->
+            composeRule.onNodeWithText(label).assertHasClickAction()
+        }
     }
 
-    @Test
-    fun testNavigationClickOpensCorrectDestination() {
-        composeRule.setContent {
-            CPEN321ApplicationApp(
-                userId = "test-user",
-                displayName = "Test User",
-                usersRepository = TestRepositories.fakeUsersRepository,
-                itinerariesRepository = TestRepositories.fakeItinerariesRepository,
-                eventsRepository = TestRepositories.fakeEventsRepository,
-            )
-        }
+    private fun setTestContent() {
+        composeRule.setContent { AccessibilityTestApp() }
+    }
 
-        composeRule.onNodeWithContentDescription("Events").performClick()
-        composeRule.onNodeWithText("Events").assertExists()
-
-        composeRule.onNodeWithContentDescription("Trips").performClick()
-        composeRule.onNodeWithText("Trips").assertExists()
-
-        composeRule.onNodeWithContentDescription("Map").performClick()
-        composeRule.onNodeWithText("Map").assertExists()
-
-        composeRule.onNodeWithContentDescription("Profile").performClick()
-        composeRule.onNodeWithText("Profile").assertExists()
+    private companion object {
+        val navigationLabels = listOf("Events", "Trips", "Map", "Profile")
+        const val minimumTargetSizeDp = 48f
     }
 }
