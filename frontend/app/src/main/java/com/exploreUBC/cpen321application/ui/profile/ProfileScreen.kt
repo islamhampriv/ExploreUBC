@@ -49,6 +49,7 @@ import com.exploreUBC.cpen321application.data.users.User
 import com.exploreUBC.cpen321application.data.users.UserPreferences
 import com.exploreUBC.cpen321application.data.users.UserUpdate
 import com.exploreUBC.cpen321application.data.users.UsersRepository
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
 private val defaultPreferences = UserPreferences(
@@ -62,126 +63,205 @@ fun ProfileRoute(
     userId: String?,
     usersRepository: UsersRepository,
     modifier: Modifier = Modifier,
-    displayName: String? = null,
-    startLocation: String? = null,
 ) {
-    var user by remember(userId) { mutableStateOf<User?>(null) }
-    var fallbackDisplayName by remember(userId, displayName) { mutableStateOf(displayName) }
-    var fallbackStartLocation by remember(userId, startLocation) { mutableStateOf(startLocation) }
-    var preferences by remember(userId) { mutableStateOf(defaultPreferences) }
-    var errorMessage by remember(userId) { mutableStateOf<String?>(null) }
-    var isSaving by remember(userId) { mutableStateOf(false) }
-    var isEditingProfile by remember(userId) { mutableStateOf(false) }
-    var savedMessage by remember(userId) { mutableStateOf<String?>(null) }
-    var isLoading by remember(userId) { mutableStateOf(!userId.isNullOrBlank()) }
+    val state = remember(userId) { ProfileRouteState(userId) }
     val scope = rememberCoroutineScope()
 
-    fun saveUpdate(
-        update: UserUpdate,
-        successMessage: String,
-        afterSave: () -> Unit = {},
-    ) {
-        val currentUserId = userId ?: return
-        scope.launch {
-            isSaving = true
-            errorMessage = null
-            savedMessage = null
-            runCatching { usersRepository.updateUser(currentUserId, update) }
-                .onSuccess {
-                    user = it
-                    preferences = it.preferences
-                    savedMessage = successMessage
-                    afterSave()
-                }
-                .onFailure {
-                    errorMessage = it.message ?: "Could not save profile changes."
-                }
-            isSaving = false
-        }
-    }
+    ProfileRouteLoader(
+        userId = userId,
+        usersRepository = usersRepository,
+        onLoading = { state.isLoading = it },
+        onUserLoaded = state::updateUser,
+        onError = { state.errorMessage = it },
+    )
+    ProfileRouteContent(
+        userId = userId,
+        state = state.screenState,
+        isLoading = state.isLoading,
+        hasUser = state.hasUser,
+        actions = createProfileActions(state, scope, usersRepository),
+        modifier = modifier,
+    )
+}
 
-    LaunchedEffect(userId, usersRepository) {
-        if (userId.isNullOrBlank()) {
-            isLoading = false
-            return@LaunchedEffect
-        }
+private class ProfileRouteState(val userId: String?) {
+    var user by mutableStateOf<User?>(null)
+    var preferences by mutableStateOf(defaultPreferences)
+    var errorMessage by mutableStateOf<String?>(null)
+    var isSaving by mutableStateOf(false)
+    var isEditingProfile by mutableStateOf(false)
+    var savedMessage by mutableStateOf<String?>(null)
+    var isLoading by mutableStateOf(!userId.isNullOrBlank())
+    val hasUser: Boolean
+        get() = user != null
 
-        isLoading = true
-        errorMessage = null
-        runCatching { usersRepository.getUser(userId) }
-            .onSuccess {
-                user = it
-                preferences = it.preferences
-                errorMessage = null
-            }
-            .onFailure { errorMessage = it.message ?: "Could not load profile." }
-        isLoading = false
-    }
-
-    if (isLoading) {
-        Box(
-            modifier = modifier
-                .fillMaxSize()
-                .testTag("profile_loading"),
-            contentAlignment = Alignment.Center,
-        ) {
-            CircularProgressIndicator()
-        }
-        return
-    }
-
-    if (!userId.isNullOrBlank() && user == null) {
-        Box(
-            modifier = modifier
-                .fillMaxSize()
-                .padding(24.dp),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(
-                text = errorMessage ?: "Could not load profile.",
-                modifier = Modifier.testTag("profile_status"),
-            )
-        }
-        return
-    }
-
-    ProfilePreferencesForm(
-        state = ProfileScreenState(
-            displayName = user?.displayName ?: fallbackDisplayName,
-            startLocation = user?.startLocation ?: fallbackStartLocation,
+    val screenState: ProfileScreenState
+        get() = ProfileScreenState(
+            displayName = user?.displayName,
+            startLocation = user?.startLocation,
             preferences = preferences,
             isSaving = isSaving,
             isEditingProfile = isEditingProfile,
             statusMessage = errorMessage ?: savedMessage,
+        )
+
+    fun updateUser(loadedUser: User) {
+        user = loadedUser
+        preferences = loadedUser.preferences
+    }
+
+    fun saveLocally(update: UserUpdate, successMessage: String, finishProfileEdit: Boolean = false) {
+        preferences = update.preferences ?: preferences
+        errorMessage = null
+        savedMessage = successMessage
+        if (finishProfileEdit) isEditingProfile = false
+    }
+}
+
+private fun createProfileActions(
+    state: ProfileRouteState,
+    scope: CoroutineScope,
+    usersRepository: UsersRepository,
+) = ProfileScreenActions(
+    onEditProfile = { state.isEditingProfile = true },
+    onCancelProfileEdit = { state.isEditingProfile = false },
+    onSaveProfile = { update ->
+        if (state.hasUser) {
+            saveRouteUpdate(state, scope, usersRepository, update, "Profile saved.") {
+                state.isEditingProfile = false
+            }
+        } else {
+            state.saveLocally(update, "Profile selected.", finishProfileEdit = true)
+        }
+    },
+    onSavePreferences = { update ->
+        if (state.hasUser) {
+            saveRouteUpdate(state, scope, usersRepository, update, "Preferences saved.")
+        } else {
+            state.saveLocally(update, "Preferences selected.")
+        }
+    },
+)
+
+private fun saveRouteUpdate(
+    state: ProfileRouteState,
+    scope: CoroutineScope,
+    usersRepository: UsersRepository,
+    update: UserUpdate,
+    successMessage: String,
+    afterSave: () -> Unit = {},
+) {
+    saveProfileUpdate(
+        scope,
+        state.userId.orEmpty(),
+        usersRepository,
+        update,
+        successMessage,
+        ProfileUpdateCallbacks(
+            onSaving = { state.isSaving = it },
+            onStatusCleared = { state.errorMessage = null; state.savedMessage = null },
+            onUserUpdated = state::updateUser,
+            onSaved = { state.savedMessage = it },
+            onError = { state.errorMessage = it },
+            afterSave = afterSave,
         ),
-        actions = ProfileScreenActions(
-            onEditProfile = { isEditingProfile = true },
-            onCancelProfileEdit = { isEditingProfile = false },
-            onSaveProfile = { update ->
-                if (userId.isNullOrBlank()) {
-                    fallbackDisplayName = update.displayName ?: fallbackDisplayName
-                    fallbackStartLocation = update.startLocation ?: fallbackStartLocation
-                    errorMessage = null
-                    savedMessage = "Profile selected."
-                    isEditingProfile = false
-                } else {
-                    saveUpdate(update, "Profile saved.") {
-                        isEditingProfile = false
-                    }
-                }
-            },
-            onSavePreferences = { update ->
-                if (userId.isNullOrBlank()) {
-                    preferences = update.preferences ?: preferences
-                    errorMessage = null
-                    savedMessage = "Preferences selected."
-                } else {
-                    saveUpdate(update, "Preferences saved.")
-                }
-            },
-        ),
+    )
+}
+
+private data class ProfileUpdateCallbacks(
+    val onSaving: (Boolean) -> Unit,
+    val onStatusCleared: () -> Unit,
+    val onUserUpdated: (User) -> Unit,
+    val onSaved: (String) -> Unit,
+    val onError: (String) -> Unit,
+    val afterSave: () -> Unit,
+)
+
+@Composable
+private fun ProfileRouteLoader(
+    userId: String?,
+    usersRepository: UsersRepository,
+    onLoading: (Boolean) -> Unit,
+    onUserLoaded: (User) -> Unit,
+    onError: (String) -> Unit,
+) {
+    LaunchedEffect(userId, usersRepository) {
+        if (userId.isNullOrBlank()) {
+            onLoading(false)
+            return@LaunchedEffect
+        }
+        onLoading(true)
+        runCatching { usersRepository.getUser(userId) }
+            .onSuccess(onUserLoaded)
+            .onFailure { onError(it.message ?: "Could not load profile.") }
+        onLoading(false)
+    }
+}
+
+private fun saveProfileUpdate(
+    scope: CoroutineScope,
+    userId: String,
+    usersRepository: UsersRepository,
+    update: UserUpdate,
+    successMessage: String,
+    callbacks: ProfileUpdateCallbacks,
+) {
+    scope.launch {
+        callbacks.onSaving(true)
+        callbacks.onStatusCleared()
+        runCatching { usersRepository.updateUser(userId, update) }
+            .onSuccess {
+                callbacks.onUserUpdated(it)
+                callbacks.onSaved(successMessage)
+                callbacks.afterSave()
+            }
+            .onFailure { callbacks.onError(it.message ?: "Could not save profile changes.") }
+        callbacks.onSaving(false)
+    }
+}
+
+@Composable
+private fun ProfileRouteContent(
+    userId: String?,
+    state: ProfileScreenState,
+    isLoading: Boolean,
+    hasUser: Boolean,
+    actions: ProfileScreenActions,
+    modifier: Modifier,
+) {
+    if (isLoading) {
+        ProfileLoading(modifier)
+        return
+    }
+    if (!userId.isNullOrBlank() && !hasUser) {
+        ProfileLoadError(modifier, state.statusMessage ?: "Could not load profile.")
+        return
+    }
+    ProfilePreferencesForm(
+        state = state,
+        actions = actions,
         modifier = modifier,
     )
+}
+
+@Composable
+private fun ProfileLoading(modifier: Modifier) {
+    Box(
+        modifier = modifier.fillMaxSize().testTag("profile_loading"),
+        contentAlignment = Alignment.Center,
+    ) {
+        CircularProgressIndicator()
+    }
+}
+
+@Composable
+private fun ProfileLoadError(modifier: Modifier, message: String) {
+    Box(
+        modifier = modifier.fillMaxSize().padding(24.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(text = message, modifier = Modifier.testTag("profile_status"))
+    }
 }
 
 data class ProfileScreenState(
