@@ -1,5 +1,6 @@
 package com.exploreUBC.cpen321application.data.events
 
+import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
@@ -39,7 +40,7 @@ class EventsApi(private val apiBaseUrl: String) : EventsRepository {
             connection.readTimeout = 5_000
 
             if (connection.responseCode != HttpURLConnection.HTTP_OK) {
-                throw Exception("Backend returned HTTP ${connection.responseCode}")
+                throw IOException("Backend returned HTTP ${connection.responseCode}")
             }
 
             val body = connection.inputStream.bufferedReader().use { it.readText() }
