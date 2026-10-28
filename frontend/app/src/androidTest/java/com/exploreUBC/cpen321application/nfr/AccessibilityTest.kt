@@ -4,6 +4,7 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.exploreUBC.cpen321application.testutil.AccessibilityTestApp
@@ -51,7 +52,7 @@ class AccessibilityTest {
         setTestContent()
 
         navigationLabels.forEach { label ->
-            val bounds = composeRule.onNodeWithText(label)
+            val bounds = composeRule.onNodeWithTag(navigationTag(label))
                 .fetchSemanticsNode()
                 .boundsInRoot
             val density = composeRule.density.density
@@ -66,13 +67,15 @@ class AccessibilityTest {
         setTestContent()
 
         navigationLabels.forEach { label ->
-            composeRule.onNodeWithText(label).assertHasClickAction()
+            composeRule.onNodeWithTag(navigationTag(label)).assertHasClickAction()
         }
     }
 
     private fun setTestContent() {
         composeRule.setContent { AccessibilityTestApp() }
     }
+
+    private fun navigationTag(label: String) = "navigation_$label"
 
     private companion object {
         val navigationLabels = listOf("Events", "Trips", "Map", "Profile")

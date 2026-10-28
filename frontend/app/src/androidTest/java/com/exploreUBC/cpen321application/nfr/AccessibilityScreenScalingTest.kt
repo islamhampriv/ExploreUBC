@@ -5,6 +5,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.unit.Density
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -38,6 +39,7 @@ class AccessibilityScreenScalingTest {
         listOf("Events", "Trips", "Map", "Profile").forEach { label ->
             composeRule.onNodeWithText(label)
                 .assertIsDisplayed()
+            composeRule.onNodeWithTag("navigation_$label")
                 .assertHasClickAction()
         }
     }
