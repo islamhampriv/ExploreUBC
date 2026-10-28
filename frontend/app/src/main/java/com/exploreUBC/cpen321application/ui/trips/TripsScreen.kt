@@ -559,17 +559,17 @@ fun ItineraryScreen(
         TextButton(onClick = actions.onBack, modifier = Modifier.testTag("itinerary_back")) {
             Text("Back to itineraries")
         }
-        Button(
-            onClick = actions.onViewMap,
-            modifier = Modifier.fillMaxWidth().testTag("itinerary_view_on_map"),
-        ) {
-            Text("View on Map")
-        }
         ItineraryDetailsHeader(model, editor)
         if (editor.isEditing) {
             ItineraryDetailsEditor(editor, model.isSaving, actions.onSaveDetails)
         } else {
             ItineraryDetailsContent(itinerary)
+        }
+        Button(
+            onClick = actions.onViewMap,
+            modifier = Modifier.fillMaxWidth().testTag("itinerary_view_on_map"),
+        ) {
+            Text("View on Map")
         }
         model.statusMessage?.let { Text(it, modifier = Modifier.testTag("itinerary_status")) }
         ItineraryItems(itinerary, actions.onItemClick)
