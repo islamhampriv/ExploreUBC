@@ -188,13 +188,13 @@ private fun ProfileRouteLoader(
     LaunchedEffect(userId, usersRepository) {
         if (userId.isNullOrBlank()) {
             onLoading(false)
-            return@LaunchedEffect
+        } else {
+            onLoading(true)
+            runCatching { usersRepository.getUser(userId) }
+                .onSuccess(onUserLoaded)
+                .onFailure { onError(it.message ?: "Could not load profile.") }
+            onLoading(false)
         }
-        onLoading(true)
-        runCatching { usersRepository.getUser(userId) }
-            .onSuccess(onUserLoaded)
-            .onFailure { onError(it.message ?: "Could not load profile.") }
-        onLoading(false)
     }
 }
 
