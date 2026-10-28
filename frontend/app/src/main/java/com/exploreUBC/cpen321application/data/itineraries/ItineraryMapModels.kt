@@ -16,6 +16,17 @@ data class MapMarker(
     val isApproximate: Boolean,
 )
 
+data class RouteStep(
+    val instruction: String,
+)
+
+data class TravelOption(
+    val encodedPolyline: String,
+    val distanceMeters: Double,
+    val durationSeconds: Double,
+    val steps: List<RouteStep>,
+)
+
 data class MapRoute(
     val fromActivityId: String,
     val toActivityId: String,
@@ -23,6 +34,8 @@ data class MapRoute(
     val encodedPolyline: String,
     val distanceMeters: Double,
     val durationSeconds: Double,
+    val walking: TravelOption?,
+    val driving: TravelOption?,
 )
 
 data class UnmappedActivity(

@@ -1,9 +1,10 @@
 import { env } from '../config/env';
 import type { TransportationMode } from '../users/userTypes';
 import type {
-  CalculatedRoute,
   GeocodedLocation,
   MapCoordinates,
+  RouteStep,
+  TravelOption,
 } from './mapTypes';
 
 const GEOCODING_URL = 'https://maps.googleapis.com/maps/api/geocode/json';
@@ -25,6 +26,12 @@ interface GeocodingResponse {
   }>;
 }
 
+interface RouteStepResponse {
+  navigationInstruction?: {
+    instructions?: string;
+  };
+}
+
 interface RoutesResponse {
   routes?: Array<{
     distanceMeters?: number;
@@ -32,6 +39,9 @@ interface RoutesResponse {
     polyline?: {
       encodedPolyline?: string;
     };
+    legs?: Array<{
+      steps?: RouteStepResponse[];
+    }>;
   }>;
 }
 
@@ -101,40 +111,65 @@ export async function getRoute(
   origin: MapCoordinates,
   destination: MapCoordinates,
   transportationMode: TransportationMode,
-): Promise<CalculatedRoute | null> {
+): Promise<TravelOption | null> {
   const apiKey = requireApiKey(env.googleMaps.routesApiKey, 'ROUTES_API_KEY');
 
-  const response = await fetch(ROUTES_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Goog-Api-Key': apiKey,
-      'X-Goog-FieldMask':
-        'routes.distanceMeters,routes.duration,routes.polyline.encodedPolyline',
-    },
-    body: JSON.stringify({
-      origin: toWaypoint(origin),
-      destination: toWaypoint(destination),
-      travelMode: toGoogleTravelMode(transportationMode),
-    }),
-  });
-  if (!response.ok) {
-    throw new Error(`Routes request failed with status ${response.status}`);
+  try {
+    const response = await fetch(ROUTES_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Goog-Api-Key': apiKey,
+        'X-Goog-FieldMask':
+          'routes.distanceMeters,routes.duration,routes.polyline.encodedPolyline,routes.legs.steps.navigationInstruction',
+      },
+      body: JSON.stringify({
+        origin: toWaypoint(origin),
+        destination: toWaypoint(destination),
+        travelMode: toGoogleTravelMode(transportationMode),
+      }),
+    });
+    if (!response.ok) {
+      console.error(`Routes request failed with status ${response.status}`);
+      return null;
+    }
+    return parseTravelOption((await response.json()) as RoutesResponse);
+  } catch (error: unknown) {
+    console.error('Routes request failed', error);
+    return null;
   }
+}
 
-  const body = (await response.json()) as RoutesResponse;
+function parseTravelOption(body: RoutesResponse): TravelOption | null {
   const route = body.routes?.[0];
   const encodedPolyline = route?.polyline?.encodedPolyline;
   if (route === undefined || encodedPolyline === undefined) {
     return null;
   }
-
   return {
-    transportationMode,
     encodedPolyline,
     distanceMeters: route.distanceMeters ?? 0,
     durationSeconds: parseDurationSeconds(route.duration),
+    steps: parseRouteSteps(route.legs),
   };
+}
+
+function parseRouteSteps(
+  legs: Array<{ steps?: RouteStepResponse[] }> | undefined,
+): RouteStep[] {
+  if (legs === undefined) {
+    return [];
+  }
+  const steps: RouteStep[] = [];
+  for (const leg of legs) {
+    for (const step of leg.steps ?? []) {
+      const instruction = step.navigationInstruction?.instructions?.trim();
+      if (instruction !== undefined && instruction !== '') {
+        steps.push({ instruction });
+      }
+    }
+  }
+  return steps;
 }
 
 /** Returns a configured API key or throws a configuration error. */

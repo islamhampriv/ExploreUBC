@@ -5,6 +5,13 @@
     <string name="map_overlay_title">Your trips</string>
     <string name="map_overlay_popular_title">Popular places</string>
     <string name="map_legend_activities">Blue pins are itinerary activities in chronological order.</string>
+    <string name="map_legend_walking">Gold line is the walking route. Switch to Drive for the driving path.</string>
+    <string name="map_legend_driving">Blue line is the driving route. Switch to Walk for the walking path.</string>
+    <string name="map_travel_walk">Walk</string>
+    <string name="map_travel_drive">Drive</string>
+    <string name="map_show_directions">Show directions</string>
+    <string name="map_hide_directions">Hide directions</string>
+    <string name="map_no_travel_option">No %1$s route for this leg.</string>
     <string name="map_loading_popular">Loading popular places…</string>
     <string name="map_loading_trips">Loading map…</string>
     <string name="map_no_saved_trips">No saved itineraries to show. Add an address in the Trips tab.</string>

@@ -17,6 +17,7 @@ import com.exploreUBC.cpen321application.BuildConfig
 import com.exploreUBC.cpen321application.R
 import com.exploreUBC.cpen321application.data.itineraries.ItineraryMap
 import com.exploreUBC.cpen321application.data.itineraries.MapMarker
+import com.exploreUBC.cpen321application.data.itineraries.MapRoute
 import com.exploreUBC.cpen321application.databinding.ActivityMapsBinding
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
@@ -41,6 +42,11 @@ enum class MapLayerMode {
     TRIP_ROUTES,
 }
 
+enum class TripTravelMode {
+    WALKING,
+    DRIVING,
+}
+
 class CampusMapController(
     private val context: Context,
     private val binding: ActivityMapsBinding,
@@ -61,11 +67,17 @@ class CampusMapController(
     private var pendingOverlayTitle: String = ""
     private var renderedPoints: List<LatLng> = emptyList()
     private var renderedMarkers: List<MapMarker> = emptyList()
+    private var renderedRoutes: List<MapRoute> = emptyList()
+    private var travelMode: TripTravelMode = TripTravelMode.DRIVING
+    private var controlBottomInsetPx = 0
 
     fun start() {
         MapsInitializer.initialize(context.applicationContext)
 
         binding.checkboxPopular.visibility = View.GONE
+        if (mode == MapLayerMode.TRIP_ROUTES) {
+            binding.textMapStatus.visibility = View.GONE
+        }
         if (mode == MapLayerMode.POPULAR_PLACES) {
             binding.textOverlayTitle.setText(R.string.map_overlay_popular_title)
             binding.textLegend.setText(R.string.map_legend_popular)
@@ -103,8 +115,26 @@ class CampusMapController(
         }
     }
 
+    fun setControlBottomInset(bottomPx: Int) {
+        controlBottomInsetPx = bottomPx.coerceAtLeast(0)
+        if (::map.isInitialized) {
+            map.setPadding(0, 0, 0, controlBottomInsetPx)
+        }
+    }
+
+    fun setTravelMode(tripMode: TripTravelMode) {
+        if (mode != MapLayerMode.TRIP_ROUTES) return
+        val shouldRedraw = travelMode != tripMode && ::map.isInitialized
+        travelMode = tripMode
+        if (shouldRedraw) {
+            redrawTravelPolylines()
+            updateTravelLegend()
+        }
+    }
+
     private fun onMapReady(googleMap: GoogleMap) {
         map = googleMap
+        map.setPadding(0, 0, 0, controlBottomInsetPx)
         map.uiSettings.isZoomControlsEnabled = true
         map.uiSettings.isCompassEnabled = true
         map.uiSettings.isMapToolbarEnabled = true
@@ -156,6 +186,7 @@ class CampusMapController(
         itineraryPolylines.clear()
 
         renderedMarkers = itineraryMap.markers
+        renderedRoutes = itineraryMap.routes
         renderedPoints = itineraryMap.markers.map { marker ->
             LatLng(marker.coordinates.latitude, marker.coordinates.longitude)
         }
@@ -163,7 +194,7 @@ class CampusMapController(
         binding.textOverlayTitle.text = title.ifBlank {
             context.getString(R.string.map_overlay_title)
         }
-        binding.textLegend.setText(R.string.map_legend_activities)
+        updateTravelLegend()
         binding.textMapStatus.setText(R.string.map_loading_routes)
 
         itineraryMap.markers.forEachIndexed { index, marker ->
@@ -179,25 +210,65 @@ class CampusMapController(
             }
         }
 
-        for (route in itineraryMap.routes) {
-            val points = runCatching {
-                PolylineDecoder.decode(route.encodedPolyline)
-            }.getOrDefault(emptyList())
-            if (points.isNotEmpty()) {
-                val polyline = map.addPolyline(
-                    PolylineOptions()
-                        .addAll(points)
-                        .color(ContextCompat.getColor(context, R.color.ubc_blue))
-                        .width(12f),
-                )
-                itineraryPolylines.add(polyline)
-            }
-        }
+        redrawTravelPolylines()
 
         if (renderedPoints.isNotEmpty()) {
             fitCamera(renderedPoints)
         }
         binding.textMapStatus.text = statusMessage(itineraryMap)
+    }
+
+    private fun redrawTravelPolylines() {
+        itineraryPolylines.forEach { it.remove() }
+        itineraryPolylines.clear()
+        renderedRoutes.forEach { route ->
+            addRoutePolyline(route)
+        }
+    }
+
+    private fun addRoutePolyline(route: MapRoute) {
+        val points = polylinePoints(route)
+        if (points.isEmpty()) {
+            return
+        }
+        val polyline = map.addPolyline(
+            PolylineOptions()
+                .addAll(points)
+                .color(polylineColor())
+                .width(12f),
+        )
+        itineraryPolylines.add(polyline)
+    }
+
+    private fun polylinePoints(route: MapRoute): List<LatLng> {
+        val encoded = selectedTravelOption(route)?.encodedPolyline
+            ?.takeIf { it.isNotBlank() }
+            ?: route.encodedPolyline
+        return runCatching { PolylineDecoder.decode(encoded) }.getOrDefault(emptyList())
+    }
+
+    private fun selectedTravelOption(route: MapRoute) = when (travelMode) {
+        TripTravelMode.WALKING -> route.walking
+        TripTravelMode.DRIVING -> route.driving
+    }
+
+    private fun polylineColor(): Int {
+        val colorRes = if (travelMode == TripTravelMode.WALKING) {
+            R.color.ubc_gold
+        } else {
+            R.color.ubc_blue_mid
+        }
+        return ContextCompat.getColor(context, colorRes)
+    }
+
+    private fun updateTravelLegend() {
+        binding.textLegend.setText(
+            if (travelMode == TripTravelMode.WALKING) {
+                R.string.map_legend_walking
+            } else {
+                R.string.map_legend_driving
+            },
+        )
     }
 
     private fun markerSnippet(marker: MapMarker): String = buildString {
@@ -206,6 +277,30 @@ class CampusMapController(
             append('\n')
             append(context.getString(R.string.map_marker_approximate))
         }
+        val route = renderedRoutes.find { it.fromActivityId == marker.activityId }
+        val summary = route?.let { travelSummary(it) }.orEmpty()
+        if (summary.isNotBlank()) {
+            append('\n')
+            append(summary)
+        }
+    }
+
+    private fun travelSummary(route: MapRoute): String {
+        val parts = mutableListOf<String>()
+        route.walking?.let { option ->
+            parts += "Walk ${formatMapDuration(option.durationSeconds)}"
+        }
+        route.driving?.let { option ->
+            parts += "Drive ${formatMapDuration(option.durationSeconds)}"
+        }
+        return parts.joinToString(" · ")
+    }
+
+    private fun formatMapDuration(seconds: Double): String {
+        val totalMinutes = kotlin.math.round(seconds / 60.0).toInt().coerceAtLeast(1)
+        val hours = totalMinutes / 60
+        val minutes = totalMinutes % 60
+        return if (hours > 0) "${hours} hr ${minutes} min" else "$totalMinutes min"
     }
 
     private fun statusMessage(itineraryMap: ItineraryMap): String {
@@ -215,7 +310,11 @@ class CampusMapController(
         } else if (itineraryMap.routes.isEmpty() && itineraryMap.markers.size >= 2) {
             parts += context.getString(R.string.map_routes_empty)
         } else if (itineraryMap.routes.isNotEmpty()) {
-            parts += context.getString(R.string.map_routes_ready)
+            parts += itineraryMap.routes.joinToString("  ") { route ->
+                travelSummary(route).ifBlank {
+                    context.getString(R.string.map_routes_ready)
+                }
+            }
         }
         if (itineraryMap.unmappedActivities.isNotEmpty()) {
             val names = itineraryMap.unmappedActivities.joinToString { it.title }
@@ -235,10 +334,12 @@ class CampusMapController(
         val origin = marker.coordinates
         val uri = if (next != null) {
             val destination = next.coordinates
+            val mapsMode = if (travelMode == TripTravelMode.WALKING) "walking" else "driving"
             Uri.parse(
                 "https://www.google.com/maps/dir/?api=1" +
                     "&origin=${origin.latitude},${origin.longitude}" +
-                    "&destination=${destination.latitude},${destination.longitude}",
+                    "&destination=${destination.latitude},${destination.longitude}" +
+                    "&travelmode=$mapsMode",
             )
         } else {
             Uri.parse("google.navigation:q=${origin.latitude},${origin.longitude}")

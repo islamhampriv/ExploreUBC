@@ -27,17 +27,26 @@ export type UnmappedActivity = {
   address: string;
 };
 
-export type CalculatedRoute = {
+export type RouteStep = {
+  instruction: string;
+};
+
+export type TravelOption = {
+  encodedPolyline: string;
+  distanceMeters: number;
+  durationSeconds: number;
+  steps: RouteStep[];
+};
+
+export type MapRoute = {
+  fromActivityId: string;
+  toActivityId: string;
   transportationMode: TransportationMode;
   encodedPolyline: string;
   distanceMeters: number;
   durationSeconds: number;
-};
-
-// For storage
-export type MapRoute = CalculatedRoute & {
-  fromActivityId: string;
-  toActivityId: string;
+  walking: TravelOption | null;
+  driving: TravelOption | null;
 };
 
 export type ItineraryMap = {

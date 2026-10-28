@@ -12,6 +12,7 @@ import type {
   ItineraryMap,
   MapMarker,
   MapRoute,
+  TravelOption,
   UnmappedActivity,
 } from './mapTypes';
 
@@ -46,7 +47,10 @@ export class ItineraryMapService {
 
     const cachedMap =
       await this.itineraryMapRepository.findByItineraryId(itineraryId);
-    if (cachedMap?.itineraryUpdatedAt === itinerary.updatedAt) {
+    if (
+      cachedMap?.itineraryUpdatedAt === itinerary.updatedAt &&
+      hasWalkingAndDriving(cachedMap)
+    ) {
       return cachedMap;
     }
 
@@ -149,21 +153,66 @@ async function createRoutes(
       originActivity.id,
       destinationActivity.id,
     );
-    const calculatedRoute = await getRoute(
-      origin.coordinates,
-      destination.coordinates,
+    const mapRoute = await buildMapRoute(
+      originActivity,
+      destinationActivity,
+      origin,
+      destination,
       transportationMode,
     );
-    if (calculatedRoute === null) {
-      continue;
+    if (mapRoute !== null) {
+      routes.push(mapRoute);
     }
-    routes.push({
-      fromActivityId: originActivity.id,
-      toActivityId: destinationActivity.id,
-      ...calculatedRoute,
-    });
   }
   return routes;
+}
+
+async function buildMapRoute(
+  originActivity: ActivityItem,
+  destinationActivity: ActivityItem,
+  origin: MapMarker,
+  destination: MapMarker,
+  transportationMode: TransportationMode,
+): Promise<MapRoute | null> {
+  const [walking, driving] = await Promise.all([
+    getRoute(origin.coordinates, destination.coordinates, 'walking'),
+    getRoute(origin.coordinates, destination.coordinates, 'driving'),
+  ]);
+  const preferred = preferredTravelOption(
+    transportationMode,
+    walking,
+    driving,
+  );
+  if (preferred === null) {
+    return null;
+  }
+  return {
+    fromActivityId: originActivity.id,
+    toActivityId: destinationActivity.id,
+    transportationMode,
+    encodedPolyline: preferred.encodedPolyline,
+    distanceMeters: preferred.distanceMeters,
+    durationSeconds: preferred.durationSeconds,
+    walking,
+    driving,
+  };
+}
+
+function preferredTravelOption(
+  transportationMode: TransportationMode,
+  walking: TravelOption | null,
+  driving: TravelOption | null,
+): TravelOption | null {
+  if (transportationMode === 'walking') {
+    return walking ?? driving;
+  }
+  return driving ?? walking;
+}
+
+function hasWalkingAndDriving(map: ItineraryMap): boolean {
+  return map.routes.every(
+    (route) => route.walking !== undefined && route.driving !== undefined,
+  );
 }
 
 /** Finds the transportation mode between two activities. */

@@ -31,20 +31,25 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.exploreUBC.cpen321application.R
+import com.exploreUBC.cpen321application.data.itineraries.ActivityItem
 import com.exploreUBC.cpen321application.data.itineraries.ItinerariesRepository
 import com.exploreUBC.cpen321application.data.itineraries.Itinerary
 import com.exploreUBC.cpen321application.data.itineraries.ItineraryDetails
 import com.exploreUBC.cpen321application.data.itineraries.ItineraryHttpException
 import com.exploreUBC.cpen321application.data.itineraries.ItineraryItem
 import com.exploreUBC.cpen321application.data.itineraries.ItineraryMap
+import com.exploreUBC.cpen321application.data.itineraries.MapRoute
 import com.exploreUBC.cpen321application.ui.map.CampusMapView
 import com.exploreUBC.cpen321application.ui.map.MapLayerMode
+import com.exploreUBC.cpen321application.ui.map.TripTravelMode
+import com.exploreUBC.cpen321application.ui.map.TripTravelOverlay
 import java.util.Locale
 
 private const val MISSING_USER_MESSAGE = "A user ID is required to load itineraries."
@@ -111,8 +116,21 @@ private fun SelectedItineraryRoute(
     modifier: Modifier,
 ) {
     var showMap by remember(itinerary.id) { mutableStateOf(false) }
+    var travelRoutes by remember(userId, itinerary.id) {
+        mutableStateOf<List<MapRoute>>(emptyList())
+    }
     val item = state.selectedItem
     val itemType = state.newItemType
+
+    LaunchedEffect(userId, itinerary.id, itinerary.updatedAt) {
+        travelRoutes = if (userId.isNullOrBlank()) {
+            emptyList()
+        } else {
+            runCatching {
+                repository.getItineraryMap(userId, itinerary.id).routes
+            }.getOrDefault(emptyList())
+        }
+    }
     when {
         showMap -> ItineraryMapScreen(
             userId = userId.orEmpty(),
@@ -147,7 +165,13 @@ private fun SelectedItineraryRoute(
             onAddTransportation = state.addTransportation,
             modifier = modifier,
         )
-        else -> SelectedItineraryDetails(state, itinerary, { showMap = true }, modifier)
+        else -> SelectedItineraryDetails(
+            state,
+            itinerary,
+            travelRoutes,
+            { showMap = true },
+            modifier,
+        )
     }
 }
 
@@ -155,11 +179,17 @@ private fun SelectedItineraryRoute(
 private fun SelectedItineraryDetails(
     state: TripsRouteState,
     itinerary: Itinerary,
+    travelRoutes: List<MapRoute>,
     onViewMap: () -> Unit,
     modifier: Modifier,
 ) {
     ItineraryScreen(
-        model = ItineraryScreenModel(itinerary, state.isSaving, state.statusMessage),
+        model = ItineraryScreenModel(
+            itinerary,
+            state.isSaving,
+            state.statusMessage,
+            travelRoutes,
+        ),
         actions = ItineraryScreenActions(
             onBack = state.closeItinerary,
             onItemClick = state.openItem,
@@ -195,6 +225,10 @@ private fun ItineraryMapScreen(
     var state by remember(userId, itineraryId) {
         mutableStateOf<ItineraryMapUiState>(ItineraryMapUiState.Loading)
     }
+    var travelMode by remember(userId, itineraryId) {
+        mutableStateOf(TripTravelMode.DRIVING)
+    }
+    var overlayHeightPx by remember(userId, itineraryId) { mutableIntStateOf(0) }
 
     LaunchedEffect(userId, itineraryId, reloadToken) {
         state = ItineraryMapUiState.Loading
@@ -217,12 +251,19 @@ private fun ItineraryMapScreen(
         ItineraryMapContent(
             state,
             itineraryName,
+            travelMode,
+            overlayHeightPx,
             onItineraryMissing,
             onRetry = { reloadToken += 1 },
         )
-        if (state !is ItineraryMapUiState.NotFound) {
-            HideItineraryMapButton(state, onHideMap)
-        }
+        ItineraryMapChrome(
+            state = state,
+            travelMode = travelMode,
+            onTravelModeChange = { travelMode = it },
+            onHideMap = onHideMap,
+            onOverlayHeightChanged = { overlayHeightPx = it },
+            modifier = Modifier.align(Alignment.BottomCenter),
+        )
     }
 }
 
@@ -230,6 +271,8 @@ private fun ItineraryMapScreen(
 private fun ItineraryMapContent(
     state: ItineraryMapUiState,
     itineraryName: String,
+    travelMode: TripTravelMode,
+    controlsBottomInsetPx: Int,
     onItineraryMissing: () -> Unit,
     onRetry: () -> Unit,
 ) {
@@ -242,6 +285,8 @@ private fun ItineraryMapContent(
             mode = MapLayerMode.TRIP_ROUTES,
             itineraryMap = state.map,
             overlayTitle = itineraryName,
+            travelMode = travelMode,
+            controlsBottomInsetPx = controlsBottomInsetPx,
             modifier = Modifier.fillMaxSize(),
         )
         ItineraryMapUiState.NotFound -> CenteredMapAction(
@@ -256,6 +301,31 @@ private fun ItineraryMapContent(
             "itinerary_map_retry",
             onRetry,
         )
+    }
+}
+
+@Composable
+private fun ItineraryMapChrome(
+    state: ItineraryMapUiState,
+    travelMode: TripTravelMode,
+    onTravelModeChange: (TripTravelMode) -> Unit,
+    onHideMap: () -> Unit,
+    onOverlayHeightChanged: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val measuredModifier = modifier.onSizeChanged { size ->
+        onOverlayHeightChanged(size.height)
+    }
+    when (state) {
+        is ItineraryMapUiState.Ready -> TripTravelOverlay(
+            itineraryMap = state.map,
+            travelMode = travelMode,
+            onTravelModeChange = onTravelModeChange,
+            onHideMap = onHideMap,
+            modifier = measuredModifier,
+        )
+        ItineraryMapUiState.NotFound -> Unit
+        else -> HideItineraryMapButton(24.dp, onHideMap, measuredModifier)
     }
 }
 
@@ -286,18 +356,19 @@ private fun CenteredMapAction(
 }
 
 @Composable
-private fun androidx.compose.foundation.layout.BoxScope.HideItineraryMapButton(
-    state: ItineraryMapUiState,
+private fun HideItineraryMapButton(
+    bottomPadding: androidx.compose.ui.unit.Dp,
     onHideMap: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     Button(
         onClick = onHideMap,
         modifier = Modifier
-            .align(Alignment.BottomCenter)
+            .then(modifier)
             .padding(
                 start = 16.dp,
                 end = 16.dp,
-                bottom = if (state is ItineraryMapUiState.Ready) 88.dp else 24.dp,
+                bottom = bottomPadding,
             )
             .testTag("itinerary_hide_map"),
     ) {
@@ -507,6 +578,7 @@ data class ItineraryScreenModel(
     val itinerary: Itinerary,
     val isSaving: Boolean,
     val statusMessage: String?,
+    val travelRoutes: List<MapRoute> = emptyList(),
 )
 
 data class ItineraryScreenActions(
@@ -572,7 +644,7 @@ fun ItineraryScreen(
             Text("View on Map")
         }
         model.statusMessage?.let { Text(it, modifier = Modifier.testTag("itinerary_status")) }
-        ItineraryItems(itinerary, actions.onItemClick)
+        ItineraryItems(itinerary, model.travelRoutes, actions.onItemClick)
         ItineraryActions(model, actions)
         Button(
             onClick = { showDeleteConfirmation = true },
@@ -678,7 +750,11 @@ private fun ItineraryDetailsContent(itinerary: Itinerary) {
 }
 
 @Composable
-private fun ItineraryItems(itinerary: Itinerary, onItemClick: (ItineraryItem) -> Unit) {
+private fun ItineraryItems(
+    itinerary: Itinerary,
+    travelRoutes: List<MapRoute>,
+    onItemClick: (ItineraryItem) -> Unit,
+) {
     Text(
         text = "Activities and transportation",
         style = MaterialTheme.typography.titleLarge,
@@ -686,8 +762,22 @@ private fun ItineraryItems(itinerary: Itinerary, onItemClick: (ItineraryItem) ->
         modifier = Modifier.padding(top = 8.dp),
     )
     if (itinerary.items.isEmpty()) Text("No activities or transportation.")
-    itinerary.items.forEach { item ->
+    itinerary.items.forEachIndexed { index, item ->
         ItineraryItemCard(item = item, onClick = { onItemClick(item) })
+        val nextActivity = itinerary.items
+            .drop(index + 1)
+            .filterIsInstance<ActivityItem>()
+            .firstOrNull()
+        val route = travelRoutes.find { candidate ->
+            candidate.fromActivityId == item.id && candidate.toActivityId == nextActivity?.id
+        }
+        if (
+            item is ActivityItem &&
+            route != null &&
+            nextActivity != null
+        ) {
+            TravelLegCard(route, item.name, nextActivity.name)
+        }
     }
 }
 

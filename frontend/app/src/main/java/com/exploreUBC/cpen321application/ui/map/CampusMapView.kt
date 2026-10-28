@@ -17,7 +17,9 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.google.android.gms.maps.MapView
 import com.exploreUBC.cpen321application.data.itineraries.ItineraryMap
 import com.exploreUBC.cpen321application.databinding.ActivityMapsBinding
 
@@ -32,8 +34,11 @@ fun CampusMapView(
     modifier: Modifier = Modifier,
     itineraryMap: ItineraryMap? = null,
     overlayTitle: String? = null,
+    travelMode: TripTravelMode = TripTravelMode.DRIVING,
+    controlsBottomInsetPx: Int = 0,
 ) {
     val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
     val scope = rememberCoroutineScope()
     val binding = remember(mode) {
         ActivityMapsBinding.inflate(LayoutInflater.from(context))
@@ -42,26 +47,16 @@ fun CampusMapView(
         CampusMapController(context, binding, scope, mode)
     }
 
-    val permissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestMultiplePermissions()
-    ) { grants ->
-        controller.setMyLocationEnabled(
-            grants[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
-                grants[Manifest.permission.ACCESS_COARSE_LOCATION] == true
-        )
-    }
-
-    ManageMapLifecycle(binding, controller)
-    RequestMapLocationPermission(controller) {
-        permissionLauncher.launch(locationPermissions)
-    }
-
-    LaunchedEffect(mode, itineraryMap, overlayTitle) {
-        if (mode == MapLayerMode.TRIP_ROUTES && itineraryMap != null) {
-            controller.showItineraryMap(itineraryMap, overlayTitle.orEmpty())
-        }
-    }
-
+    BindCampusMapLifecycle(lifecycleOwner, binding, controller)
+    RequestCampusMapLocation(controller)
+    ShowItineraryOnMap(
+        mode,
+        itineraryMap,
+        overlayTitle,
+        travelMode,
+        controlsBottomInsetPx,
+        controller,
+    )
     AndroidView(
         factory = { binding.root },
         modifier = modifier.fillMaxSize(),
@@ -69,35 +64,18 @@ fun CampusMapView(
 }
 
 @Composable
-private fun ManageMapLifecycle(
+private fun BindCampusMapLifecycle(
+    lifecycleOwner: LifecycleOwner,
     binding: ActivityMapsBinding,
     controller: CampusMapController,
 ) {
-    val lifecycleOwner = LocalLifecycleOwner.current
-
     DisposableEffect(lifecycleOwner, binding) {
         val mapView = binding.map
         mapView.onCreate(null)
         controller.start()
-
-        val observer = LifecycleEventObserver { _, event ->
-            when (event) {
-                Lifecycle.Event.ON_START -> mapView.onStart()
-                Lifecycle.Event.ON_RESUME -> mapView.onResume()
-                Lifecycle.Event.ON_PAUSE -> mapView.onPause()
-                Lifecycle.Event.ON_STOP -> mapView.onStop()
-                Lifecycle.Event.ON_DESTROY -> mapView.onDestroy()
-                else -> Unit
-            }
-        }
+        val observer = mapLifecycleObserver(mapView)
         lifecycleOwner.lifecycle.addObserver(observer)
-        if (lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) {
-            mapView.onStart()
-        }
-        if (lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
-            mapView.onResume()
-        }
-
+        syncMapViewToLifecycle(mapView, lifecycleOwner.lifecycle.currentState)
         onDispose {
             lifecycleOwner.lifecycle.removeObserver(observer)
             mapView.onPause()
@@ -107,20 +85,75 @@ private fun ManageMapLifecycle(
     }
 }
 
-@Composable
-private fun RequestMapLocationPermission(
-    controller: CampusMapController,
-    requestPermission: () -> Unit,
+private fun mapLifecycleObserver(
+    mapView: MapView,
+): LifecycleEventObserver = LifecycleEventObserver { _, event ->
+    when (event) {
+        Lifecycle.Event.ON_START -> mapView.onStart()
+        Lifecycle.Event.ON_RESUME -> mapView.onResume()
+        Lifecycle.Event.ON_PAUSE -> mapView.onPause()
+        Lifecycle.Event.ON_STOP -> mapView.onStop()
+        Lifecycle.Event.ON_DESTROY -> mapView.onDestroy()
+        else -> Unit
+    }
+}
+
+private fun syncMapViewToLifecycle(
+    mapView: MapView,
+    state: Lifecycle.State,
 ) {
+    if (state.isAtLeast(Lifecycle.State.STARTED)) {
+        mapView.onStart()
+    }
+    if (state.isAtLeast(Lifecycle.State.RESUMED)) {
+        mapView.onResume()
+    }
+}
+
+@Composable
+private fun RequestCampusMapLocation(controller: CampusMapController) {
     val context = LocalContext.current
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions(),
+    ) { grants ->
+        controller.setMyLocationEnabled(
+            grants[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
+                grants[Manifest.permission.ACCESS_COARSE_LOCATION] == true,
+        )
+    }
     LaunchedEffect(Unit) {
         val granted = locationPermissions.any { permission ->
-            ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
+            ContextCompat.checkSelfPermission(context, permission) ==
+                PackageManager.PERMISSION_GRANTED
         }
         if (granted) {
             controller.setMyLocationEnabled(true)
         } else {
-            requestPermission()
+            permissionLauncher.launch(locationPermissions)
+        }
+    }
+}
+
+@Composable
+private fun ShowItineraryOnMap(
+    mode: MapLayerMode,
+    itineraryMap: ItineraryMap?,
+    overlayTitle: String?,
+    travelMode: TripTravelMode,
+    controlsBottomInsetPx: Int,
+    controller: CampusMapController,
+) {
+    LaunchedEffect(controlsBottomInsetPx) {
+        controller.setControlBottomInset(controlsBottomInsetPx)
+    }
+    LaunchedEffect(mode, itineraryMap, overlayTitle) {
+        if (mode == MapLayerMode.TRIP_ROUTES && itineraryMap != null) {
+            controller.showItineraryMap(itineraryMap, overlayTitle.orEmpty())
+        }
+    }
+    LaunchedEffect(travelMode) {
+        if (mode == MapLayerMode.TRIP_ROUTES) {
+            controller.setTravelMode(travelMode)
         }
     }
 }

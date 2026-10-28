@@ -433,7 +433,24 @@ class ItinerariesApi(private val apiBaseUrl: String) : ItinerariesRepository {
         encodedPolyline = json.optString("encodedPolyline"),
         distanceMeters = json.optDouble("distanceMeters", 0.0),
         durationSeconds = json.optDouble("durationSeconds", 0.0),
+        walking = json.optionalTravelOption("walking"),
+        driving = json.optionalTravelOption("driving"),
     )
+
+    private fun JSONObject.optionalTravelOption(key: String): TravelOption? =
+        if (has(key) && !isNull(key)) parseTravelOption(getJSONObject(key)) else null
+
+    private fun parseTravelOption(json: JSONObject): TravelOption {
+        val stepsJson = json.optJSONArray("steps") ?: JSONArray()
+        return TravelOption(
+            encodedPolyline = json.optString("encodedPolyline"),
+            distanceMeters = json.optDouble("distanceMeters", 0.0),
+            durationSeconds = json.optDouble("durationSeconds", 0.0),
+            steps = List(stepsJson.length()) { index ->
+                RouteStep(stepsJson.getJSONObject(index).optString("instruction"))
+            }.filter { step -> step.instruction.isNotBlank() },
+        )
+    }
 
     private fun parseUnmappedActivity(json: JSONObject): UnmappedActivity = UnmappedActivity(
         activityId = json.getString("activityId"),
