@@ -64,6 +64,7 @@ export function createEventRouter(eventService: EventService): Router {
           description: event.description,
           imageUrl: event.imageUrl,
           startDateTime: event.startDateTime,
+          endDateTime: event.endDateTime,
           venueName: event.venueName,
           city: event.city,
           category: event.category,

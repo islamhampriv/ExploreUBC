@@ -860,7 +860,7 @@ private fun String.displayOption(): String =
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun DateTimePickerField(
+internal fun DateTimePickerField(
     label: String,
     value: String,
     onValueChange: (String) -> Unit,

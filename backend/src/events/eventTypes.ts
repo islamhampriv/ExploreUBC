@@ -6,6 +6,7 @@ export interface LiveEvent {
   description?: string;
   imageUrl: string;
   startDateTime: Date;
+  endDateTime?: Date;
   venueName: string;
   city: string;
   location: {

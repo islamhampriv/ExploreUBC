@@ -24,6 +24,7 @@ interface TicketmasterEvent {
   }>;
   dates?: {
     start?: { dateTime?: string };
+    end?: { dateTime?: string };
   };
   classifications?: Array<{
     primary?: boolean;
@@ -191,6 +192,16 @@ function mapTicketmasterEvent(event: TicketmasterEvent): LiveEvent | null {
     return null;
   }
 
+  const rawEndDateTime = event.dates?.end?.dateTime;
+  const parsedEndDateTime = rawEndDateTime === undefined
+    ? undefined
+    : new Date(rawEndDateTime);
+  const endDateTime = parsedEndDateTime !== undefined &&
+      !Number.isNaN(parsedEndDateTime.getTime()) &&
+      parsedEndDateTime > startDateTime
+    ? parsedEndDateTime
+    : undefined;
+
   const longitude = Number(rawLongitude);
   const latitude = Number(rawLatitude);
   if (!Number.isFinite(longitude) || !Number.isFinite(latitude)) {
@@ -208,6 +219,7 @@ function mapTicketmasterEvent(event: TicketmasterEvent): LiveEvent | null {
       : { description }),
     imageUrl,
     startDateTime,
+    ...(endDateTime === undefined ? {} : { endDateTime }),
     venueName: venue.name,
     city: venue.city.name,
     location: {

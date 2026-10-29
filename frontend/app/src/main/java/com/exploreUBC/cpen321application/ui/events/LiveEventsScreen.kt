@@ -37,6 +37,7 @@ import com.exploreUBC.cpen321application.data.itineraries.CreateActivityInput
 import com.exploreUBC.cpen321application.data.itineraries.CreateItineraryInput
 import com.exploreUBC.cpen321application.data.itineraries.ItinerariesRepository
 import com.exploreUBC.cpen321application.data.itineraries.Itinerary
+import com.exploreUBC.cpen321application.ui.trips.DateTimePickerField
 import java.io.IOException
 import java.time.Instant
 import java.time.ZoneId
@@ -209,21 +210,33 @@ private fun EventItineraryDialog(
             state.itineraryError,
         ),
         onDismiss = { state.eventToAdd = null },
-        onSelect = { itinerary ->
+        onSelect = { itinerary, endTime ->
             if (userId.isNullOrBlank()) {
                 state.itineraryError = "User is unavailable"
             } else {
                 scope.launch {
-                    addEventToItinerary(repository, userId, itinerary, selectedEvent, state)
+                    addEventToItinerary(
+                        repository,
+                        userId,
+                        itinerary,
+                        selectedEvent.toActivityInput(endTime),
+                        state,
+                    )
                 }
             }
         },
-        onCreate = { name ->
+        onCreate = { name, endTime ->
             if (userId.isNullOrBlank()) {
                 state.itineraryError = "User is unavailable"
             } else {
                 scope.launch {
-                    createItineraryWithEvent(repository, userId, name, selectedEvent, state)
+                    createItineraryWithEvent(
+                        repository,
+                        userId,
+                        name,
+                        selectedEvent.toActivityInput(endTime),
+                        state,
+                    )
                 }
             }
         },
@@ -234,13 +247,13 @@ private suspend fun addEventToItinerary(
     repository: ItinerariesRepository,
     userId: String,
     itinerary: Itinerary,
-    event: Event,
+    activity: CreateActivityInput,
     state: LiveEventsScreenState,
 ) {
     state.isAddingToItinerary = true
     state.itineraryError = null
     runCatching {
-        repository.addActivity(userId, itinerary.id, event.toTwoHourActivityInput())
+        repository.addActivity(userId, itinerary.id, activity)
     }.onSuccess {
         state.itineraryStatus = "Added to ${itinerary.name}."
         state.eventToAdd = null
@@ -254,7 +267,7 @@ private suspend fun createItineraryWithEvent(
     repository: ItinerariesRepository,
     userId: String,
     itineraryName: String,
-    event: Event,
+    activity: CreateActivityInput,
     state: LiveEventsScreenState,
 ) {
     state.isAddingToItinerary = true
@@ -264,7 +277,7 @@ private suspend fun createItineraryWithEvent(
             userId,
             CreateItineraryInput(name = itineraryName),
         )
-        repository.addActivity(userId, itinerary.id, event.toTwoHourActivityInput())
+        repository.addActivity(userId, itinerary.id, activity)
         itinerary
     }.onSuccess {
         state.itineraryStatus = "Created ${it.name} and added the event."
@@ -419,54 +432,37 @@ private data class AddToItineraryDialogState(
     val errorMessage: String?,
 )
 
+private data class AddEventFormState(
+    val itineraryName: String,
+    val endTime: String,
+    val hasValidEndTime: Boolean,
+)
+
 @Composable
 private fun AddEventToItineraryDialog(
     state: AddToItineraryDialogState,
     onDismiss: () -> Unit,
-    onSelect: (Itinerary) -> Unit,
-    onCreate: (String) -> Unit,
+    onSelect: (Itinerary, String) -> Unit,
+    onCreate: (String, String) -> Unit,
 ) {
     var itineraryName by remember(state.event.id) { mutableStateOf("") }
+    var endTime by remember(state.event.id) {
+        mutableStateOf(state.event.suggestedEndTime())
+    }
+    val hasValidEndTime = endTime.isAfter(state.event.startDateTime)
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Add ${state.event.title}") },
         text = {
-            Column(
-                modifier = Modifier.verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                when {
-                    state.isLoading -> CircularProgressIndicator()
-                    state.itineraries.isEmpty() -> {
-                        Text("You do not have an itinerary yet.")
-                        OutlinedTextField(
-                            value = itineraryName,
-                            onValueChange = { itineraryName = it },
-                            label = { Text("Itinerary name") },
-                            enabled = !state.isWorking,
-                        )
-                        Button(
-                            onClick = { onCreate(itineraryName.trim()) },
-                            enabled = itineraryName.isNotBlank() && !state.isWorking,
-                        ) {
-                            Text(if (state.isWorking) "Creating..." else "Create and add")
-                        }
-                    }
-                    else -> state.itineraries.forEach { itinerary ->
-                        OutlinedButton(
-                            onClick = { onSelect(itinerary) },
-                            enabled = !state.isWorking,
-                            modifier = Modifier.fillMaxWidth(),
-                        ) {
-                            Text(itinerary.name)
-                        }
-                    }
-                }
-                if (state.errorMessage != null) {
-                    Text(state.errorMessage, color = MaterialTheme.colorScheme.error)
-                }
-            }
+            AddEventDialogBody(
+                state = state,
+                form = AddEventFormState(itineraryName, endTime, hasValidEndTime),
+                onNameChange = { itineraryName = it },
+                onEndTimeChange = { endTime = it },
+                onSelect = onSelect,
+                onCreate = onCreate,
+            )
         },
         confirmButton = {},
         dismissButton = {
@@ -477,9 +473,80 @@ private fun AddEventToItineraryDialog(
     )
 }
 
-private fun Event.toTwoHourActivityInput(): CreateActivityInput {
-    val endTime = Instant.parse(startDateTime).plusSeconds(2 * 60 * 60).toString()
-    return CreateActivityInput(
+@Composable
+private fun AddEventDialogBody(
+    state: AddToItineraryDialogState,
+    form: AddEventFormState,
+    onNameChange: (String) -> Unit,
+    onEndTimeChange: (String) -> Unit,
+    onSelect: (Itinerary, String) -> Unit,
+    onCreate: (String, String) -> Unit,
+) {
+    Column(
+        modifier = Modifier.verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text("Starts: ${formatDate(state.event.startDateTime)}")
+        DateTimePickerField(
+            label = "End time",
+            value = form.endTime,
+            onValueChange = onEndTimeChange,
+            tag = "event_end_time",
+        )
+        if (!form.hasValidEndTime) {
+            Text(
+                "End time must be after the event start time.",
+                color = MaterialTheme.colorScheme.error,
+            )
+        }
+        when {
+            state.isLoading -> CircularProgressIndicator()
+            state.itineraries.isEmpty() -> {
+                Text("You do not have an itinerary yet.")
+                OutlinedTextField(
+                    value = form.itineraryName,
+                    onValueChange = onNameChange,
+                    label = { Text("Itinerary name") },
+                    enabled = !state.isWorking,
+                )
+                Button(
+                    onClick = { onCreate(form.itineraryName.trim(), form.endTime) },
+                    enabled = form.itineraryName.isNotBlank() &&
+                        form.hasValidEndTime && !state.isWorking,
+                ) {
+                    Text(if (state.isWorking) "Creating..." else "Create and add")
+                }
+            }
+            else -> state.itineraries.forEach { itinerary ->
+                OutlinedButton(
+                    onClick = { onSelect(itinerary, form.endTime) },
+                    enabled = form.hasValidEndTime && !state.isWorking,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(itinerary.name)
+                }
+            }
+        }
+        if (state.errorMessage != null) {
+            Text(state.errorMessage, color = MaterialTheme.colorScheme.error)
+        }
+    }
+}
+
+private fun Event.suggestedEndTime(): String {
+    val providedEndTime = endDateTime
+    return if (providedEndTime != null && providedEndTime.isAfter(startDateTime)) {
+        providedEndTime
+    } else {
+        Instant.parse(startDateTime).plusSeconds(2 * 60 * 60).toString()
+    }
+}
+
+private fun String.isAfter(startTime: String): Boolean =
+    runCatching { Instant.parse(this).isAfter(Instant.parse(startTime)) }.getOrDefault(false)
+
+private fun Event.toActivityInput(endTime: String): CreateActivityInput =
+    CreateActivityInput(
         name = title,
         image = imageUrl,
         description = description,
@@ -488,7 +555,6 @@ private fun Event.toTwoHourActivityInput(): CreateActivityInput {
         startTime = startDateTime,
         endTime = endTime,
     )
-}
 
 private fun formatDate(value: String): String = try {
     val formatter = DateTimeFormatter.ofPattern("MMM d, yyyy h:mm a")
