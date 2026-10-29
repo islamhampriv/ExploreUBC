@@ -37,11 +37,25 @@ interface ItinerariesRepository {
         activity: CreateActivityInput,
     ): ActivityItem
 
+    suspend fun addActivity(
+        userId: String,
+        itineraryId: String,
+        activity: CreateActivityInput,
+        replaceConflicts: Boolean,
+    ): ActivityItem = addActivity(userId, itineraryId, activity)
+
     suspend fun addTransportationSegment(
         userId: String,
         itineraryId: String,
         segment: CreateTransportationInput,
     ): TransportationItem
+
+    suspend fun addTransportationSegment(
+        userId: String,
+        itineraryId: String,
+        segment: CreateTransportationInput,
+        replaceConflicts: Boolean,
+    ): TransportationItem = addTransportationSegment(userId, itineraryId, segment)
 
     suspend fun updateActivity(
         userId: String,
@@ -50,12 +64,29 @@ interface ItinerariesRepository {
         update: ActivityUpdate,
     ): ActivityItem
 
+    suspend fun updateActivity(
+        userId: String,
+        itineraryId: String,
+        activityId: String,
+        update: ActivityUpdate,
+        replaceConflicts: Boolean,
+    ): ActivityItem = updateActivity(userId, itineraryId, activityId, update)
+
     suspend fun updateTransportationSegment(
         userId: String,
         itineraryId: String,
         segmentId: String,
         update: TransportationSegmentUpdate,
     ): TransportationItem
+
+    suspend fun updateTransportationSegment(
+        userId: String,
+        itineraryId: String,
+        segmentId: String,
+        update: TransportationSegmentUpdate,
+        replaceConflicts: Boolean,
+    ): TransportationItem =
+        updateTransportationSegment(userId, itineraryId, segmentId, update)
 
     suspend fun deleteActivity(userId: String, itineraryId: String, activityId: String)
 
@@ -145,6 +176,13 @@ class ItinerariesApi(private val apiBaseUrl: String) : ItinerariesRepository {
         userId: String,
         itineraryId: String,
         activity: CreateActivityInput,
+    ): ActivityItem = addActivity(userId, itineraryId, activity, false)
+
+    override suspend fun addActivity(
+        userId: String,
+        itineraryId: String,
+        activity: CreateActivityInput,
+        replaceConflicts: Boolean,
     ): ActivityItem = withContext(Dispatchers.IO) {
         val requestBody = JSONObject()
             .put("type", "activity")
@@ -160,7 +198,10 @@ class ItinerariesApi(private val apiBaseUrl: String) : ItinerariesRepository {
             .toString()
         val response = execute(
             method = "POST",
-            path = "${itineraryCollectionPath(userId)}/${encode(itineraryId)}/activities",
+            path = replacementPath(
+                "${itineraryCollectionPath(userId)}/${encode(itineraryId)}/activities",
+                replaceConflicts,
+            ),
             requestBody = requestBody,
         )
         parseItem(response.getJSONObject("activity")) as ActivityItem
@@ -170,6 +211,18 @@ class ItinerariesApi(private val apiBaseUrl: String) : ItinerariesRepository {
         userId: String,
         itineraryId: String,
         segment: CreateTransportationInput,
+    ): TransportationItem = addTransportationSegment(
+        userId,
+        itineraryId,
+        segment,
+        false,
+    )
+
+    override suspend fun addTransportationSegment(
+        userId: String,
+        itineraryId: String,
+        segment: CreateTransportationInput,
+        replaceConflicts: Boolean,
     ): TransportationItem = withContext(Dispatchers.IO) {
         val requestBody = JSONObject()
             .put("type", "transportation")
@@ -182,7 +235,10 @@ class ItinerariesApi(private val apiBaseUrl: String) : ItinerariesRepository {
             .toString()
         val response = execute(
             method = "POST",
-            path = "${itineraryCollectionPath(userId)}/${encode(itineraryId)}/transportation-segments",
+            path = replacementPath(
+                "${itineraryCollectionPath(userId)}/${encode(itineraryId)}/transportation-segments",
+                replaceConflicts,
+            ),
             requestBody = requestBody,
         )
         parseItem(response.getJSONObject("transportationSegment")) as TransportationItem
@@ -193,6 +249,14 @@ class ItinerariesApi(private val apiBaseUrl: String) : ItinerariesRepository {
         itineraryId: String,
         activityId: String,
         update: ActivityUpdate,
+    ): ActivityItem = updateActivity(userId, itineraryId, activityId, update, false)
+
+    override suspend fun updateActivity(
+        userId: String,
+        itineraryId: String,
+        activityId: String,
+        update: ActivityUpdate,
+        replaceConflicts: Boolean,
     ): ActivityItem = withContext(Dispatchers.IO) {
         val requestBody = JSONObject()
             .put("name", update.name)
@@ -207,7 +271,10 @@ class ItinerariesApi(private val apiBaseUrl: String) : ItinerariesRepository {
             .toString()
         val response = execute(
             method = "PATCH",
-            path = "${itineraryCollectionPath(userId)}/${encode(itineraryId)}/activities/${encode(activityId)}",
+            path = replacementPath(
+                "${itineraryCollectionPath(userId)}/${encode(itineraryId)}/activities/${encode(activityId)}",
+                replaceConflicts,
+            ),
             requestBody = requestBody,
         )
         parseItem(response.getJSONObject("activity")) as ActivityItem
@@ -218,6 +285,20 @@ class ItinerariesApi(private val apiBaseUrl: String) : ItinerariesRepository {
         itineraryId: String,
         segmentId: String,
         update: TransportationSegmentUpdate,
+    ): TransportationItem = updateTransportationSegment(
+        userId,
+        itineraryId,
+        segmentId,
+        update,
+        false,
+    )
+
+    override suspend fun updateTransportationSegment(
+        userId: String,
+        itineraryId: String,
+        segmentId: String,
+        update: TransportationSegmentUpdate,
+        replaceConflicts: Boolean,
     ): TransportationItem = withContext(Dispatchers.IO) {
         val requestBody = JSONObject()
             .put("mode", update.mode)
@@ -229,7 +310,10 @@ class ItinerariesApi(private val apiBaseUrl: String) : ItinerariesRepository {
             .toString()
         val response = execute(
             method = "PATCH",
-            path = "${itineraryCollectionPath(userId)}/${encode(itineraryId)}/transportation-segments/${encode(segmentId)}",
+            path = replacementPath(
+                "${itineraryCollectionPath(userId)}/${encode(itineraryId)}/transportation-segments/${encode(segmentId)}",
+                replaceConflicts,
+            ),
             requestBody = requestBody,
         )
         parseItem(response.getJSONObject("transportationSegment")) as TransportationItem
@@ -260,6 +344,9 @@ class ItinerariesApi(private val apiBaseUrl: String) : ItinerariesRepository {
     private fun itineraryCollectionPath(userId: String): String =
         "/api/v1/users/${encode(userId)}/itineraries"
 
+    private fun replacementPath(path: String, replaceConflicts: Boolean): String =
+        if (replaceConflicts) "$path?replaceConflicts=true" else path
+
     private fun execute(
         method: String,
         path: String,
@@ -285,10 +372,34 @@ class ItinerariesApi(private val apiBaseUrl: String) : ItinerariesRepository {
                 connection.errorStream?.bufferedReader()?.use { it.readText() }.orEmpty()
             }
             if (status !in 200..299) {
+                val errorBody = runCatching {
+                    JSONObject(responseText).getJSONObject("error")
+                }.getOrNull()
+                if (
+                    status == HttpURLConnection.HTTP_CONFLICT &&
+                    errorBody?.optString("code") == "ITINERARY_TIME_CONFLICT"
+                ) {
+                    val conflictsJson = errorBody.optJSONArray("conflicts") ?: JSONArray()
+                    val conflicts = List(conflictsJson.length()) { index ->
+                        val conflict = conflictsJson.getJSONObject(index)
+                        ItineraryTimeConflict(
+                            id = conflict.getString("id"),
+                            type = conflict.getString("type"),
+                            name = conflict.getString("name"),
+                            startTime = conflict.getString("startTime"),
+                            endTime = conflict.getString("endTime"),
+                        )
+                    }
+                    throw ItineraryTimeConflictException(
+                        errorBody.optString(
+                            "message",
+                            "The itinerary item overlaps with the existing schedule.",
+                        ),
+                        conflicts,
+                    )
+                }
                 val message = runCatching {
-                    JSONObject(responseText)
-                        .getJSONObject("error")
-                        .getString("message")
+                    errorBody?.getString("message")
                 }.getOrNull()
                 throw IOException(
                     message ?: "Itinerary request failed with HTTP $status"

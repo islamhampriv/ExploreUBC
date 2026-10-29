@@ -37,7 +37,10 @@ import com.exploreUBC.cpen321application.data.itineraries.CreateActivityInput
 import com.exploreUBC.cpen321application.data.itineraries.CreateItineraryInput
 import com.exploreUBC.cpen321application.data.itineraries.ItinerariesRepository
 import com.exploreUBC.cpen321application.data.itineraries.Itinerary
+import com.exploreUBC.cpen321application.data.itineraries.ItineraryTimeConflict
+import com.exploreUBC.cpen321application.data.itineraries.ItineraryTimeConflictException
 import com.exploreUBC.cpen321application.ui.trips.DateTimePickerField
+import com.exploreUBC.cpen321application.ui.trips.TimeConflictDialog
 import java.io.IOException
 import java.time.Instant
 import java.time.ZoneId
@@ -76,6 +79,7 @@ private class LiveEventsScreenState {
     var isAddingToItinerary by mutableStateOf(false)
     var itineraryError by mutableStateOf<String?>(null)
     var itineraryStatus by mutableStateOf<String?>(null)
+    var pendingReplacement by mutableStateOf<PendingEventReplacement?>(null)
 
     fun selectEvent(event: Event) {
         itineraryStatus = null
@@ -92,6 +96,12 @@ private class LiveEventsScreenState {
         if (currentPage == 1) requestCount++ else currentPage = 1
     }
 }
+
+private data class PendingEventReplacement(
+    val itinerary: Itinerary,
+    val activity: CreateActivityInput,
+    val conflicts: List<ItineraryTimeConflict>,
+)
 
 @Composable
 private fun LoadEventsEffect(
@@ -199,8 +209,36 @@ private fun EventItineraryDialog(
     repository: ItinerariesRepository,
     state: LiveEventsScreenState,
 ) {
-    val selectedEvent = state.eventToAdd ?: return
+    val pendingReplacement = state.pendingReplacement
     val scope = rememberCoroutineScope()
+    if (pendingReplacement != null) {
+        TimeConflictDialog(
+            conflicts = pendingReplacement.conflicts,
+            isWorking = state.isAddingToItinerary,
+            onKeepExisting = {
+                state.pendingReplacement = null
+                state.eventToAdd = null
+            },
+            onReplace = {
+                if (userId.isNullOrBlank()) {
+                    state.itineraryError = "User is unavailable"
+                } else {
+                    scope.launch {
+                        addEventToItinerary(
+                            repository,
+                            userId,
+                            pendingReplacement.itinerary,
+                            pendingReplacement.activity,
+                            state,
+                            replaceConflicts = true,
+                        )
+                    }
+                }
+            },
+        )
+        return
+    }
+    val selectedEvent = state.eventToAdd ?: return
     AddEventToItineraryDialog(
         state = AddToItineraryDialogState(
             selectedEvent,
@@ -249,16 +287,31 @@ private suspend fun addEventToItinerary(
     itinerary: Itinerary,
     activity: CreateActivityInput,
     state: LiveEventsScreenState,
+    replaceConflicts: Boolean = false,
 ) {
     state.isAddingToItinerary = true
     state.itineraryError = null
     runCatching {
-        repository.addActivity(userId, itinerary.id, activity)
+        repository.addActivity(
+            userId,
+            itinerary.id,
+            activity,
+            replaceConflicts,
+        )
     }.onSuccess {
         state.itineraryStatus = "Added to ${itinerary.name}."
+        state.pendingReplacement = null
         state.eventToAdd = null
     }.onFailure {
-        state.itineraryError = it.message ?: "Unable to add event"
+        if (it is ItineraryTimeConflictException) {
+            state.pendingReplacement = PendingEventReplacement(
+                itinerary,
+                activity,
+                it.conflicts,
+            )
+        } else {
+            state.itineraryError = it.message ?: "Unable to add event"
+        }
     }
     state.isAddingToItinerary = false
 }

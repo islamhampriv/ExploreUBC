@@ -58,6 +58,8 @@ import com.exploreUBC.cpen321application.data.itineraries.ItinerariesRepository
 import com.exploreUBC.cpen321application.data.itineraries.Itinerary
 import com.exploreUBC.cpen321application.data.itineraries.ItineraryDetails
 import com.exploreUBC.cpen321application.data.itineraries.ItineraryItem
+import com.exploreUBC.cpen321application.data.itineraries.ItineraryTimeConflict
+import com.exploreUBC.cpen321application.data.itineraries.ItineraryTimeConflictException
 import com.exploreUBC.cpen321application.data.itineraries.TransportationItem
 import com.exploreUBC.cpen321application.data.itineraries.TransportationSegmentUpdate
 import kotlinx.coroutines.async
@@ -96,6 +98,13 @@ private enum class NewItemType {
     TRANSPORTATION,
 }
 
+private data class PendingTimeReplacement(
+    val conflicts: List<ItineraryTimeConflict>,
+    val editedItemId: String?,
+    val successMessage: String,
+    val replace: suspend () -> Itinerary,
+)
+
 @Composable
 fun TripsRoute(
     userId: String?,
@@ -110,6 +119,9 @@ fun TripsRoute(
     var isLoading by remember(userId) { mutableStateOf(false) }
     var isSaving by remember(userId) { mutableStateOf(false) }
     var statusMessage by remember(userId) { mutableStateOf<String?>(null) }
+    var pendingReplacement by remember(userId) {
+        mutableStateOf<PendingTimeReplacement?>(null)
+    }
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(userId, itinerariesRepository) {
@@ -197,7 +209,25 @@ fun TripsRoute(
                         recommendedItineraries = recommendedItineraries.replace(updated)
                         statusMessage = "Activity saved."
                     }.onFailure {
-                        statusMessage = it.message ?: "Could not save the activity."
+                        if (it is ItineraryTimeConflictException) {
+                            pendingReplacement = PendingTimeReplacement(
+                                conflicts = it.conflicts,
+                                editedItemId = item.id,
+                                successMessage = "Activity saved.",
+                                replace = {
+                                    itinerariesRepository.updateActivity(
+                                        userId,
+                                        itinerary.id,
+                                        item.id,
+                                        update,
+                                        true,
+                                    )
+                                    itinerariesRepository.getItinerary(userId, itinerary.id)
+                                },
+                            )
+                        } else {
+                            statusMessage = it.message ?: "Could not save the activity."
+                        }
                     }
                     isSaving = false
                 }
@@ -222,7 +252,25 @@ fun TripsRoute(
                         recommendedItineraries = recommendedItineraries.replace(updated)
                         statusMessage = "Transportation saved."
                     }.onFailure {
-                        statusMessage = it.message ?: "Could not save transportation."
+                        if (it is ItineraryTimeConflictException) {
+                            pendingReplacement = PendingTimeReplacement(
+                                conflicts = it.conflicts,
+                                editedItemId = item.id,
+                                successMessage = "Transportation saved.",
+                                replace = {
+                                    itinerariesRepository.updateTransportationSegment(
+                                        userId,
+                                        itinerary.id,
+                                        item.id,
+                                        update,
+                                        true,
+                                    )
+                                    itinerariesRepository.getItinerary(userId, itinerary.id)
+                                },
+                            )
+                        } else {
+                            statusMessage = it.message ?: "Could not save transportation."
+                        }
                     }
                     isSaving = false
                 }
@@ -289,7 +337,24 @@ fun TripsRoute(
                         newItemType = null
                         statusMessage = "Activity added."
                     }.onFailure {
-                        statusMessage = it.message ?: "Could not add the activity."
+                        if (it is ItineraryTimeConflictException) {
+                            pendingReplacement = PendingTimeReplacement(
+                                conflicts = it.conflicts,
+                                editedItemId = null,
+                                successMessage = "Activity added.",
+                                replace = {
+                                    itinerariesRepository.addActivity(
+                                        userId,
+                                        itinerary.id,
+                                        activity,
+                                        true,
+                                    )
+                                    itinerariesRepository.getItinerary(userId, itinerary.id)
+                                },
+                            )
+                        } else {
+                            statusMessage = it.message ?: "Could not add the activity."
+                        }
                     }
                     isSaving = false
                 }
@@ -313,7 +378,24 @@ fun TripsRoute(
                         newItemType = null
                         statusMessage = "Transportation added."
                     }.onFailure {
-                        statusMessage = it.message ?: "Could not add transportation."
+                        if (it is ItineraryTimeConflictException) {
+                            pendingReplacement = PendingTimeReplacement(
+                                conflicts = it.conflicts,
+                                editedItemId = null,
+                                successMessage = "Transportation added.",
+                                replace = {
+                                    itinerariesRepository.addTransportationSegment(
+                                        userId,
+                                        itinerary.id,
+                                        segment,
+                                        true,
+                                    )
+                                    itinerariesRepository.getItinerary(userId, itinerary.id)
+                                },
+                            )
+                        } else {
+                            statusMessage = it.message ?: "Could not add transportation."
+                        }
                     }
                     isSaving = false
                 }
@@ -366,6 +448,41 @@ fun TripsRoute(
                 }
             },
             modifier = modifier,
+        )
+    }
+
+    val replacement = pendingReplacement
+    if (replacement != null) {
+        TimeConflictDialog(
+            conflicts = replacement.conflicts,
+            isWorking = isSaving,
+            onKeepExisting = { pendingReplacement = null },
+            onReplace = {
+                scope.launch {
+                    isSaving = true
+                    statusMessage = null
+                    runCatching { replacement.replace() }
+                        .onSuccess { updated ->
+                            selectedItinerary = updated
+                            selectedItem = replacement.editedItemId?.let { itemId ->
+                                updated.items.find { it.id == itemId }
+                            }
+                            newItemType = null
+                            savedItineraries = savedItineraries.replace(updated)
+                            recommendedItineraries = recommendedItineraries.replace(updated)
+                            statusMessage = replacement.successMessage
+                            pendingReplacement = null
+                        }
+                        .onFailure {
+                            if (it is ItineraryTimeConflictException) {
+                                pendingReplacement = replacement.copy(conflicts = it.conflicts)
+                            } else {
+                                statusMessage = it.message ?: "Could not replace schedule items."
+                            }
+                        }
+                    isSaving = false
+                }
+            },
         )
     }
 }

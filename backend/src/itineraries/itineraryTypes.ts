@@ -25,6 +25,14 @@ export type TransportationItem = {
 
 export type ItineraryItem = ActivityItem | TransportationItem;
 
+export type ItineraryTimeConflict = {
+  id: string;
+  type: ItineraryItem['type'];
+  name: string;
+  startTime: string;
+  endTime: string;
+};
+
 export type CreateActivityInput = Omit<ActivityItem, 'id'>;
 export type CreateTransportationInput = Omit<TransportationItem, 'id'>;
 export type ActivityUpdate = Partial<Omit<ActivityItem, 'id' | 'type'>>;

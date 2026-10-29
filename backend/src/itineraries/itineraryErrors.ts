@@ -1,3 +1,5 @@
+import type { ItineraryTimeConflict } from './itineraryTypes';
+
 export class InvalidItineraryDetailsError extends Error {
   readonly details: string[];
 
@@ -50,8 +52,8 @@ export class ItineraryItemNotFoundError extends Error {
 }
 
 export class ItineraryTimeConflictError extends Error {
-  constructor(conflictingItem: string) {
-    super(`The itinerary item overlaps with '${conflictingItem}'.`);
+  constructor(readonly conflicts: ItineraryTimeConflict[]) {
+    super('The itinerary item overlaps with the existing schedule.');
     this.name = 'ItineraryTimeConflictError';
   }
 }

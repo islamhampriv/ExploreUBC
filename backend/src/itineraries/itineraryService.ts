@@ -17,6 +17,8 @@ import type {
   ItineraryDetails,
   ItineraryDetailsUpdate,
   ItineraryFilters,
+  ItineraryItem,
+  ItineraryTimeConflict,
   TransportationItem,
   TransportationSegmentUpdate,
 } from './itineraryTypes';
@@ -80,9 +82,10 @@ export class ItineraryService {
     userId: string,
     itineraryId: string,
     activityInput: CreateActivityInput,
+    replaceConflicts = false,
   ): Promise<ActivityItem> {
     const itinerary = await this.getItinerary(userId, itineraryId);
-    this.validateNoTimeConflict(
+    const conflicts = this.findTimeConflicts(
       itinerary,
       activityInput.startTime,
       activityInput.endTime,
@@ -92,6 +95,13 @@ export class ItineraryService {
       ...activityInput,
       id: randomUUID(),
     };
+    if (conflicts.length > 0) {
+      if (!replaceConflicts) {
+        throw new ItineraryTimeConflictError(conflicts);
+      }
+      await this.replaceConflicts(userId, itineraryId, conflicts, activity);
+      return activity;
+    }
     const inserted = await this.repository.insertEmbeddedActivity(
       userId,
       itineraryId,
@@ -107,9 +117,10 @@ export class ItineraryService {
     userId: string,
     itineraryId: string,
     segmentInput: CreateTransportationInput,
+    replaceConflicts = false,
   ): Promise<TransportationItem> {
     const itinerary = await this.getItinerary(userId, itineraryId);
-    this.validateNoTimeConflict(
+    const conflicts = this.findTimeConflicts(
       itinerary,
       segmentInput.startTime,
       segmentInput.endTime,
@@ -119,6 +130,13 @@ export class ItineraryService {
       ...segmentInput,
       id: randomUUID(),
     };
+    if (conflicts.length > 0) {
+      if (!replaceConflicts) {
+        throw new ItineraryTimeConflictError(conflicts);
+      }
+      await this.replaceConflicts(userId, itineraryId, conflicts, segment);
+      return segment;
+    }
     const inserted = await this.repository.insertEmbeddedTransportationSegment(
       userId,
       itineraryId,
@@ -175,6 +193,7 @@ export class ItineraryService {
     itineraryId: string,
     activityId: string,
     update: ActivityUpdate,
+    replaceConflicts = false,
   ): Promise<ActivityItem> {
     const itinerary = await this.getItinerary(userId, itineraryId);
     const current = this.findItem(
@@ -184,12 +203,25 @@ export class ItineraryService {
     ) as ActivityItem;
     const activity: ActivityItem = { ...current, ...update };
     this.validateMergedTimeOrder(activity.startTime, activity.endTime);
-    this.validateNoTimeConflict(
+    const conflicts = this.findTimeConflicts(
       itinerary,
       activity.startTime,
       activity.endTime,
       activityId,
     );
+    if (conflicts.length > 0) {
+      if (!replaceConflicts) {
+        throw new ItineraryTimeConflictError(conflicts);
+      }
+      await this.replaceConflicts(
+        userId,
+        itineraryId,
+        conflicts,
+        activity,
+        activityId,
+      );
+      return activity;
+    }
 
     const updated = await this.repository.updateEmbeddedActivity(
       userId,
@@ -208,6 +240,7 @@ export class ItineraryService {
     itineraryId: string,
     segmentId: string,
     update: TransportationSegmentUpdate,
+    replaceConflicts = false,
   ): Promise<TransportationItem> {
     const itinerary = await this.getItinerary(userId, itineraryId);
     const current = this.findItem(
@@ -217,12 +250,25 @@ export class ItineraryService {
     ) as TransportationItem;
     const segment: TransportationItem = { ...current, ...update };
     this.validateMergedTimeOrder(segment.startTime, segment.endTime);
-    this.validateNoTimeConflict(
+    const conflicts = this.findTimeConflicts(
       itinerary,
       segment.startTime,
       segment.endTime,
       segmentId,
     );
+    if (conflicts.length > 0) {
+      if (!replaceConflicts) {
+        throw new ItineraryTimeConflictError(conflicts);
+      }
+      await this.replaceConflicts(
+        userId,
+        itineraryId,
+        conflicts,
+        segment,
+        segmentId,
+      );
+      return segment;
+    }
 
     const updated =
       await this.repository.updateEmbeddedTransportationSegment(
@@ -275,25 +321,56 @@ export class ItineraryService {
     return item;
   }
 
-  private validateNoTimeConflict(
+  private findTimeConflicts(
     itinerary: Itinerary,
     startTime: string,
     endTime: string,
     excludedItemId?: string,
-  ): void {
+  ): ItineraryTimeConflict[] {
     const newStartTime = Date.parse(startTime);
     const newEndTime = Date.parse(endTime);
-    const conflictingItem = itinerary.items.find(
-      (item) =>
+    return itinerary.items
+      .filter(
+        (item) =>
         item.id !== excludedItemId &&
         newStartTime < Date.parse(item.endTime) &&
         newEndTime > Date.parse(item.startTime),
+      )
+      .map((item) => ({
+        id: item.id,
+        type: item.type,
+        name: item.type === 'activity'
+          ? item.name
+          : `${item.startLocation} to ${item.endLocation}`,
+        startTime: item.startTime,
+        endTime: item.endTime,
+      }));
+  }
+
+  private async replaceConflicts(
+    userId: string,
+    itineraryId: string,
+    conflicts: ItineraryTimeConflict[],
+    replacement: ItineraryItem,
+    replacedItemId?: string,
+  ): Promise<void> {
+    const replaceEmbeddedItems = this.repository.replaceEmbeddedItems;
+    if (replaceEmbeddedItems === undefined) {
+      throw new Error('The itinerary repository does not support replacement.');
+    }
+    const removedItemIds = conflicts.map((conflict) => conflict.id);
+    if (replacedItemId !== undefined) {
+      removedItemIds.push(replacedItemId);
+    }
+    const replaced = await replaceEmbeddedItems.call(
+      this.repository,
+      userId,
+      itineraryId,
+      removedItemIds,
+      replacement,
     );
-    if (conflictingItem !== undefined) {
-      const conflictName = conflictingItem.type === 'activity'
-        ? conflictingItem.name
-        : 'transportation segment';
-      throw new ItineraryTimeConflictError(conflictName);
+    if (!replaced) {
+      throw new ItineraryNotFoundError(itineraryId);
     }
   }
 

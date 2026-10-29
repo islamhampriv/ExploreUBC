@@ -250,6 +250,48 @@ export class ItineraryDao implements ItineraryRepository {
     );
   }
 
+  async replaceEmbeddedItems(
+    userId: string,
+    itineraryId: string,
+    removedItemIds: string[],
+    replacement: ItineraryItem,
+  ): Promise<boolean> {
+    const ids = this.parseIds(userId, itineraryId);
+    if (ids === null) {
+      return false;
+    }
+
+    const result = await this.itineraries.updateOne(
+      {
+        _id: ids.itineraryId,
+        ownerId: ids.userId,
+        saved: true,
+      },
+      [
+        {
+          $set: {
+            items: {
+              $concatArrays: [
+                {
+                  $filter: {
+                    input: '$items',
+                    as: 'item',
+                    cond: {
+                      $not: [{ $in: ['$$item.id', removedItemIds] }],
+                    },
+                  },
+                },
+                [replacement],
+              ],
+            },
+            updatedAt: '$$NOW',
+          },
+        },
+      ],
+    );
+    return result.matchedCount === 1;
+  }
+
   async removeItinerary(
     userId: string,
     itineraryId: string,

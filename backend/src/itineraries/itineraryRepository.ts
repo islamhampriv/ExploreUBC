@@ -8,6 +8,7 @@ import type {
   ItineraryDetails,
   ItineraryDetailsUpdate,
   ItineraryFilters,
+  ItineraryItem,
 } from './itineraryTypes';
 
 export interface ItineraryRepository {
@@ -70,6 +71,13 @@ export interface ItineraryRepository {
     itineraryId: string,
     segmentId: string,
     update: TransportationSegmentUpdate,
+  ): Promise<boolean>;
+
+  replaceEmbeddedItems?(
+    userId: string,
+    itineraryId: string,
+    removedItemIds: string[],
+    replacement: ItineraryItem,
   ): Promise<boolean>;
 
   removeItinerary(userId: string, itineraryId: string): Promise<boolean>;
