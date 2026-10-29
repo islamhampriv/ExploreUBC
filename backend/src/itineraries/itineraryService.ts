@@ -82,20 +82,11 @@ export class ItineraryService {
     activityInput: CreateActivityInput,
   ): Promise<ActivityItem> {
     const itinerary = await this.getItinerary(userId, itineraryId);
-    const newStartTime = Date.parse(activityInput.startTime);
-    const newEndTime = Date.parse(activityInput.endTime);
-    const conflictingItem = itinerary.items.find(
-      (item) =>
-        newStartTime < Date.parse(item.endTime) &&
-        newEndTime > Date.parse(item.startTime),
+    this.validateNoTimeConflict(
+      itinerary,
+      activityInput.startTime,
+      activityInput.endTime,
     );
-    if (conflictingItem !== undefined) {
-      const conflictName =
-        conflictingItem.type === 'activity'
-          ? conflictingItem.name
-          : 'transportation segment';
-      throw new ItineraryTimeConflictError(conflictName);
-    }
 
     const activity: ActivityItem = {
       ...activityInput,
@@ -117,6 +108,13 @@ export class ItineraryService {
     itineraryId: string,
     segmentInput: CreateTransportationInput,
   ): Promise<TransportationItem> {
+    const itinerary = await this.getItinerary(userId, itineraryId);
+    this.validateNoTimeConflict(
+      itinerary,
+      segmentInput.startTime,
+      segmentInput.endTime,
+    );
+
     const segment: TransportationItem = {
       ...segmentInput,
       id: randomUUID(),
@@ -178,14 +176,20 @@ export class ItineraryService {
     activityId: string,
     update: ActivityUpdate,
   ): Promise<ActivityItem> {
-    const current = await this.findSavedItem(
-      userId,
-      itineraryId,
+    const itinerary = await this.getItinerary(userId, itineraryId);
+    const current = this.findItem(
+      itinerary,
       activityId,
       'activity',
     ) as ActivityItem;
     const activity: ActivityItem = { ...current, ...update };
     this.validateMergedTimeOrder(activity.startTime, activity.endTime);
+    this.validateNoTimeConflict(
+      itinerary,
+      activity.startTime,
+      activity.endTime,
+      activityId,
+    );
 
     const updated = await this.repository.updateEmbeddedActivity(
       userId,
@@ -205,14 +209,20 @@ export class ItineraryService {
     segmentId: string,
     update: TransportationSegmentUpdate,
   ): Promise<TransportationItem> {
-    const current = await this.findSavedItem(
-      userId,
-      itineraryId,
+    const itinerary = await this.getItinerary(userId, itineraryId);
+    const current = this.findItem(
+      itinerary,
       segmentId,
       'transportation',
     ) as TransportationItem;
     const segment: TransportationItem = { ...current, ...update };
     this.validateMergedTimeOrder(segment.startTime, segment.endTime);
+    this.validateNoTimeConflict(
+      itinerary,
+      segment.startTime,
+      segment.endTime,
+      segmentId,
+    );
 
     const updated =
       await this.repository.updateEmbeddedTransportationSegment(
@@ -245,8 +255,16 @@ export class ItineraryService {
     type: 'activity' | 'transportation',
   ): Promise<ActivityItem | TransportationItem> {
     const itinerary = await this.getItinerary(userId, itineraryId);
+    return this.findItem(itinerary, itemId, type);
+  }
+
+  private findItem(
+    itinerary: Itinerary,
+    itemId: string,
+    type: 'activity' | 'transportation',
+  ): ActivityItem | TransportationItem {
     if (!itinerary.saved) {
-      throw new ItineraryNotFoundError(itineraryId);
+      throw new ItineraryNotFoundError(itinerary.id);
     }
     const item = itinerary.items.find(
       (candidate) => candidate.id === itemId && candidate.type === type,
@@ -255,6 +273,28 @@ export class ItineraryService {
       throw new ItineraryItemNotFoundError(itemId);
     }
     return item;
+  }
+
+  private validateNoTimeConflict(
+    itinerary: Itinerary,
+    startTime: string,
+    endTime: string,
+    excludedItemId?: string,
+  ): void {
+    const newStartTime = Date.parse(startTime);
+    const newEndTime = Date.parse(endTime);
+    const conflictingItem = itinerary.items.find(
+      (item) =>
+        item.id !== excludedItemId &&
+        newStartTime < Date.parse(item.endTime) &&
+        newEndTime > Date.parse(item.startTime),
+    );
+    if (conflictingItem !== undefined) {
+      const conflictName = conflictingItem.type === 'activity'
+        ? conflictingItem.name
+        : 'transportation segment';
+      throw new ItineraryTimeConflictError(conflictName);
+    }
   }
 
   private validateMergedTimeOrder(startTime: string, endTime: string): void {

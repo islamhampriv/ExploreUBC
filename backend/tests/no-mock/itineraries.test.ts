@@ -474,6 +474,39 @@ describe('Unmocked: add itinerary activities and transportation', () => {
   test.each([
     [
       'activities',
+      {
+        ...ACTIVITY_INPUT,
+        startTime: '2026-10-17T18:00:00.000Z',
+        endTime: '2026-10-17T19:00:00.000Z',
+      },
+      'Museum of Anthropology',
+    ],
+    [
+      'transportation-segments',
+      {
+        ...TRANSPORTATION_INPUT,
+        startTime: '2026-10-17T19:30:00.000Z',
+        endTime: '2026-10-17T20:00:00.000Z',
+      },
+      'UBC Botanical Garden',
+    ],
+  ])('rejects an overlapping item added through %s', async (path, body, conflictName) => {
+    const { app } = createTestApp();
+
+    const response = await request(app)
+      .post(`/api/v1/users/${USER_ID}/itineraries/${ITINERARY_ID}/${path}`)
+      .send(body);
+
+    expect(response.status).toBe(409);
+    expect(response.body.error).toEqual({
+      code: 'ITINERARY_TIME_CONFLICT',
+      message: `The itinerary item overlaps with '${conflictName}'.`,
+    });
+  });
+
+  test.each([
+    [
+      'activities',
       { ...ACTIVITY_INPUT, id: 'client-generated-id' },
       "Unexpected field 'id'.",
     ],
@@ -579,6 +612,32 @@ describe('Unmocked: update and remove itinerary items', () => {
       code: 'INVALID_ITINERARY_ITEM',
       message: 'The itinerary item is invalid.',
       details: ['startTime must be earlier than endTime.'],
+    });
+  });
+
+  test.each([
+    [
+      'activities/generated-item-1',
+      'transportation segment',
+    ],
+    [
+      'transportation-segments/generated-item-2',
+      'Museum of Anthropology',
+    ],
+  ])('rejects an overlapping update through %s', async (path, conflictName) => {
+    const { app } = createTestApp();
+
+    const response = await request(app)
+      .patch(`/api/v1/users/${USER_ID}/itineraries/${ITINERARY_ID}/${path}`)
+      .send({
+        startTime: '2026-10-17T18:00:00.000Z',
+        endTime: '2026-10-17T19:00:00.000Z',
+      });
+
+    expect(response.status).toBe(409);
+    expect(response.body.error).toEqual({
+      code: 'ITINERARY_TIME_CONFLICT',
+      message: `The itinerary item overlaps with '${conflictName}'.`,
     });
   });
 

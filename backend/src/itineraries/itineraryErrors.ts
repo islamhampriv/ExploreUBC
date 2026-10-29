@@ -51,7 +51,7 @@ export class ItineraryItemNotFoundError extends Error {
 
 export class ItineraryTimeConflictError extends Error {
   constructor(conflictingItem: string) {
-    super(`The activity overlaps with '${conflictingItem}'.`);
+    super(`The itinerary item overlaps with '${conflictingItem}'.`);
     this.name = 'ItineraryTimeConflictError';
   }
 }
