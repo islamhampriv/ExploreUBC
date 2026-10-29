@@ -43,7 +43,6 @@ class MainActivity2 : ComponentActivity() {
                 CPEN321ApplicationApp(
 //                    userId = intent.getStringExtra("userId"),
                     userId = "6acd519c76376cefc61e97f1",
-                    displayName = intent.getStringExtra("displayName"),
                     usersRepository = usersRepository,
                     itinerariesRepository = itinerariesRepository,
                     eventsRepository = eventsRepository,
@@ -56,7 +55,6 @@ class MainActivity2 : ComponentActivity() {
 @Composable
 fun CPEN321ApplicationApp(
     userId: String?,
-    displayName: String?,
     usersRepository: UsersRepository,
     itinerariesRepository: ItinerariesRepository,
     eventsRepository: EventsRepository,
@@ -83,8 +81,6 @@ fun CPEN321ApplicationApp(
             when (currentDestination) {
                 AppDestinations.PROFILE -> ProfileRoute(
                         userId = userId,
-                        displayName = displayName,
-                        startLocation = null,
                         usersRepository = usersRepository,
                         modifier = Modifier.padding(innerPadding),
                     )

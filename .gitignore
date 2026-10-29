@@ -62,3 +62,7 @@ frontend/app/release/output-metadata.json
 .gitignore
 frontend/app/release/baselineProfiles/1/app-release.dm
 frontend/app/release/baselineProfiles/0/app-release.dm
+
+
+#Ignore vscode AI rules
+.github/instructions/codacy.instructions.md

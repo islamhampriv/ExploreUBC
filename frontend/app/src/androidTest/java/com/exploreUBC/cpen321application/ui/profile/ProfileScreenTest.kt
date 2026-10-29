@@ -79,7 +79,6 @@ class ProfileScreenTest {
         composeRule.setContent {
             ProfileRoute(
                 userId = null,
-                displayName = "Test User",
                 usersRepository = repository,
             )
         }
@@ -120,7 +119,6 @@ class ProfileScreenTest {
         composeRule.setContent {
             ProfileRoute(
                 userId = "6acd519c76376cefc61e97f1",
-                displayName = "Google User",
                 usersRepository = repository,
             )
         }
