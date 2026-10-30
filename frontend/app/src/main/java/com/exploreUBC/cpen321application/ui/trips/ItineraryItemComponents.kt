@@ -245,8 +245,10 @@ private fun EditActivityForm(
         onValueChange = { location = it },
         label = "Location",
         tag = "edit_activity_location",
-        required = true,
-        maxLength = LOCATION_MAX_LENGTH,
+        options = AddressAutocompleteOptions(
+            required = true,
+            maxLength = LOCATION_MAX_LENGTH,
+        ),
     )
     DateTimePickerField(
         "Start time", startTime, { startTime = it }, "edit_activity_start_time",
@@ -297,16 +299,20 @@ private fun EditTransportationForm(
         onValueChange = { startLocation = it },
         label = "Start location",
         tag = "edit_transportation_start_location",
-        required = true,
-        maxLength = LOCATION_MAX_LENGTH,
+        options = AddressAutocompleteOptions(
+            required = true,
+            maxLength = LOCATION_MAX_LENGTH,
+        ),
     )
     AddressAutocompleteField(
         value = endLocation,
         onValueChange = { endLocation = it },
         label = "End location",
         tag = "edit_transportation_end_location",
-        required = true,
-        maxLength = LOCATION_MAX_LENGTH,
+        options = AddressAutocompleteOptions(
+            required = true,
+            maxLength = LOCATION_MAX_LENGTH,
+        ),
     )
     FormField(
         distanceMeters, { distanceMeters = it }, "Distance in meters",

@@ -179,18 +179,19 @@ class CampusMapController(
             }
         }
 
-        itineraryMap.routes.forEach { route ->
+        for (route in itineraryMap.routes) {
             val points = runCatching {
                 PolylineDecoder.decode(route.encodedPolyline)
             }.getOrDefault(emptyList())
-            if (points.isEmpty()) return@forEach
-            val polyline = map.addPolyline(
-                PolylineOptions()
-                    .addAll(points)
-                    .color(ContextCompat.getColor(context, R.color.ubc_blue))
-                    .width(12f),
-            )
-            itineraryPolylines.add(polyline)
+            if (points.isNotEmpty()) {
+                val polyline = map.addPolyline(
+                    PolylineOptions()
+                        .addAll(points)
+                        .color(ContextCompat.getColor(context, R.color.ubc_blue))
+                        .width(12f),
+                )
+                itineraryPolylines.add(polyline)
+            }
         }
 
         if (renderedPoints.isNotEmpty()) {

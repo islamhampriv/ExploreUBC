@@ -34,7 +34,6 @@ fun CampusMapView(
     overlayTitle: String? = null,
 ) {
     val context = LocalContext.current
-    val lifecycleOwner = LocalLifecycleOwner.current
     val scope = rememberCoroutineScope()
     val binding = remember(mode) {
         ActivityMapsBinding.inflate(LayoutInflater.from(context))
@@ -51,6 +50,30 @@ fun CampusMapView(
                 grants[Manifest.permission.ACCESS_COARSE_LOCATION] == true
         )
     }
+
+    ManageMapLifecycle(binding, controller)
+    RequestMapLocationPermission(controller) {
+        permissionLauncher.launch(locationPermissions)
+    }
+
+    LaunchedEffect(mode, itineraryMap, overlayTitle) {
+        if (mode == MapLayerMode.TRIP_ROUTES && itineraryMap != null) {
+            controller.showItineraryMap(itineraryMap, overlayTitle.orEmpty())
+        }
+    }
+
+    AndroidView(
+        factory = { binding.root },
+        modifier = modifier.fillMaxSize(),
+    )
+}
+
+@Composable
+private fun ManageMapLifecycle(
+    binding: ActivityMapsBinding,
+    controller: CampusMapController,
+) {
+    val lifecycleOwner = LocalLifecycleOwner.current
 
     DisposableEffect(lifecycleOwner, binding) {
         val mapView = binding.map
@@ -82,7 +105,14 @@ fun CampusMapView(
             mapView.onDestroy()
         }
     }
+}
 
+@Composable
+private fun RequestMapLocationPermission(
+    controller: CampusMapController,
+    requestPermission: () -> Unit,
+) {
+    val context = LocalContext.current
     LaunchedEffect(Unit) {
         val granted = locationPermissions.any { permission ->
             ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
@@ -90,18 +120,7 @@ fun CampusMapView(
         if (granted) {
             controller.setMyLocationEnabled(true)
         } else {
-            permissionLauncher.launch(locationPermissions)
+            requestPermission()
         }
     }
-
-    LaunchedEffect(mode, itineraryMap, overlayTitle) {
-        if (mode == MapLayerMode.TRIP_ROUTES && itineraryMap != null) {
-            controller.showItineraryMap(itineraryMap, overlayTitle.orEmpty())
-        }
-    }
-
-    AndroidView(
-        factory = { binding.root },
-        modifier = modifier.fillMaxSize(),
-    )
 }

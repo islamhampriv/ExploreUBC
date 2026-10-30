@@ -163,8 +163,10 @@ private fun NewActivityScreen(
             onValueChange = { location = it },
             label = "Location",
             tag = "new_activity_location",
-            required = true,
-            maxLength = LOCATION_MAX_LENGTH,
+            options = AddressAutocompleteOptions(
+                required = true,
+                maxLength = LOCATION_MAX_LENGTH,
+            ),
         )
         DateTimePickerField(
             "Start time", startTime, { startTime = it }, "new_activity_start_time",
@@ -232,16 +234,20 @@ private fun NewTransportationScreen(
             onValueChange = { startLocation = it },
             label = "Start location",
             tag = "new_transportation_start_location",
-            required = true,
-            maxLength = LOCATION_MAX_LENGTH,
+            options = AddressAutocompleteOptions(
+                required = true,
+                maxLength = LOCATION_MAX_LENGTH,
+            ),
         )
         AddressAutocompleteField(
             value = endLocation,
             onValueChange = { endLocation = it },
             label = "End location",
             tag = "new_transportation_end_location",
-            required = true,
-            maxLength = LOCATION_MAX_LENGTH,
+            options = AddressAutocompleteOptions(
+                required = true,
+                maxLength = LOCATION_MAX_LENGTH,
+            ),
         )
         FormField(
             distanceMeters, { distanceMeters = it }, "Distance in meters",

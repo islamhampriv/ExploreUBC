@@ -75,33 +75,50 @@ private fun TripsRouteContent(
     modifier: Modifier,
 ) {
     val itinerary = state.selectedItinerary
+    if (itinerary == null) {
+        TripsOverview(state, modifier)
+    } else {
+        SelectedItineraryRoute(state, userId, itinerariesRepository, itinerary, modifier)
+    }
+}
+
+@Composable
+private fun TripsOverview(state: TripsRouteState, modifier: Modifier) {
+    TripsList(
+        model = TripsListModel(
+            savedItineraries = state.savedItineraries,
+            recommendedItineraries = state.recommendedItineraries,
+            isLoading = state.isLoading,
+            isCreating = state.isCreating,
+            isGenerating = state.isGenerating,
+            statusMessage = if (state.hasUser) state.statusMessage else MISSING_USER_MESSAGE,
+        ),
+        actions = TripsListActions(
+            state.openItinerary,
+            state.createItinerary,
+            state.showGenerateConfirmationAction,
+        ),
+        modifier = modifier,
+    )
+}
+
+@Composable
+private fun SelectedItineraryRoute(
+    state: TripsRouteState,
+    userId: String?,
+    repository: ItinerariesRepository,
+    itinerary: Itinerary,
+    modifier: Modifier,
+) {
+    var showMap by remember(itinerary.id) { mutableStateOf(false) }
     val item = state.selectedItem
     val itemType = state.newItemType
-    var showMap by remember(itinerary?.id) { mutableStateOf(false) }
-    val listStatus = if (state.hasUser) state.statusMessage else MISSING_USER_MESSAGE
-    if (itinerary == null) {
-        TripsList(
-            model = TripsListModel(
-                savedItineraries = state.savedItineraries,
-                recommendedItineraries = state.recommendedItineraries,
-                isLoading = state.isLoading,
-                isCreating = state.isCreating,
-                isGenerating = state.isGenerating,
-                statusMessage = listStatus,
-            ),
-            actions = TripsListActions(
-                state.openItinerary,
-                state.createItinerary,
-                state.showGenerateConfirmationAction,
-            ),
-            modifier = modifier,
-        )
-    } else if (showMap) {
-        ItineraryMapScreen(
+    when {
+        showMap -> ItineraryMapScreen(
             userId = userId.orEmpty(),
             itineraryId = itinerary.id,
             itineraryName = itinerary.name,
-            itinerariesRepository = itinerariesRepository,
+            itinerariesRepository = repository,
             onHideMap = { showMap = false },
             onItineraryMissing = {
                 showMap = false
@@ -109,21 +126,19 @@ private fun TripsRouteContent(
             },
             modifier = modifier,
         )
-    } else if (item != null) {
-        ItineraryItemScreen(
-            model = ItineraryItemScreenModel(
+        item != null -> ItineraryItemScreen(
+            ItineraryItemScreenModel(
                 item, itinerary.inRecommendation, state.isSaving, state.statusMessage,
             ),
-            actions = ItineraryItemScreenActions(
+            ItineraryItemScreenActions(
                 state.closeItem,
                 state.updateActivity,
                 state.updateTransportation,
                 state.deleteItem,
             ),
-            modifier = modifier,
+            modifier,
         )
-    } else if (itemType != null) {
-        NewItineraryItemScreen(
+        itemType != null -> NewItineraryItemScreen(
             itemType = itemType,
             isSaving = state.isSaving,
             statusMessage = state.statusMessage,
@@ -132,22 +147,31 @@ private fun TripsRouteContent(
             onAddTransportation = state.addTransportation,
             modifier = modifier,
         )
-    } else {
-        ItineraryScreen(
-            model = ItineraryScreenModel(itinerary, state.isSaving, state.statusMessage),
-            actions = ItineraryScreenActions(
-                onBack = state.closeItinerary,
-                onItemClick = state.openItem,
-                onAddActivity = { state.openNewItem(NewItemType.ACTIVITY) },
-                onAddTransportation = { state.openNewItem(NewItemType.TRANSPORTATION) },
-                onSaveDetails = state.saveDetails,
-                onSaveRecommendation = state.saveRecommendation,
-                onDelete = state.deleteItinerary,
-                onViewMap = { showMap = true },
-            ),
-            modifier = modifier,
-        )
+        else -> SelectedItineraryDetails(state, itinerary, { showMap = true }, modifier)
     }
+}
+
+@Composable
+private fun SelectedItineraryDetails(
+    state: TripsRouteState,
+    itinerary: Itinerary,
+    onViewMap: () -> Unit,
+    modifier: Modifier,
+) {
+    ItineraryScreen(
+        model = ItineraryScreenModel(itinerary, state.isSaving, state.statusMessage),
+        actions = ItineraryScreenActions(
+            onBack = state.closeItinerary,
+            onItemClick = state.openItem,
+            onAddActivity = { state.openNewItem(NewItemType.ACTIVITY) },
+            onAddTransportation = { state.openNewItem(NewItemType.TRANSPORTATION) },
+            onSaveDetails = state.saveDetails,
+            onSaveRecommendation = state.saveRecommendation,
+            onDelete = state.deleteItinerary,
+            onViewMap = onViewMap,
+        ),
+        modifier = modifier,
+    )
 }
 
 private sealed interface ItineraryMapUiState {
@@ -190,77 +214,94 @@ private fun ItineraryMapScreen(
     }
 
     Box(modifier = modifier.fillMaxSize()) {
-        when (val current = state) {
-            ItineraryMapUiState.Loading -> {
-                Column(
-                    modifier = Modifier
-                        .align(Alignment.Center)
-                        .padding(24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    CircularProgressIndicator()
-                    Text(stringResource(R.string.map_loading_trips))
-                }
-            }
-            is ItineraryMapUiState.Ready -> {
-                CampusMapView(
-                    mode = MapLayerMode.TRIP_ROUTES,
-                    itineraryMap = current.map,
-                    overlayTitle = itineraryName,
-                    modifier = Modifier.fillMaxSize(),
-                )
-            }
-            ItineraryMapUiState.NotFound -> {
-                Column(
-                    modifier = Modifier
-                        .align(Alignment.Center)
-                        .padding(24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    Text(stringResource(R.string.map_itinerary_missing))
-                    Button(
-                        onClick = onItineraryMissing,
-                        modifier = Modifier.testTag("itinerary_map_missing_back"),
-                    ) {
-                        Text(stringResource(R.string.map_back_to_trips))
-                    }
-                }
-            }
-            is ItineraryMapUiState.Failed -> {
-                Column(
-                    modifier = Modifier
-                        .align(Alignment.Center)
-                        .padding(24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    Text(current.message.ifBlank { stringResource(R.string.map_load_failed) })
-                    Button(
-                        onClick = { reloadToken += 1 },
-                        modifier = Modifier.testTag("itinerary_map_retry"),
-                    ) {
-                        Text(stringResource(R.string.map_retry))
-                    }
-                }
-            }
-        }
+        ItineraryMapContent(
+            state,
+            itineraryName,
+            onItineraryMissing,
+            onRetry = { reloadToken += 1 },
+        )
         if (state !is ItineraryMapUiState.NotFound) {
-            Button(
-                onClick = onHideMap,
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(
-                        start = 16.dp,
-                        end = 16.dp,
-                        bottom = if (state is ItineraryMapUiState.Ready) 88.dp else 24.dp,
-                    )
-                    .testTag("itinerary_hide_map"),
-            ) {
-                Text(stringResource(R.string.map_hide))
-            }
+            HideItineraryMapButton(state, onHideMap)
         }
+    }
+}
+
+@Composable
+private fun ItineraryMapContent(
+    state: ItineraryMapUiState,
+    itineraryName: String,
+    onItineraryMissing: () -> Unit,
+    onRetry: () -> Unit,
+) {
+    when (state) {
+        ItineraryMapUiState.Loading -> CenteredMapContent {
+            CircularProgressIndicator()
+            Text(stringResource(R.string.map_loading_trips))
+        }
+        is ItineraryMapUiState.Ready -> CampusMapView(
+            mode = MapLayerMode.TRIP_ROUTES,
+            itineraryMap = state.map,
+            overlayTitle = itineraryName,
+            modifier = Modifier.fillMaxSize(),
+        )
+        ItineraryMapUiState.NotFound -> CenteredMapAction(
+            stringResource(R.string.map_itinerary_missing),
+            stringResource(R.string.map_back_to_trips),
+            "itinerary_map_missing_back",
+            onItineraryMissing,
+        )
+        is ItineraryMapUiState.Failed -> CenteredMapAction(
+            state.message.ifBlank { stringResource(R.string.map_load_failed) },
+            stringResource(R.string.map_retry),
+            "itinerary_map_retry",
+            onRetry,
+        )
+    }
+}
+
+@Composable
+private fun CenteredMapContent(content: @Composable () -> Unit) {
+    Column(
+        modifier = Modifier.fillMaxSize().padding(24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        content()
+    }
+}
+
+@Composable
+private fun CenteredMapAction(
+    message: String,
+    actionLabel: String,
+    actionTag: String,
+    onClick: () -> Unit,
+) {
+    CenteredMapContent {
+        Text(message)
+        Button(onClick = onClick, modifier = Modifier.testTag(actionTag)) {
+            Text(actionLabel)
+        }
+    }
+}
+
+@Composable
+private fun androidx.compose.foundation.layout.BoxScope.HideItineraryMapButton(
+    state: ItineraryMapUiState,
+    onHideMap: () -> Unit,
+) {
+    Button(
+        onClick = onHideMap,
+        modifier = Modifier
+            .align(Alignment.BottomCenter)
+            .padding(
+                start = 16.dp,
+                end = 16.dp,
+                bottom = if (state is ItineraryMapUiState.Ready) 88.dp else 24.dp,
+            )
+            .testTag("itinerary_hide_map"),
+    ) {
+        Text(stringResource(R.string.map_hide))
     }
 }
 
@@ -613,9 +654,11 @@ private fun ItineraryDetailsEditor(
         onValueChange = { editor.startingLocation = it },
         label = "Starting location",
         tag = "itinerary_starting_location",
-        maxLength = LOCATION_MAX_LENGTH,
-        placeholder = "e.g. 6138 Student Union Blvd, Vancouver",
-        supportingText = "Pick a recommended address to use as the itinerary's starting pin.",
+        options = AddressAutocompleteOptions(
+            maxLength = LOCATION_MAX_LENGTH,
+            placeholder = "e.g. 6138 Student Union Blvd, Vancouver",
+            supportingText = "Pick a recommended address to use as the itinerary's starting pin.",
+        ),
     )
     Button(
         onClick = { onSave(editor.details()) },

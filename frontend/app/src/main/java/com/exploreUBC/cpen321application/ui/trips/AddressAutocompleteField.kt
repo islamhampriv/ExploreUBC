@@ -26,17 +26,32 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 
+data class AddressAutocompleteOptions(
+    val modifier: Modifier = Modifier,
+    val supportingText: String? = null,
+    val placeholder: String = "Start typing an address",
+    val required: Boolean = false,
+    val maxLength: Int? = null,
+)
+
+private class AddressAutocompleteState {
+    var suggestions by mutableStateOf<List<AddressSuggestion>>(emptyList())
+    var isSearching by mutableStateOf(false)
+    var selectedSuggestion by mutableStateOf(false)
+
+    fun clearSearch() {
+        suggestions = emptyList()
+        isSearching = false
+    }
+}
+
 @Composable
 fun AddressAutocompleteField(
     value: String,
     onValueChange: (String) -> Unit,
     label: String,
     tag: String,
-    modifier: Modifier = Modifier,
-    supportingText: String? = null,
-    placeholder: String = "Start typing an address",
-    required: Boolean = false,
-    maxLength: Int? = null,
+    options: AddressAutocompleteOptions = AddressAutocompleteOptions(),
 ) {
     val mapsApi = remember {
         GoogleMapsApiClient(
@@ -44,37 +59,48 @@ fun AddressAutocompleteField(
             placesApiKey = BuildConfig.PLACES_API_KEY,
         )
     }
-    var suggestions by remember { mutableStateOf<List<AddressSuggestion>>(emptyList()) }
-    var isSearching by remember { mutableStateOf(false) }
-    var selectedSuggestion by remember { mutableStateOf(false) }
-    val exceedsMaxLength = maxLength != null && value.length > maxLength
+    val state = remember { AddressAutocompleteState() }
 
     LaunchedEffect(value) {
-        if (selectedSuggestion || value.trim().length < 3) {
-            suggestions = emptyList()
-            isSearching = false
-            return@LaunchedEffect
+        if (state.selectedSuggestion || value.trim().length < 3) {
+            state.clearSearch()
+        } else {
+            state.isSearching = true
+            delay(300)
+            state.suggestions = withContext(Dispatchers.IO) {
+                mapsApi.autocompleteAddresses(value)
+            }
+            state.isSearching = false
         }
-        isSearching = true
-        delay(300)
-        suggestions = withContext(Dispatchers.IO) { mapsApi.autocompleteAddresses(value) }
-        isSearching = false
     }
 
-    Column(modifier = modifier.fillMaxWidth()) {
+    AddressAutocompleteContent(value, onValueChange, label, tag, options, state)
+}
+
+@Composable
+private fun AddressAutocompleteContent(
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: String,
+    tag: String,
+    options: AddressAutocompleteOptions,
+    state: AddressAutocompleteState,
+) {
+    val exceedsMaxLength = options.maxLength != null && value.length > options.maxLength
+    Column(modifier = options.modifier.fillMaxWidth()) {
         OutlinedTextField(
             value = value,
             onValueChange = {
-                selectedSuggestion = false
+                state.selectedSuggestion = false
                 onValueChange(it)
             },
-            label = { Text(if (required) "$label *" else label) },
-            placeholder = { Text(placeholder) },
+            label = { Text(if (options.required) "$label *" else label) },
+            placeholder = { Text(options.placeholder) },
             supportingText = {
-                Text(supportingText ?: "Recommended addresses appear as you type")
+                Text(options.supportingText ?: "Recommended addresses appear as you type")
             },
             trailingIcon = {
-                if (isSearching) {
+                if (state.isSearching) {
                     CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
                 }
             },
@@ -85,34 +111,43 @@ fun AddressAutocompleteField(
         )
         if (exceedsMaxLength) {
             Text(
-                text = "$label must be at most $maxLength characters.",
+                text = "$label must be at most ${options.maxLength} characters.",
                 color = MaterialTheme.colorScheme.error,
                 style = MaterialTheme.typography.bodySmall,
                 modifier = Modifier.testTag("${tag}_length_error"),
             )
         }
-        suggestions.forEach { suggestion ->
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 6.dp)
-                    .clickable {
-                        selectedSuggestion = true
-                        suggestions = emptyList()
-                        onValueChange(suggestion.fullAddress)
-                    }
-                    .testTag("${tag}_suggestion"),
-            ) {
-                Column(Modifier.padding(12.dp)) {
-                    Text(suggestion.primaryText, style = MaterialTheme.typography.bodyLarge)
-                    if (suggestion.fullAddress != suggestion.primaryText) {
-                        Text(
-                            suggestion.fullAddress,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
+        state.suggestions.forEach { suggestion ->
+            AddressSuggestionCard(suggestion, tag) {
+                state.selectedSuggestion = true
+                state.suggestions = emptyList()
+                onValueChange(suggestion.fullAddress)
+            }
+        }
+    }
+}
+
+@Composable
+private fun AddressSuggestionCard(
+    suggestion: AddressSuggestion,
+    tag: String,
+    onClick: () -> Unit,
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 6.dp)
+            .clickable(onClick = onClick)
+            .testTag("${tag}_suggestion"),
+    ) {
+        Column(Modifier.padding(12.dp)) {
+            Text(suggestion.primaryText, style = MaterialTheme.typography.bodyLarge)
+            if (suggestion.fullAddress != suggestion.primaryText) {
+                Text(
+                    suggestion.fullAddress,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         }
     }
