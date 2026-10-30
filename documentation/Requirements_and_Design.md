@@ -66,7 +66,6 @@ The features in this app will facilitate the entire trip planning process for UB
 5. **Reorder Activities or Transportation Segments**: The user changes the order of activities and their associated transportation segments.
 6. **Edit Activities or Transportation Segments**: The user changes details such as an activity's name, description, location, or time, or a transportation segment's mode and timing.
 7. **Delete an Itinerary**: The user permanently removes a saved itinerary.
-8. **View an Itinerary on the Map**: The user views the itinerary's activity locations and transportation routes on a map.
 
 #### Use Cases for Feature 3: User Profile
 

@@ -46,16 +46,23 @@ import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 
 internal val activityCategories = listOf(
-    "", "food", "art", "outdoors", "markets", "live_music", "gaming", "museum", "other",
+    "food", "art", "outdoors", "markets", "live_music", "gaming", "museum", "other",
 )
 internal val transportationModes = listOf("walking", "cycling", "transit", "driving", "other")
 private val pacificTimeZone = ZoneId.of("America/Vancouver")
 private val dateTimeFormatter = DateTimeFormatter.ofPattern("MMM d, yyyy h:mm a z")
+internal const val ITINERARY_NAME_MAX_LENGTH = 100
+internal const val ACTIVITY_NAME_MAX_LENGTH = 200
+internal const val IMAGE_URL_MAX_LENGTH = 2_000
+internal const val DESCRIPTION_MAX_LENGTH = 1_000
+internal const val LOCATION_MAX_LENGTH = 500
 
 private data class ItemFormModel(
     val title: String,
     val isSaving: Boolean,
     val isValid: Boolean,
+    val hasTimeOrderError: Boolean,
+    val hasDistanceError: Boolean,
     val statusMessage: String?,
 )
 
@@ -99,8 +106,12 @@ private fun NewActivityScreen(
     var location by remember { mutableStateOf("") }
     var startTime by remember { mutableStateOf("") }
     var endTime by remember { mutableStateOf("") }
-    val isValid = name.isNotBlank() && image.isNotBlank() && location.isNotBlank() &&
-        startTime.isNotBlank() && endTime.isNotBlank()
+    val showTimeOrderError = hasTimeOrderError(startTime, endTime)
+    val isValid = name.isNotBlank() && name.length <= ACTIVITY_NAME_MAX_LENGTH &&
+        image.length <= IMAGE_URL_MAX_LENGTH && category.isNotBlank() &&
+        description.length <= DESCRIPTION_MAX_LENGTH &&
+        location.isNotBlank() && location.length <= LOCATION_MAX_LENGTH &&
+        timesAreOrdered(startTime, endTime)
     val create = {
         onCreate(
             CreateActivityInput(
@@ -116,23 +127,49 @@ private fun NewActivityScreen(
     }
 
     ItemFormPage(
-        ItemFormModel("New activity", isSaving, isValid, statusMessage),
+        ItemFormModel(
+            "New activity",
+            isSaving,
+            isValid,
+            showTimeOrderError,
+            false,
+            statusMessage,
+        ),
         ItemFormActions(onBack, create),
         modifier,
     ) {
-        FormField(name, { name = it }, "Name", "new_activity_name")
-        FormField(image, { image = it }, "Image URL", "new_activity_image")
-        FormField(description, { description = it }, "Description (optional)", "new_activity_description")
+        FormField(
+            name, { name = it }, "Name", "new_activity_name",
+            required = true, maxLength = ACTIVITY_NAME_MAX_LENGTH,
+        )
+        FormField(
+            image, { image = it }, "Image URL (optional)", "new_activity_image",
+            maxLength = IMAGE_URL_MAX_LENGTH,
+        )
+        FormField(
+            description, { description = it }, "Description (optional)",
+            "new_activity_description", maxLength = DESCRIPTION_MAX_LENGTH,
+        )
         SelectionDropdown(
-            "Category (optional)",
+            "Category",
             activityCategories,
             category,
             { category = it },
             "new_activity_category",
+            required = true,
         )
-        FormField(location, { location = it }, "Location", "new_activity_location")
-        DateTimePickerField("Start time", startTime, { startTime = it }, "new_activity_start_time")
-        DateTimePickerField("End time", endTime, { endTime = it }, "new_activity_end_time")
+        FormField(
+            location, { location = it }, "Location", "new_activity_location",
+            required = true, maxLength = LOCATION_MAX_LENGTH,
+        )
+        DateTimePickerField(
+            "Start time", startTime, { startTime = it }, "new_activity_start_time",
+            required = true,
+        )
+        DateTimePickerField(
+            "End time", endTime, { endTime = it }, "new_activity_end_time",
+            required = true,
+        )
     }
 }
 
@@ -151,9 +188,12 @@ private fun NewTransportationScreen(
     var startTime by remember { mutableStateOf("") }
     var endTime by remember { mutableStateOf("") }
     val distance = distanceMeters.toDoubleOrNull()
+    val showTimeOrderError = hasTimeOrderError(startTime, endTime)
+    val showDistanceError = hasDistanceError(distanceMeters)
     val isValid = mode in transportationModes && startLocation.isNotBlank() &&
-        endLocation.isNotBlank() && distance != null && distance >= 0 &&
-        startTime.isNotBlank() && endTime.isNotBlank()
+        startLocation.length <= LOCATION_MAX_LENGTH && endLocation.isNotBlank() &&
+        endLocation.length <= LOCATION_MAX_LENGTH && distance != null && distance >= 0 &&
+        timesAreOrdered(startTime, endTime)
     val create = {
         onCreate(
             CreateTransportationInput(
@@ -168,16 +208,43 @@ private fun NewTransportationScreen(
     }
 
     ItemFormPage(
-        ItemFormModel("New transportation", isSaving, isValid, statusMessage),
+        ItemFormModel(
+            "New transportation",
+            isSaving,
+            isValid,
+            showTimeOrderError,
+            showDistanceError,
+            statusMessage,
+        ),
         ItemFormActions(onBack, create),
         modifier,
     ) {
-        SelectionDropdown("Mode", transportationModes, mode, { mode = it }, "new_transportation_mode")
-        FormField(startLocation, { startLocation = it }, "Start location", "new_transportation_start_location")
-        FormField(endLocation, { endLocation = it }, "End location", "new_transportation_end_location")
-        FormField(distanceMeters, { distanceMeters = it }, "Distance in meters", "new_transportation_distance")
-        DateTimePickerField("Start time", startTime, { startTime = it }, "new_transportation_start_time")
-        DateTimePickerField("End time", endTime, { endTime = it }, "new_transportation_end_time")
+        SelectionDropdown(
+            "Mode", transportationModes, mode, { mode = it }, "new_transportation_mode",
+            required = true,
+        )
+        FormField(
+            startLocation, { startLocation = it }, "Start location",
+            "new_transportation_start_location", required = true,
+            maxLength = LOCATION_MAX_LENGTH,
+        )
+        FormField(
+            endLocation, { endLocation = it }, "End location",
+            "new_transportation_end_location", required = true,
+            maxLength = LOCATION_MAX_LENGTH,
+        )
+        FormField(
+            distanceMeters, { distanceMeters = it }, "Distance in meters",
+            "new_transportation_distance", required = true,
+        )
+        DateTimePickerField(
+            "Start time", startTime, { startTime = it }, "new_transportation_start_time",
+            required = true,
+        )
+        DateTimePickerField(
+            "End time", endTime, { endTime = it }, "new_transportation_end_time",
+            required = true,
+        )
     }
 }
 
@@ -202,6 +269,8 @@ private fun ItemFormPage(
         )
         fields()
         model.statusMessage?.let { Text(it, modifier = Modifier.testTag("new_item_status")) }
+        DistanceErrorMessage(model.hasDistanceError)
+        TimeOrderErrorMessage(model.hasTimeOrderError)
         Button(
             onClick = actions.onCreate,
             enabled = model.isValid && !model.isSaving,
@@ -212,13 +281,32 @@ private fun ItemFormPage(
 }
 
 @Composable
-internal fun FormField(value: String, onValueChange: (String) -> Unit, label: String, tag: String) {
-    OutlinedTextField(
-        value = value,
-        onValueChange = onValueChange,
-        label = { Text(label) },
-        modifier = Modifier.fillMaxWidth().testTag(tag),
-    )
+internal fun FormField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: String,
+    tag: String,
+    required: Boolean = false,
+    maxLength: Int? = null,
+) {
+    val exceedsMaxLength = maxLength != null && value.length > maxLength
+    Column {
+        OutlinedTextField(
+            value = value,
+            onValueChange = onValueChange,
+            label = { Text(if (required) "$label *" else label) },
+            isError = exceedsMaxLength,
+            modifier = Modifier.fillMaxWidth().testTag(tag),
+        )
+        if (exceedsMaxLength) {
+            Text(
+                text = "${label.substringBefore(" (optional)")} must be at most $maxLength characters.",
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.testTag("${tag}_length_error"),
+            )
+        }
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -229,6 +317,7 @@ internal fun SelectionDropdown(
     selected: String,
     onSelected: (String) -> Unit,
     tag: String,
+    required: Boolean = false,
 ) {
     var expanded by remember { mutableStateOf(false) }
     ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = !expanded }) {
@@ -236,7 +325,7 @@ internal fun SelectionDropdown(
             value = selected.displayOption(),
             onValueChange = {},
             readOnly = true,
-            label = { Text(label) },
+            label = { Text(if (required) "$label *" else label) },
             placeholder = { Text("Select") },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
             modifier = Modifier.fillMaxWidth()
@@ -256,12 +345,44 @@ internal fun SelectionDropdown(
 internal fun String.displayOption(): String =
     replace('_', ' ').replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
 
+internal fun timesAreOrdered(startTime: String, endTime: String): Boolean =
+    runCatching { Instant.parse(startTime).isBefore(Instant.parse(endTime)) }.getOrDefault(false)
+
+internal fun hasTimeOrderError(startTime: String, endTime: String): Boolean =
+    startTime.isNotBlank() && endTime.isNotBlank() && !timesAreOrdered(startTime, endTime)
+
+internal fun hasDistanceError(distance: String): Boolean =
+    distance.isNotBlank() && distance.toDoubleOrNull() == null
+
+@Composable
+internal fun DistanceErrorMessage(isVisible: Boolean) {
+    if (isVisible) {
+        Text(
+            text = "Distance must be a number.",
+            color = MaterialTheme.colorScheme.error,
+            modifier = Modifier.testTag("distance_error"),
+        )
+    }
+}
+
+@Composable
+internal fun TimeOrderErrorMessage(isVisible: Boolean) {
+    if (isVisible) {
+        Text(
+            text = "End time must be after start time.",
+            color = MaterialTheme.colorScheme.error,
+            modifier = Modifier.testTag("time_order_error"),
+        )
+    }
+}
+
 @Composable
 internal fun DateTimePickerField(
     label: String,
     value: String,
     onValueChange: (String) -> Unit,
     tag: String,
+    required: Boolean = false,
 ) {
     var showDatePicker by remember { mutableStateOf(false) }
     var selectedDateMillis by remember { mutableStateOf<Long?>(null) }
@@ -270,7 +391,7 @@ internal fun DateTimePickerField(
         modifier = Modifier.fillMaxWidth().testTag(tag),
     ) {
         val display = if (value.isBlank()) "Select date and time" else value.toPacificDisplayDateTime()
-        Text("$label: $display")
+        Text("$label${if (required) " *" else ""}: $display")
     }
     if (showDatePicker) {
         DateSelectionDialog(value, { showDatePicker = false }) {
@@ -290,7 +411,9 @@ private fun DateSelectionDialog(
     onDismiss: () -> Unit,
     onSelected: (Long) -> Unit,
 ) {
-    val state = rememberDatePickerState(initialSelectedDateMillis = value.toDatePickerMillis())
+    val state = rememberDatePickerState(
+        initialSelectedDateMillis = value.toDatePickerMillis() ?: System.currentTimeMillis(),
+    )
     DatePickerDialog(
         onDismissRequest = onDismiss,
         confirmButton = {

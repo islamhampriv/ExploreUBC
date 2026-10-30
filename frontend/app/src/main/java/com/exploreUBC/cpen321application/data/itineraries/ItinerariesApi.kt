@@ -33,6 +33,8 @@ interface ItinerariesRepository {
         update: ItineraryUpdate,
     ): Itinerary
 
+    suspend fun deleteItinerary(userId: String, itineraryId: String)
+
     suspend fun addActivity(
         userId: String,
         itineraryId: String,
@@ -157,6 +159,16 @@ class ItinerariesApi(private val apiBaseUrl: String) : ItinerariesRepository {
             requestBody = requestBody,
         )
         parseItinerary(response.getJSONObject("itinerary"))
+    }
+
+    override suspend fun deleteItinerary(
+        userId: String,
+        itineraryId: String,
+    ): Unit = withContext(Dispatchers.IO) {
+        execute(
+            method = "DELETE",
+            path = "${itineraryCollectionPath(userId)}/${encode(itineraryId)}",
+        )
     }
 
     override suspend fun addActivity(

@@ -37,7 +37,6 @@ import com.exploreUBC.cpen321application.data.itineraries.ActivityUpdate
 import com.exploreUBC.cpen321application.data.itineraries.ItineraryItem
 import com.exploreUBC.cpen321application.data.itineraries.TransportationItem
 import com.exploreUBC.cpen321application.data.itineraries.TransportationSegmentUpdate
-import java.time.Instant
 
 data class ItineraryItemScreenModel(
     val item: ItineraryItem,
@@ -215,20 +214,45 @@ private fun EditActivityForm(
     var location by remember(activity) { mutableStateOf(activity.location) }
     var startTime by remember(activity) { mutableStateOf(activity.startTime) }
     var endTime by remember(activity) { mutableStateOf(activity.endTime) }
-    val isValid = name.isNotBlank() && image.isNotBlank() && location.isNotBlank() &&
+    val isValid = name.isNotBlank() && name.length <= ACTIVITY_NAME_MAX_LENGTH &&
+        image.length <= IMAGE_URL_MAX_LENGTH && category.isNotBlank() &&
+        description.length <= DESCRIPTION_MAX_LENGTH &&
+        location.isNotBlank() && location.length <= LOCATION_MAX_LENGTH &&
         timesAreOrdered(startTime, endTime)
     Text(
         "Edit activity",
         style = MaterialTheme.typography.headlineSmall,
         fontWeight = FontWeight.Bold,
     )
-    FormField(name, { name = it }, "Name", "edit_activity_name")
-    FormField(image, { image = it }, "Image URL", "edit_activity_image")
-    FormField(description, { description = it }, "Description (optional)", "edit_activity_description")
-    SelectionDropdown("Category (optional)", activityCategories, category, { category = it }, "edit_activity_category")
-    FormField(location, { location = it }, "Location", "edit_activity_location")
-    DateTimePickerField("Start time", startTime, { startTime = it }, "edit_activity_start_time")
-    DateTimePickerField("End time", endTime, { endTime = it }, "edit_activity_end_time")
+    FormField(
+        name, { name = it }, "Name", "edit_activity_name",
+        required = true, maxLength = ACTIVITY_NAME_MAX_LENGTH,
+    )
+    FormField(
+        image, { image = it }, "Image URL (optional)", "edit_activity_image",
+        maxLength = IMAGE_URL_MAX_LENGTH,
+    )
+    FormField(
+        description, { description = it }, "Description (optional)",
+        "edit_activity_description", maxLength = DESCRIPTION_MAX_LENGTH,
+    )
+    SelectionDropdown(
+        "Category", activityCategories, category, { category = it },
+        "edit_activity_category", required = true,
+    )
+    FormField(
+        location, { location = it }, "Location", "edit_activity_location",
+        required = true, maxLength = LOCATION_MAX_LENGTH,
+    )
+    DateTimePickerField(
+        "Start time", startTime, { startTime = it }, "edit_activity_start_time",
+        required = true,
+    )
+    DateTimePickerField(
+        "End time", endTime, { endTime = it }, "edit_activity_end_time",
+        required = true,
+    )
+    TimeOrderErrorMessage(hasTimeOrderError(startTime, endTime))
     Button(
         onClick = {
             onSave(ActivityUpdate(name, image, description, category, location, startTime, endTime))
@@ -252,19 +276,42 @@ private fun EditTransportationForm(
     var endTime by remember(segment) { mutableStateOf(segment.endTime) }
     val distance = distanceMeters.toDoubleOrNull()
     val isValid = mode in transportationModes && startLocation.isNotBlank() &&
-        endLocation.isNotBlank() && distance != null && distance >= 0 &&
+        startLocation.length <= LOCATION_MAX_LENGTH && endLocation.isNotBlank() &&
+        endLocation.length <= LOCATION_MAX_LENGTH && distance != null && distance >= 0 &&
         timesAreOrdered(startTime, endTime)
     Text(
         "Edit transportation",
         style = MaterialTheme.typography.headlineSmall,
         fontWeight = FontWeight.Bold,
     )
-    SelectionDropdown("Mode", transportationModes, mode, { mode = it }, "edit_transportation_mode")
-    FormField(startLocation, { startLocation = it }, "Start location", "edit_transportation_start_location")
-    FormField(endLocation, { endLocation = it }, "End location", "edit_transportation_end_location")
-    FormField(distanceMeters, { distanceMeters = it }, "Distance in meters", "edit_transportation_distance")
-    DateTimePickerField("Start time", startTime, { startTime = it }, "edit_transportation_start_time")
-    DateTimePickerField("End time", endTime, { endTime = it }, "edit_transportation_end_time")
+    SelectionDropdown(
+        "Mode", transportationModes, mode, { mode = it }, "edit_transportation_mode",
+        required = true,
+    )
+    FormField(
+        startLocation, { startLocation = it }, "Start location",
+        "edit_transportation_start_location", required = true,
+        maxLength = LOCATION_MAX_LENGTH,
+    )
+    FormField(
+        endLocation, { endLocation = it }, "End location",
+        "edit_transportation_end_location", required = true,
+        maxLength = LOCATION_MAX_LENGTH,
+    )
+    FormField(
+        distanceMeters, { distanceMeters = it }, "Distance in meters",
+        "edit_transportation_distance", required = true,
+    )
+    DateTimePickerField(
+        "Start time", startTime, { startTime = it }, "edit_transportation_start_time",
+        required = true,
+    )
+    DateTimePickerField(
+        "End time", endTime, { endTime = it }, "edit_transportation_end_time",
+        required = true,
+    )
+    DistanceErrorMessage(hasDistanceError(distanceMeters))
+    TimeOrderErrorMessage(hasTimeOrderError(startTime, endTime))
     Button(
         onClick = {
             onSave(
@@ -277,9 +324,6 @@ private fun EditTransportationForm(
         modifier = Modifier.fillMaxWidth().testTag("edit_transportation_save"),
     ) { Text(if (isSaving) "Saving…" else "Save") }
 }
-
-private fun timesAreOrdered(startTime: String, endTime: String): Boolean =
-    runCatching { Instant.parse(startTime).isBefore(Instant.parse(endTime)) }.getOrDefault(false)
 
 @Composable
 private fun ActivityDetails(activity: ActivityItem) {
@@ -296,7 +340,7 @@ private fun ActivityDetails(activity: ActivityItem) {
 @Composable
 private fun TransportationDetails(segment: TransportationItem) {
     Text(
-        "${segment.mode.replaceFirstChar { it.uppercase() }} transportation",
+        segment.mode.displayOption(),
         style = MaterialTheme.typography.headlineSmall,
         fontWeight = FontWeight.Bold,
     )

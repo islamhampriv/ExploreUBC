@@ -9,6 +9,7 @@ import androidx.compose.runtime.setValue
 import com.exploreUBC.cpen321application.data.itineraries.ActivityItem
 import com.exploreUBC.cpen321application.data.itineraries.ActivityUpdate
 import com.exploreUBC.cpen321application.data.itineraries.CreateActivityInput
+import com.exploreUBC.cpen321application.data.itineraries.CreateItineraryInput
 import com.exploreUBC.cpen321application.data.itineraries.CreateTransportationInput
 import com.exploreUBC.cpen321application.data.itineraries.ItinerariesRepository
 import com.exploreUBC.cpen321application.data.itineraries.Itinerary
@@ -47,6 +48,8 @@ internal class TripsRouteState(
     var isSaving by mutableStateOf(false)
         private set
     var isGenerating by mutableStateOf(false)
+        private set
+    var isCreating by mutableStateOf(false)
         private set
     var showGenerateConfirmation by mutableStateOf(false)
         private set
@@ -103,6 +106,29 @@ internal class TripsRouteState(
         newItemType = null
         selectedItinerary = null
         statusMessage = null
+    }
+
+    val createItinerary: () -> Unit = {
+        val ownerId = userId?.takeIf(String::isNotBlank)
+        if (ownerId != null && !isCreating) {
+            scope.launch {
+                isCreating = true
+                statusMessage = null
+                runCatching {
+                    repository.createItinerary(
+                        ownerId,
+                        CreateItineraryInput(name = "Untitled Itinerary"),
+                    )
+                }.onSuccess { created ->
+                    savedItineraries = savedItineraries.upsert(created)
+                    selectedItinerary = created
+                    statusMessage = "Itinerary created."
+                }.onFailure {
+                    statusMessage = it.message ?: "Could not create the itinerary."
+                }
+                isCreating = false
+            }
+        }
     }
 
     val openNewItem: (NewItemType) -> Unit = { type ->
@@ -240,6 +266,28 @@ internal class TripsRouteState(
                     it.id == updated.id
                 }
                 statusMessage = "Itinerary saved."
+            }
+        }
+    }
+
+    val deleteItinerary: () -> Unit = {
+        itineraryContext()?.let { context ->
+            saveRequest(
+                failureMessage = "Could not delete the itinerary.",
+                request = {
+                    repository.deleteItinerary(context.ownerId, context.itinerary.id)
+                },
+            ) {
+                savedItineraries = savedItineraries.filterNot {
+                    it.id == context.itinerary.id
+                }
+                recommendedItineraries = recommendedItineraries.filterNot {
+                    it.id == context.itinerary.id
+                }
+                selectedItem = null
+                newItemType = null
+                selectedItinerary = null
+                statusMessage = "Itinerary deleted."
             }
         }
     }
