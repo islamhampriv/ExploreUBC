@@ -95,11 +95,13 @@ export class ItineraryService {
       ...activityInput,
       id: randomUUID(),
     };
-    if (conflicts.length > 0) {
-      if (!replaceConflicts) {
-        throw new ItineraryTimeConflictError(conflicts);
-      }
-      await this.replaceConflicts(userId, itineraryId, conflicts, activity);
+    if (await this.resolveTimeConflicts(
+      userId,
+      itineraryId,
+      conflicts,
+      activity,
+      replaceConflicts,
+    )) {
       return activity;
     }
     const inserted = await this.repository.insertEmbeddedActivity(
@@ -130,11 +132,13 @@ export class ItineraryService {
       ...segmentInput,
       id: randomUUID(),
     };
-    if (conflicts.length > 0) {
-      if (!replaceConflicts) {
-        throw new ItineraryTimeConflictError(conflicts);
-      }
-      await this.replaceConflicts(userId, itineraryId, conflicts, segment);
+    if (await this.resolveTimeConflicts(
+      userId,
+      itineraryId,
+      conflicts,
+      segment,
+      replaceConflicts,
+    )) {
       return segment;
     }
     const inserted = await this.repository.insertEmbeddedTransportationSegment(
@@ -209,17 +213,14 @@ export class ItineraryService {
       activity.endTime,
       activityId,
     );
-    if (conflicts.length > 0) {
-      if (!replaceConflicts) {
-        throw new ItineraryTimeConflictError(conflicts);
-      }
-      await this.replaceConflicts(
-        userId,
-        itineraryId,
-        conflicts,
-        activity,
-        activityId,
-      );
+    if (await this.resolveTimeConflicts(
+      userId,
+      itineraryId,
+      conflicts,
+      activity,
+      replaceConflicts,
+      activityId,
+    )) {
       return activity;
     }
 
@@ -256,17 +257,14 @@ export class ItineraryService {
       segment.endTime,
       segmentId,
     );
-    if (conflicts.length > 0) {
-      if (!replaceConflicts) {
-        throw new ItineraryTimeConflictError(conflicts);
-      }
-      await this.replaceConflicts(
-        userId,
-        itineraryId,
-        conflicts,
-        segment,
-        segmentId,
-      );
+    if (await this.resolveTimeConflicts(
+      userId,
+      itineraryId,
+      conflicts,
+      segment,
+      replaceConflicts,
+      segmentId,
+    )) {
       return segment;
     }
 
@@ -372,6 +370,30 @@ export class ItineraryService {
     if (!replaced) {
       throw new ItineraryNotFoundError(itineraryId);
     }
+  }
+
+  private async resolveTimeConflicts(
+    userId: string,
+    itineraryId: string,
+    conflicts: ItineraryTimeConflict[],
+    item: ItineraryItem,
+    shouldReplace: boolean,
+    replacedItemId?: string,
+  ): Promise<boolean> {
+    if (conflicts.length === 0) {
+      return false;
+    }
+    if (!shouldReplace) {
+      throw new ItineraryTimeConflictError(conflicts);
+    }
+    await this.replaceConflicts(
+      userId,
+      itineraryId,
+      conflicts,
+      item,
+      replacedItemId,
+    );
+    return true;
   }
 
   private validateMergedTimeOrder(startTime: string, endTime: string): void {

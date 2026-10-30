@@ -225,35 +225,61 @@ private fun EventItineraryDialog(
     state: LiveEventsScreenState,
 ) {
     val pendingReplacement = state.pendingReplacement
-    val scope = rememberCoroutineScope()
     if (pendingReplacement != null) {
-        TimeConflictDialog(
-            conflicts = pendingReplacement.conflicts,
-            isWorking = state.isAddingToItinerary,
-            onKeepExisting = {
-                state.pendingReplacement = null
-                state.eventToAdd = null
-            },
-            onReplace = {
-                if (userId.isNullOrBlank()) {
-                    state.itineraryError = "User is unavailable"
-                } else {
-                    scope.launch {
-                        addEventToItinerary(
-                            repository,
-                            userId,
-                            pendingReplacement.itinerary,
-                            pendingReplacement.activity,
-                            state,
-                            replaceConflicts = true,
-                        )
-                    }
-                }
-            },
+        EventReplacementDialog(
+            userId = userId,
+            repository = repository,
+            state = state,
+            replacement = pendingReplacement,
         )
         return
     }
     val selectedEvent = state.eventToAdd ?: return
+    EventSelectionDialog(userId, repository, state, selectedEvent)
+}
+
+@Composable
+private fun EventReplacementDialog(
+    userId: String?,
+    repository: ItinerariesRepository,
+    state: LiveEventsScreenState,
+    replacement: PendingEventReplacement,
+) {
+    val scope = rememberCoroutineScope()
+    TimeConflictDialog(
+        conflicts = replacement.conflicts,
+        isWorking = state.isAddingToItinerary,
+        onKeepExisting = {
+            state.pendingReplacement = null
+            state.eventToAdd = null
+        },
+        onReplace = {
+            if (userId.isNullOrBlank()) {
+                state.itineraryError = "User is unavailable"
+            } else {
+                scope.launch {
+                    addEventToItinerary(
+                        repository,
+                        userId,
+                        replacement.itinerary,
+                        replacement.activity,
+                        state,
+                        replaceConflicts = true,
+                    )
+                }
+            }
+        },
+    )
+}
+
+@Composable
+private fun EventSelectionDialog(
+    userId: String?,
+    repository: ItinerariesRepository,
+    state: LiveEventsScreenState,
+    selectedEvent: Event,
+) {
+    val scope = rememberCoroutineScope()
     AddEventToItineraryDialog(
         state = AddToItineraryDialogState(
             selectedEvent,

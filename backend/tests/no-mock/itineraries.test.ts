@@ -20,6 +20,17 @@ import type {
 const USER_ID = '6705f0000000000000000001';
 const ITINERARY_ID = '6705f1000000000000000001';
 
+type StoredItemReference = {
+  userId: string;
+  itineraryId: string;
+  itemId: string;
+  type: ItineraryItem['type'];
+};
+
+type StoredItemUpdate = StoredItemReference & {
+  update: ActivityUpdate | TransportationSegmentUpdate;
+};
+
 const ACTIVITY_INPUT: CreateActivityInput = {
   type: 'activity',
   name: 'Nitobe Memorial Garden',
@@ -201,7 +212,12 @@ class TestItineraryRepository implements ItineraryRepository {
     itineraryId: string,
     activityId: string,
   ): Promise<boolean> {
-    return this.removeEmbeddedItem(userId, itineraryId, activityId, 'activity');
+    return this.removeEmbeddedItem({
+      userId,
+      itineraryId,
+      itemId: activityId,
+      type: 'activity',
+    });
   }
 
   async removeEmbeddedTransportationSegment(
@@ -209,12 +225,12 @@ class TestItineraryRepository implements ItineraryRepository {
     itineraryId: string,
     segmentId: string,
   ): Promise<boolean> {
-    return this.removeEmbeddedItem(
+    return this.removeEmbeddedItem({
       userId,
       itineraryId,
-      segmentId,
-      'transportation',
-    );
+      itemId: segmentId,
+      type: 'transportation',
+    });
   }
 
   async updateEmbeddedActivity(
@@ -223,13 +239,13 @@ class TestItineraryRepository implements ItineraryRepository {
     activityId: string,
     update: ActivityUpdate,
   ): Promise<boolean> {
-    return this.updateEmbeddedItem(
+    return this.updateEmbeddedItem({
       userId,
       itineraryId,
-      activityId,
-      'activity',
+      itemId: activityId,
+      type: 'activity',
       update,
-    );
+    });
   }
 
   async updateEmbeddedTransportationSegment(
@@ -238,13 +254,13 @@ class TestItineraryRepository implements ItineraryRepository {
     segmentId: string,
     update: TransportationSegmentUpdate,
   ): Promise<boolean> {
-    return this.updateEmbeddedItem(
+    return this.updateEmbeddedItem({
       userId,
       itineraryId,
-      segmentId,
-      'transportation',
+      itemId: segmentId,
+      type: 'transportation',
       update,
-    );
+    });
   }
 
   async removeItinerary(
@@ -276,11 +292,9 @@ class TestItineraryRepository implements ItineraryRepository {
   }
 
   private async removeEmbeddedItem(
-    userId: string,
-    itineraryId: string,
-    itemId: string,
-    type: ItineraryItem['type'],
+    reference: StoredItemReference,
   ): Promise<boolean> {
+    const { userId, itineraryId, itemId, type } = reference;
     const itinerary = await this.findItinerary(userId, itineraryId);
     if (itinerary === null || !itinerary.saved) return false;
     const itemExists = itinerary.items.some(
@@ -295,13 +309,8 @@ class TestItineraryRepository implements ItineraryRepository {
     return true;
   }
 
-  private async updateEmbeddedItem(
-    userId: string,
-    itineraryId: string,
-    itemId: string,
-    type: ItineraryItem['type'],
-    update: ActivityUpdate | TransportationSegmentUpdate,
-  ): Promise<boolean> {
+  private async updateEmbeddedItem(change: StoredItemUpdate): Promise<boolean> {
+    const { userId, itineraryId, itemId, type, update } = change;
     const itinerary = await this.findItinerary(userId, itineraryId);
     if (itinerary === null || !itinerary.saved) return false;
     const itemExists = itinerary.items.some(

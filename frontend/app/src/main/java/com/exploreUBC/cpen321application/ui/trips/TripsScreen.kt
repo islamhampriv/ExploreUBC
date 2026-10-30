@@ -998,82 +998,113 @@ internal fun DateTimePickerField(
     }
 
     if (showDatePicker) {
-        val datePickerState = rememberDatePickerState(
-            initialSelectedDateMillis = value.toDatePickerMillis(),
+        DateSelectionDialog(
+            value = value,
+            onDismiss = { showDatePicker = false },
+            onDateSelected = { dateMillis ->
+                selectedDateMillis = dateMillis
+                showDatePicker = false
+                showTimePicker = true
+            },
         )
-        DatePickerDialog(
-            onDismissRequest = { showDatePicker = false },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        selectedDateMillis = datePickerState.selectedDateMillis
-                        showDatePicker = false
-                        if (selectedDateMillis != null) showTimePicker = true
-                    },
-                    enabled = datePickerState.selectedDateMillis != null,
-                ) {
-                    Text("Next")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDatePicker = false }) {
-                    Text("Cancel")
-                }
-            },
-        ) {
-            DatePicker(state = datePickerState)
-        }
     }
 
     if (showTimePicker) {
-        val currentTime = value.toPacificDateTime()
-        val timePickerState = rememberTimePickerState(
-            initialHour = currentTime?.hour ?: 12,
-            initialMinute = currentTime?.minute ?: 0,
-            is24Hour = false,
+        TimeSelectionDialog(
+            value = value,
+            selectedDateMillis = selectedDateMillis,
+            onDismiss = { showTimePicker = false },
+            onValueChange = onValueChange,
         )
-        Dialog(onDismissRequest = { showTimePicker = false }) {
-            Surface(shape = MaterialTheme.shapes.large) {
-                Column(
-                    modifier = Modifier.padding(20.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    Text("Select time", style = MaterialTheme.typography.titleLarge)
-                    Box(modifier = Modifier.fillMaxWidth()) {
-                        TimePicker(state = timePickerState)
-                    }
-                    Row(modifier = Modifier.fillMaxWidth()) {
-                        TextButton(onClick = { showTimePicker = false }) {
-                            Text("Cancel")
-                        }
-                        Spacer(Modifier.weight(1f))
-                        TextButton(
-                            onClick = {
-                                val dateMillis = selectedDateMillis
-                                if (dateMillis != null) {
-                                    val date = Instant.ofEpochMilli(dateMillis)
-                                        .atZone(ZoneOffset.UTC)
-                                        .toLocalDate()
-                                    onValueChange(
-                                        date.atTime(
-                                            timePickerState.hour,
-                                            timePickerState.minute,
-                                        ).atZone(pacificTimeZone)
-                                            .toInstant()
-                                            .toString(),
-                                    )
-                                }
-                                showTimePicker = false
-                            },
-                        ) {
-                            Text("OK")
-                        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun DateSelectionDialog(
+    value: String,
+    onDismiss: () -> Unit,
+    onDateSelected: (Long) -> Unit,
+) {
+    val datePickerState = rememberDatePickerState(
+        initialSelectedDateMillis = value.toDatePickerMillis(),
+    )
+    DatePickerDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    datePickerState.selectedDateMillis?.let(onDateSelected)
+                },
+                enabled = datePickerState.selectedDateMillis != null,
+            ) {
+                Text("Next")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        },
+    ) {
+        DatePicker(state = datePickerState)
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun TimeSelectionDialog(
+    value: String,
+    selectedDateMillis: Long?,
+    onDismiss: () -> Unit,
+    onValueChange: (String) -> Unit,
+) {
+    val currentTime = value.toPacificDateTime()
+    val timePickerState = rememberTimePickerState(
+        initialHour = currentTime?.hour ?: 12,
+        initialMinute = currentTime?.minute ?: 0,
+        is24Hour = false,
+    )
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(shape = MaterialTheme.shapes.large) {
+            Column(
+                modifier = Modifier.padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Text("Select time", style = MaterialTheme.typography.titleLarge)
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    TimePicker(state = timePickerState)
+                }
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    TextButton(onClick = onDismiss) { Text("Cancel") }
+                    Spacer(Modifier.weight(1f))
+                    TextButton(
+                        onClick = {
+                            selectedDateMillis?.let { dateMillis ->
+                                onValueChange(
+                                    dateMillis.toInstantString(
+                                        timePickerState.hour,
+                                        timePickerState.minute,
+                                    ),
+                                )
+                            }
+                            onDismiss()
+                        },
+                    ) {
+                        Text("OK")
                     }
                 }
             }
         }
     }
 }
+
+private fun Long.toInstantString(hour: Int, minute: Int): String =
+    Instant.ofEpochMilli(this)
+        .atZone(ZoneOffset.UTC)
+        .toLocalDate()
+        .atTime(hour, minute)
+        .atZone(pacificTimeZone)
+        .toInstant()
+        .toString()
 
 private fun String.toPacificDateTime() = runCatching {
     Instant.parse(this).atZone(pacificTimeZone)
