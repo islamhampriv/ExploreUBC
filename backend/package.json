@@ -12,7 +12,10 @@
     "start": "node dist/index.js",
     "sync:events": "tsx src/events/eventSync.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "jest"
+    "test": "jest",
+    "test:no-mock": "jest --config jest.no-mock.config.js --runInBand",
+    "test:mock": "jest --config jest.mock.config.js --runInBand",
+    "test:combined": "jest --config jest.combined.config.js --runInBand"
   },
   "engines": {
     "node": ">=22.0.0 <23.0.0",
