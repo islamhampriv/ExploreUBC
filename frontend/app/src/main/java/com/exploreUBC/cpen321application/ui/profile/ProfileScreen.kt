@@ -57,6 +57,8 @@ private val defaultPreferences = UserPreferences(
     budget = BudgetPreference.ECONOMICAL,
     interest = InterestPreference.FOOD,
 )
+private const val DISPLAY_NAME_MAX_LENGTH = 200
+private const val START_LOCATION_MAX_LENGTH = 500
 
 @Composable
 fun ProfileRoute(
@@ -524,6 +526,8 @@ private fun RowScope.ProfileEditFields(
     onStartLocationChanged: (String) -> Unit,
     onSave: () -> Unit,
 ) {
+    val displayNameTooLong = displayName.length > DISPLAY_NAME_MAX_LENGTH
+    val startLocationTooLong = startLocation.length > START_LOCATION_MAX_LENGTH
     Column(
         modifier = Modifier
             .weight(1f)
@@ -534,23 +538,42 @@ private fun RowScope.ProfileEditFields(
             onValueChange = onDisplayNameChanged,
             label = { Text("Display name") },
             singleLine = true,
+            isError = displayNameTooLong,
             modifier = Modifier
                 .fillMaxWidth()
                 .testTag("profile_display_name_input"),
         )
+        if (displayNameTooLong) {
+            Text(
+                text = "Display name must be at most $DISPLAY_NAME_MAX_LENGTH characters.",
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.testTag("profile_display_name_length_error"),
+            )
+        }
         OutlinedTextField(
             value = startLocation,
             onValueChange = onStartLocationChanged,
             label = { Text("Start location") },
             placeholder = { Text("Enter a starting location") },
             singleLine = true,
+            isError = startLocationTooLong,
             modifier = Modifier
                 .fillMaxWidth()
                 .testTag("profile_start_location"),
         )
+        if (startLocationTooLong) {
+            Text(
+                text = "Start location must be at most $START_LOCATION_MAX_LENGTH characters.",
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.testTag("profile_start_location_length_error"),
+            )
+        }
         Button(
             onClick = onSave,
-            enabled = !isSaving && displayName.isNotBlank() && startLocation.isNotBlank(),
+            enabled = !isSaving && displayName.isNotBlank() && startLocation.isNotBlank() &&
+                !displayNameTooLong && !startLocationTooLong,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(top = 8.dp)

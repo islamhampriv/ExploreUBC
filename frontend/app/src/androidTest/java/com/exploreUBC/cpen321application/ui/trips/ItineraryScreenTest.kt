@@ -1,6 +1,7 @@
 package com.exploreUBC.cpen321application.ui.trips
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
@@ -8,9 +9,11 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.runtime.mutableStateOf
 import com.exploreUBC.cpen321application.data.itineraries.ActivityItem
 import com.exploreUBC.cpen321application.data.itineraries.Itinerary
+import com.exploreUBC.cpen321application.data.itineraries.TransportationItem
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -38,6 +41,7 @@ class ItineraryScreenTest {
                     onAddTransportation = { error("Recommendations cannot add transportation") },
                     onSaveDetails = { error("Recommendation details must be read-only") },
                     onSaveRecommendation = { saveCalls += 1 },
+                    onDelete = {},
                 ),
             )
         }
@@ -57,6 +61,7 @@ class ItineraryScreenTest {
 
     @Test
     fun savedItineraryShowsEditingActionsInsteadOfRecommendationSave() {
+        var deleteCalls = 0
         composeRule.setContent {
             ItineraryScreen(
                 model = ItineraryScreenModel(
@@ -73,6 +78,7 @@ class ItineraryScreenTest {
                     onSaveRecommendation = {
                         error("Saved itinerary must not show recommendation save")
                     },
+                    onDelete = { deleteCalls += 1 },
                 ),
             )
         }
@@ -81,6 +87,45 @@ class ItineraryScreenTest {
         composeRule.onNodeWithTag("itinerary_add_activity").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithTag("itinerary_add_transportation").assertIsDisplayed()
         assertTagAbsent("itinerary_save_recommendation")
+        composeRule.onNodeWithTag("itinerary_delete")
+            .performScrollTo()
+            .assertIsDisplayed()
+            .performClick()
+        composeRule.runOnIdle { assertEquals(0, deleteCalls) }
+        composeRule.onNodeWithText("Delete itinerary?").assertIsDisplayed()
+        composeRule.onNodeWithTag("cancel_delete_itinerary")
+            .assertIsDisplayed()
+            .performClick()
+        composeRule.runOnIdle { assertEquals(0, deleteCalls) }
+        composeRule.onNodeWithTag("itinerary_delete").performClick()
+        composeRule.onNodeWithTag("confirm_delete_itinerary")
+            .assertIsDisplayed()
+            .performClick()
+        composeRule.runOnIdle { assertEquals(1, deleteCalls) }
+    }
+
+    @Test
+    fun savedSectionCreateActionInvokesCallback() {
+        var createCalls = 0
+
+        composeRule.setContent {
+            TripsList(
+                model = TripsListModel(
+                    savedItineraries = emptyList(),
+                    recommendedItineraries = emptyList(),
+                    isLoading = false,
+                    isCreating = false,
+                    isGenerating = false,
+                    statusMessage = null,
+                ),
+                actions = TripsListActions({}, { createCalls += 1 }, {}),
+            )
+        }
+
+        composeRule.onNodeWithTag("create_itinerary")
+            .assertIsDisplayed()
+            .performClick()
+        composeRule.runOnIdle { assertEquals(1, createCalls) }
     }
 
     @Test
@@ -115,6 +160,102 @@ class ItineraryScreenTest {
     }
 
     @Test
+    fun editActivityShowsErrorWhenEndTimeIsNotAfterStartTime() {
+        val activity = itinerary(saved = true, inRecommendation = false)
+            .items
+            .filterIsInstance<ActivityItem>()
+            .single()
+            .copy(endTime = "2026-11-01T16:00:00.000Z")
+
+        composeRule.setContent {
+            ItineraryItemScreen(
+                model = ItineraryItemScreenModel(
+                    item = activity,
+                    isReadOnly = false,
+                    isSaving = false,
+                    statusMessage = null,
+                ),
+                actions = ItineraryItemScreenActions({}, {}, {}, {}),
+            )
+        }
+
+        composeRule.onNodeWithTag("itinerary_item_edit").performClick()
+        composeRule.onNodeWithTag("time_order_error")
+            .performScrollTo()
+            .assertIsDisplayed()
+        composeRule.onNodeWithText("End time must be after start time.").assertIsDisplayed()
+        composeRule.onNodeWithTag("edit_activity_save").assertIsNotEnabled()
+    }
+
+    @Test
+    fun editActivityShowsRequiredLabelsAndLiveLengthError() {
+        val activity = itinerary(saved = true, inRecommendation = false)
+            .items
+            .filterIsInstance<ActivityItem>()
+            .single()
+
+        composeRule.setContent {
+            ItineraryItemScreen(
+                model = ItineraryItemScreenModel(activity, false, false, null),
+                actions = ItineraryItemScreenActions({}, {}, {}, {}),
+            )
+        }
+
+        composeRule.onNodeWithTag("itinerary_item_edit").performClick()
+        composeRule.onNodeWithText("Name *").assertIsDisplayed()
+        composeRule.onNodeWithText("Image URL (optional)").assertIsDisplayed()
+        composeRule.onNodeWithText("Category *").assertIsDisplayed()
+        composeRule.onNodeWithText("Location *").assertIsDisplayed()
+        composeRule.onNodeWithTag("edit_activity_image").performTextReplacement("")
+        composeRule.onNodeWithTag("edit_activity_save").assertIsEnabled()
+        composeRule.onNodeWithTag("edit_activity_name")
+            .performTextReplacement("a".repeat(ACTIVITY_NAME_MAX_LENGTH + 1))
+        composeRule.onNodeWithTag("edit_activity_name_length_error")
+            .performScrollTo()
+            .assertIsDisplayed()
+        composeRule.onNodeWithText("Name must be at most 200 characters.").assertIsDisplayed()
+        composeRule.onNodeWithTag("edit_activity_save").assertIsNotEnabled()
+    }
+
+    @Test
+    fun editTransportationShowsErrorWhenDistanceIsNotANumber() {
+        val transportation = TransportationItem(
+            id = "transportation-1",
+            mode = "transit",
+            startLocation = "Pacific Spirit Regional Park",
+            endLocation = "UBC Bus Exchange",
+            distanceMeters = 4_000.0,
+            startTime = "2026-11-01T17:00:00.000Z",
+            endTime = "2026-11-01T17:30:00.000Z",
+        )
+
+        composeRule.setContent {
+            ItineraryItemScreen(
+                model = ItineraryItemScreenModel(
+                    item = transportation,
+                    isReadOnly = false,
+                    isSaving = false,
+                    statusMessage = null,
+                ),
+                actions = ItineraryItemScreenActions({}, {}, {}, {}),
+            )
+        }
+
+        composeRule.onNodeWithTag("itinerary_item_edit").performClick()
+        composeRule.onNodeWithText("Mode *").assertIsDisplayed()
+        composeRule.onNodeWithText("Start location *").assertIsDisplayed()
+        composeRule.onNodeWithText("End location *").assertIsDisplayed()
+        composeRule.onNodeWithText("Distance in meters *").assertIsDisplayed()
+        composeRule.onNodeWithTag("edit_transportation_distance")
+            .performTextReplacement("not a number")
+        composeRule.onNodeWithTag("distance_error")
+            .performScrollTo()
+            .assertIsDisplayed()
+        composeRule.onNodeWithText("Distance must be a number.").assertIsDisplayed()
+        composeRule.onNodeWithTag("edit_transportation_save").assertIsNotEnabled()
+    }
+
+    @Test
     fun recommendedSectionGeneratesAndShowsLoadingState() {
         var generateCalls = 0
         val isGenerating = mutableStateOf(false)
@@ -125,10 +266,11 @@ class ItineraryScreenTest {
                     savedItineraries = emptyList(),
                     recommendedItineraries = emptyList(),
                     isLoading = false,
+                    isCreating = false,
                     isGenerating = isGenerating.value,
                     statusMessage = null,
                 ),
-                actions = TripsListActions({}, { generateCalls += 1 }),
+                actions = TripsListActions({}, {}, { generateCalls += 1 }),
             )
         }
 
@@ -154,10 +296,11 @@ class ItineraryScreenTest {
                         itinerary(saved = false, inRecommendation = true),
                     ),
                     isLoading = false,
+                    isCreating = false,
                     isGenerating = false,
                     statusMessage = null,
                 ),
-                actions = TripsListActions({}, {}),
+                actions = TripsListActions({}, {}, {}),
             )
         }
 

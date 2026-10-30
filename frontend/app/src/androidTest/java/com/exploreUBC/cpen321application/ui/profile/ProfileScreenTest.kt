@@ -2,6 +2,7 @@ package com.exploreUBC.cpen321application.ui.profile
 
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onNodeWithTag
@@ -166,6 +167,33 @@ class ProfileScreenTest {
             assertEquals("Updated User", savedUpdate?.displayName)
             assertEquals("Updated Location", savedUpdate?.startLocation)
         }
+    }
+
+    @Test
+    fun profileEditShowsLiveLengthErrorAndDisablesSave() {
+        composeRule.setContent {
+            ProfilePreferencesForm(
+                state = ProfileScreenState(
+                    displayName = "Original User",
+                    startLocation = "Original Location",
+                    preferences = UserPreferences(
+                        transportation = TransportationPreference(TransportationMode.WALKING),
+                        budget = BudgetPreference.ECONOMICAL,
+                        interest = InterestPreference.FOOD,
+                    ),
+                    isSaving = false,
+                    isEditingProfile = true,
+                ),
+                actions = ProfileScreenActions(),
+            )
+        }
+
+        composeRule.onNodeWithTag("profile_display_name_input")
+            .performTextReplacement("a".repeat(201))
+        composeRule.onNodeWithTag("profile_display_name_length_error").assertIsDisplayed()
+        composeRule.onNodeWithText("Display name must be at most 200 characters.")
+            .assertIsDisplayed()
+        composeRule.onNodeWithTag("profile_details_save").assertIsNotEnabled()
     }
 
     @Test

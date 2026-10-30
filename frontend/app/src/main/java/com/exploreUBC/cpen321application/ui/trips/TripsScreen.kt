@@ -15,6 +15,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -69,11 +70,13 @@ private fun TripsRouteContent(state: TripsRouteState, modifier: Modifier) {
                 savedItineraries = state.savedItineraries,
                 recommendedItineraries = state.recommendedItineraries,
                 isLoading = state.isLoading,
+                isCreating = state.isCreating,
                 isGenerating = state.isGenerating,
                 statusMessage = listStatus,
             ),
             actions = TripsListActions(
                 state.openItinerary,
+                state.createItinerary,
                 state.showGenerateConfirmationAction,
             ),
             modifier = modifier,
@@ -111,6 +114,7 @@ private fun TripsRouteContent(state: TripsRouteState, modifier: Modifier) {
                 onAddTransportation = { state.openNewItem(NewItemType.TRANSPORTATION) },
                 onSaveDetails = state.saveDetails,
                 onSaveRecommendation = state.saveRecommendation,
+                onDelete = state.deleteItinerary,
             ),
             modifier = modifier,
         )
@@ -142,12 +146,14 @@ data class TripsListModel(
     val savedItineraries: List<Itinerary>,
     val recommendedItineraries: List<Itinerary>,
     val isLoading: Boolean,
+    val isCreating: Boolean,
     val isGenerating: Boolean,
     val statusMessage: String?,
 )
 
 data class TripsListActions(
     val onItineraryClick: (Itinerary) -> Unit,
+    val onCreateItinerary: () -> Unit,
     val onGenerateRecommendations: () -> Unit,
 )
 
@@ -157,6 +163,8 @@ private data class ItinerarySectionModel(
     val itineraries: List<Itinerary>,
     val tagPrefix: String,
     val showGenerateAction: Boolean = false,
+    val showCreateAction: Boolean = false,
+    val isCreating: Boolean = false,
     val isGenerating: Boolean = false,
 )
 
@@ -192,6 +200,8 @@ fun TripsList(
                 emptyMessage = "No saved itineraries.",
                 itineraries = model.savedItineraries,
                 tagPrefix = "saved",
+                showCreateAction = true,
+                isCreating = model.isCreating,
             ),
             actions = actions,
         )
@@ -214,7 +224,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.itinerarySection(
     model: ItinerarySectionModel,
     actions: TripsListActions,
 ) {
-    item { ItinerarySectionHeader(model, actions.onGenerateRecommendations) }
+    item { ItinerarySectionHeader(model, actions) }
     if (model.itineraries.isEmpty()) {
         item { Text(model.emptyMessage) }
     } else {
@@ -225,7 +235,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.itinerarySection(
 }
 
 @Composable
-private fun ItinerarySectionHeader(model: ItinerarySectionModel, onGenerate: () -> Unit) {
+private fun ItinerarySectionHeader(model: ItinerarySectionModel, actions: TripsListActions) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -236,9 +246,26 @@ private fun ItinerarySectionHeader(model: ItinerarySectionModel, onGenerate: () 
             fontWeight = FontWeight.Bold,
             modifier = Modifier.weight(1f),
         )
+        if (model.showCreateAction) {
+            Button(
+                onClick = actions.onCreateItinerary,
+                enabled = !model.isCreating,
+                modifier = Modifier.testTag("create_itinerary"),
+            ) {
+                if (model.isCreating) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.width(18.dp).height(18.dp)
+                            .testTag("create_itinerary_loading"),
+                        strokeWidth = 2.dp,
+                    )
+                } else {
+                    Text("Create")
+                }
+            }
+        }
         if (model.showGenerateAction) {
             Button(
-                onClick = onGenerate,
+                onClick = actions.onGenerateRecommendations,
                 enabled = !model.isGenerating,
                 modifier = Modifier.testTag("generate_recommendations"),
             ) {
@@ -305,6 +332,7 @@ data class ItineraryScreenActions(
     val onAddTransportation: () -> Unit,
     val onSaveDetails: (ItineraryDetails) -> Unit,
     val onSaveRecommendation: () -> Unit,
+    val onDelete: () -> Unit,
 )
 
 private class ItineraryEditorState(itinerary: Itinerary) {
@@ -332,6 +360,7 @@ fun ItineraryScreen(
     modifier: Modifier = Modifier,
 ) {
     val itinerary = model.itinerary
+    var showDeleteConfirmation by remember(itinerary.id) { mutableStateOf(false) }
     val editor = remember(itinerary.id, itinerary.updatedAt) {
         ItineraryEditorState(itinerary)
     }
@@ -354,7 +383,38 @@ fun ItineraryScreen(
         model.statusMessage?.let { Text(it, modifier = Modifier.testTag("itinerary_status")) }
         ItineraryItems(itinerary, actions.onItemClick)
         ItineraryActions(model, actions)
+        Button(
+            onClick = { showDeleteConfirmation = true },
+            enabled = !model.isSaving,
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.error,
+                contentColor = MaterialTheme.colorScheme.onError,
+            ),
+            modifier = Modifier.fillMaxWidth().testTag("itinerary_delete"),
+        ) { Text("Delete itinerary") }
         Spacer(Modifier.height(16.dp))
+    }
+    if (showDeleteConfirmation) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirmation = false },
+            title = { Text("Delete itinerary?") },
+            text = { Text("This action cannot be undone.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showDeleteConfirmation = false
+                        actions.onDelete()
+                    },
+                    modifier = Modifier.testTag("confirm_delete_itinerary"),
+                ) { Text("Yes") }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { showDeleteConfirmation = false },
+                    modifier = Modifier.testTag("cancel_delete_itinerary"),
+                ) { Text("No") }
+            },
+        )
     }
 }
 
@@ -383,22 +443,31 @@ private fun ItineraryDetailsEditor(
     isSaving: Boolean,
     onSave: (ItineraryDetails) -> Unit,
 ) {
-    FormField(editor.name, { editor.name = it }, "Name", "itinerary_name")
+    val isValid = editor.name.isNotBlank() &&
+        editor.name.length <= ITINERARY_NAME_MAX_LENGTH &&
+        editor.description.length <= DESCRIPTION_MAX_LENGTH &&
+        editor.startingLocation.length <= LOCATION_MAX_LENGTH
+    FormField(
+        editor.name, { editor.name = it }, "Name", "itinerary_name",
+        maxLength = ITINERARY_NAME_MAX_LENGTH,
+    )
     FormField(
         editor.description,
         { editor.description = it },
         "Description",
         "itinerary_description",
+        maxLength = DESCRIPTION_MAX_LENGTH,
     )
     FormField(
         editor.startingLocation,
         { editor.startingLocation = it },
         "Starting location",
         "itinerary_starting_location",
+        maxLength = LOCATION_MAX_LENGTH,
     )
     Button(
         onClick = { onSave(editor.details()) },
-        enabled = !isSaving && editor.name.isNotBlank(),
+        enabled = !isSaving && isValid,
         modifier = Modifier.fillMaxWidth().testTag("itinerary_save"),
     ) { Text(if (isSaving) "Saving…" else "Save details") }
 }
