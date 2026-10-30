@@ -33,6 +33,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.exploreUBC.cpen321application.data.events.Event
 import com.exploreUBC.cpen321application.data.events.EventsRepository
+import com.exploreUBC.cpen321application.data.location.UserLocation
 import com.exploreUBC.cpen321application.data.itineraries.CreateActivityInput
 import com.exploreUBC.cpen321application.data.itineraries.CreateItineraryInput
 import com.exploreUBC.cpen321application.data.itineraries.ItinerariesRepository
@@ -56,20 +57,25 @@ fun LiveEventsScreen(
     userId: String?,
     eventsRepository: EventsRepository,
     itinerariesRepository: ItinerariesRepository,
+    location: UserLocation = UserLocation.UBC,
+    initialEvents: List<Event> = emptyList(),
+    onFirstPageLoaded: (List<Event>) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
-    val state = remember { LiveEventsScreenState() }
-    LoadEventsEffect(userId, eventsRepository, state)
+    val state = remember(userId, location) { LiveEventsScreenState(initialEvents) }
+    LoadEventsEffect(userId, location, eventsRepository, state, onFirstPageLoaded)
     LoadItinerariesEffect(userId, itinerariesRepository, state)
     LiveEventsContent(state, modifier)
     EventItineraryDialog(userId, itinerariesRepository, state)
 }
 
-private class LiveEventsScreenState {
-    var events by mutableStateOf<List<Event>>(emptyList())
-    var isLoading by mutableStateOf(true)
+private class LiveEventsScreenState(initialEvents: List<Event>) {
+    var events by mutableStateOf(initialEvents)
+    var isLoading by mutableStateOf(initialEvents.isEmpty())
     var isLoadingMore by mutableStateOf(false)
-    var hasMoreEvents by mutableStateOf(true)
+    var hasMoreEvents by mutableStateOf(
+        initialEvents.isEmpty() || initialEvents.size == EVENTS_PAGE_SIZE,
+    )
     var errorMessage by mutableStateOf<String?>(null)
     var currentPage by mutableStateOf(1)
     var requestCount by mutableStateOf(0)
@@ -106,10 +112,18 @@ private data class PendingEventReplacement(
 @Composable
 private fun LoadEventsEffect(
     userId: String?,
+    location: UserLocation,
     repository: EventsRepository,
     state: LiveEventsScreenState,
+    onFirstPageLoaded: (List<Event>) -> Unit,
 ) {
-    LaunchedEffect(userId, repository, state.currentPage, state.requestCount) {
+    LaunchedEffect(
+        userId,
+        location,
+        repository,
+        state.currentPage,
+        state.requestCount,
+    ) {
         val isFirstPage = state.currentPage == 1
         state.isLoading = isFirstPage
         state.isLoadingMore = !isFirstPage
@@ -122,8 +136,8 @@ private fun LoadEventsEffect(
             try {
                 val newEvents = repository.getEvents(
                     userId,
-                    49.2606,
-                    -123.2460,
+                    location.latitude,
+                    location.longitude,
                     state.currentPage,
                     EVENTS_PAGE_SIZE,
                 )
@@ -132,6 +146,7 @@ private fun LoadEventsEffect(
                 } else {
                     (state.events + newEvents).distinctBy { it.id }
                 }
+                if (isFirstPage) onFirstPageLoaded(newEvents)
                 state.hasMoreEvents = newEvents.size == EVENTS_PAGE_SIZE
             } catch (error: IOException) {
                 state.errorMessage = error.message ?: "Unable to load events"

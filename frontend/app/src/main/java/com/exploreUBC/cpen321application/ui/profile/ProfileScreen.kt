@@ -64,6 +64,7 @@ fun ProfileRoute(
     modifier: Modifier = Modifier,
     displayName: String? = null,
     startLocation: String? = null,
+    onPreferencesSaved: () -> Unit = {},
 ) {
     var user by remember(userId) { mutableStateOf<User?>(null) }
     var fallbackDisplayName by remember(userId, displayName) { mutableStateOf(displayName) }
@@ -171,12 +172,16 @@ fun ProfileRoute(
                 }
             },
             onSavePreferences = { update ->
+                val preferencesChanged = update.preferences != null &&
+                    update.preferences != preferences
                 if (userId.isNullOrBlank()) {
                     preferences = update.preferences ?: preferences
                     errorMessage = null
                     savedMessage = "Preferences selected."
                 } else {
-                    saveUpdate(update, "Preferences saved.")
+                    saveUpdate(update, "Preferences saved.") {
+                        if (preferencesChanged) onPreferencesSaved()
+                    }
                 }
             },
         ),
