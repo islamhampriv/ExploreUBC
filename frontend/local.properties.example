@@ -7,5 +7,8 @@ API_BASE_URL=http://10.0.2.2:3000
 # Google OAuth client ID.
 GOOGLE_CLIENT_ID=
 
-# Google Maps SDK / Directions / Places key. Do not commit the real value.
+# Google Maps SDK key. Do not commit the real value.
 MAPS_API_KEY=
+
+# Places API key (address autocomplete and popular-place pins).
+PLACES_API_KEY=

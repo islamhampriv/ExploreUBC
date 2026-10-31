@@ -62,4 +62,10 @@ export const env = {
     model: process.env.SOCLAAS_MODEL?.trim(),
     maxOutputTokens: soclaasMaxOutputTokens,
   },
+  googleMaps: {
+    mapsApiKey: process.env.MAPS_API_KEY,
+    geocodingApiKey: process.env.GEOCODING_API_KEY,
+    routesApiKey: process.env.ROUTES_API_KEY,
+    placesApiKey: process.env.PLACES_API_KEY,
+  },
 } as const;

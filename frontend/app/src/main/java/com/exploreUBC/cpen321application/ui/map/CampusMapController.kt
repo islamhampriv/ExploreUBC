@@ -2,17 +2,22 @@ package com.exploreUBC.cpen321application.ui.map
 
 import android.Manifest
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.BitmapFactory
+import android.net.Uri
 import android.view.View
 import android.widget.Toast
 import androidx.core.content.ContextCompat
 import com.example.cpen321application.maps.GoogleMapsApiClient
-import com.example.cpen321application.maps.ItineraryStop
+import com.example.cpen321application.maps.PolylineDecoder
 import com.example.cpen321application.maps.PopularPlace
 import com.example.cpen321application.maps.SampleMapData
 import com.exploreUBC.cpen321application.BuildConfig
 import com.exploreUBC.cpen321application.R
+import com.exploreUBC.cpen321application.data.itineraries.ItineraryMap
+import com.exploreUBC.cpen321application.data.itineraries.MapMarker
+import com.exploreUBC.cpen321application.data.itineraries.MapRoute
 import com.exploreUBC.cpen321application.databinding.ActivityMapsBinding
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
@@ -22,6 +27,7 @@ import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.LatLngBounds
 import com.google.android.gms.maps.model.Marker
 import com.google.android.gms.maps.model.MarkerOptions
+import com.google.android.gms.maps.model.Polyline
 import com.google.android.gms.maps.model.PolylineOptions
 import java.net.HttpURLConnection
 import java.net.URL
@@ -31,25 +37,64 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+enum class MapLayerMode {
+    POPULAR_PLACES,
+    TRIP_ROUTES,
+}
+
+enum class TripTravelMode {
+    WALKING,
+    DRIVING,
+}
+
 class CampusMapController(
     private val context: Context,
     private val binding: ActivityMapsBinding,
     private val scope: CoroutineScope,
+    private val mode: MapLayerMode,
 ) {
     private lateinit var map: GoogleMap
     private val popularMarkers = mutableListOf<Marker>()
-    private val mapsApi = GoogleMapsApiClient(BuildConfig.MAPS_API_KEY)
+    private val itineraryMarkers = mutableListOf<Marker>()
+    private val itineraryPolylines = mutableListOf<Polyline>()
+    private val mapsApi = GoogleMapsApiClient(
+        mapsApiKey = BuildConfig.MAPS_API_KEY,
+        placesApiKey = BuildConfig.PLACES_API_KEY,
+    )
     private var mapTilesLoaded = false
     private var showMyLocation = false
+    private var pendingItineraryMap: ItineraryMap? = null
+    private var pendingOverlayTitle: String = ""
+    private var renderedPoints: List<LatLng> = emptyList()
+    private var renderedMarkers: List<MapMarker> = emptyList()
+    private var renderedRoutes: List<MapRoute> = emptyList()
+    private var travelMode: TripTravelMode = TripTravelMode.DRIVING
+    private var selectedRouteKey: String? = null
+    private var controlBottomInsetPx = 0
 
     fun start() {
         MapsInitializer.initialize(context.applicationContext)
+
+        binding.checkboxPopular.visibility = View.GONE
+        if (mode == MapLayerMode.TRIP_ROUTES) {
+            binding.textMapStatus.visibility = View.GONE
+        }
+        if (mode == MapLayerMode.POPULAR_PLACES) {
+            binding.textOverlayTitle.setText(R.string.map_overlay_popular_title)
+            binding.textLegend.setText(R.string.map_legend_popular)
+        }
 
         if (BuildConfig.MAPS_API_KEY.isBlank() || BuildConfig.MAPS_API_KEY == "YOUR_API_KEY") {
             binding.textMapStatus.text = "MAPS_API_KEY is missing from local.properties"
             Toast.makeText(context, "MAPS_API_KEY is missing from local.properties", Toast.LENGTH_LONG).show()
         } else {
-            binding.textMapStatus.text = "Loading Google Map…"
+            binding.textMapStatus.setText(
+                if (mode == MapLayerMode.TRIP_ROUTES) {
+                    R.string.map_loading_trips
+                } else {
+                    R.string.map_loading_popular
+                },
+            )
         }
 
         binding.map.getMapAsync(::onMapReady)
@@ -62,8 +107,43 @@ class CampusMapController(
         }
     }
 
+    fun showItineraryMap(itineraryMap: ItineraryMap, title: String) {
+        if (mode != MapLayerMode.TRIP_ROUTES) return
+        pendingItineraryMap = itineraryMap
+        pendingOverlayTitle = title
+        if (::map.isInitialized) {
+            renderItineraryMap(itineraryMap, title)
+        }
+    }
+
+    fun setControlBottomInset(bottomPx: Int) {
+        controlBottomInsetPx = bottomPx.coerceAtLeast(0)
+        if (::map.isInitialized) {
+            map.setPadding(0, 0, 0, controlBottomInsetPx)
+        }
+    }
+
+    fun setTravelMode(tripMode: TripTravelMode) {
+        if (mode != MapLayerMode.TRIP_ROUTES) return
+        val shouldRedraw = travelMode != tripMode && ::map.isInitialized
+        travelMode = tripMode
+        if (shouldRedraw) {
+            redrawTravelPolylines()
+            updateTravelLegend()
+        }
+    }
+
+    fun setSelectedRoute(routeKey: String?) {
+        val shouldRedraw = selectedRouteKey != routeKey && ::map.isInitialized
+        selectedRouteKey = routeKey
+        if (shouldRedraw) {
+            redrawTravelPolylines()
+        }
+    }
+
     private fun onMapReady(googleMap: GoogleMap) {
         map = googleMap
+        map.setPadding(0, 0, 0, controlBottomInsetPx)
         map.uiSettings.isZoomControlsEnabled = true
         map.uiSettings.isCompassEnabled = true
         map.uiSettings.isMapToolbarEnabled = true
@@ -72,68 +152,225 @@ class CampusMapController(
             map.isMyLocationEnabled = true
         }
 
-        val stops = SampleMapData.sampleItinerary
-        addActivityPins(stops)
-        binding.textMapStatus.setText(R.string.map_loading_routes)
-
         map.setOnMapLoadedCallback {
             mapTilesLoaded = true
-            fitCamera(stops.map { it.location })
-            binding.textMapStatus.setText(R.string.map_routes_ready)
+            if (renderedPoints.isNotEmpty()) {
+                fitCamera(renderedPoints)
+            }
         }
 
         scope.launch {
             delay(4_000)
             if (!mapTilesLoaded) {
-                showStaticMapFallback(stops)
+                showStaticMapFallback(renderedPoints)
             }
         }
 
         map.setOnInfoWindowClickListener { marker ->
-            if (marker.tag is PopularPlace) {
-                Toast.makeText(context, context.getString(R.string.map_add_popular_soon), Toast.LENGTH_SHORT).show()
+            when (val tag = marker.tag) {
+                is MapMarker -> openDirections(tag)
+                is PopularPlace -> Toast.makeText(
+                    context,
+                    context.getString(R.string.map_add_popular_soon),
+                    Toast.LENGTH_SHORT,
+                ).show()
             }
         }
 
-        binding.checkboxPopular.setOnCheckedChangeListener { _, checked ->
-            popularMarkers.forEach { it.isVisible = checked }
+        if (mode == MapLayerMode.POPULAR_PLACES) {
+            scope.launch { loadPopularPlaces() }
+            return
         }
 
-        scope.launch {
-            drawRoutes(stops)
-            loadPopularPlaces(stops)
+        val itineraryMap = pendingItineraryMap
+        if (itineraryMap != null) {
+            renderItineraryMap(itineraryMap, pendingOverlayTitle)
         }
     }
 
-    private fun addActivityPins(stops: List<ItineraryStop>) {
-        stops.forEachIndexed { index, stop ->
+    private fun renderItineraryMap(itineraryMap: ItineraryMap, title: String) {
+        itineraryMarkers.forEach { it.remove() }
+        itineraryMarkers.clear()
+        itineraryPolylines.forEach { it.remove() }
+        itineraryPolylines.clear()
+
+        renderedMarkers = itineraryMap.markers
+        renderedRoutes = itineraryMap.routes
+        renderedPoints = itineraryMap.markers.map { marker ->
+            LatLng(marker.coordinates.latitude, marker.coordinates.longitude)
+        }
+
+        binding.textOverlayTitle.text = title.ifBlank {
+            context.getString(R.string.map_overlay_title)
+        }
+        updateTravelLegend()
+        binding.textMapStatus.setText(R.string.map_loading_routes)
+
+        itineraryMap.markers.forEachIndexed { index, marker ->
             map.addMarker(
                 MarkerOptions()
-                    .position(stop.location)
-                    .title("${index + 1}. ${stop.name}")
-                    .snippet("${stop.type} · ${stop.startTime}–${stop.endTime}\n${stop.address}")
-                    .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_AZURE))
-            )?.tag = stop
+                    .position(LatLng(marker.coordinates.latitude, marker.coordinates.longitude))
+                    .title("${index + 1}. ${marker.title}")
+                    .snippet(markerSnippet(marker))
+                    .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_AZURE)),
+            )?.also { googleMarker ->
+                googleMarker.tag = marker
+                itineraryMarkers.add(googleMarker)
+            }
+        }
+
+        redrawTravelPolylines()
+
+        if (renderedPoints.isNotEmpty()) {
+            fitCamera(renderedPoints)
+        }
+        binding.textMapStatus.text = statusMessage(itineraryMap)
+    }
+
+    private fun redrawTravelPolylines() {
+        itineraryPolylines.forEach { it.remove() }
+        itineraryPolylines.clear()
+        val activeRouteKey = selectedRouteKey ?: renderedRoutes.firstOrNull()?.routeKey()
+        renderedRoutes.sortedBy { it.routeKey() == activeRouteKey }.forEach { route ->
+            addRoutePolyline(route, route.routeKey() == activeRouteKey)
         }
     }
 
-    private suspend fun drawRoutes(stops: List<ItineraryStop>) {
-        val routePoints = withContext(Dispatchers.IO) { mapsApi.fetchRoutePolyline(stops) }
-        val points = routePoints ?: stops.map { it.location }
-
-        map.addPolyline(
+    private fun addRoutePolyline(route: MapRoute, selected: Boolean) {
+        val points = polylinePoints(route)
+        if (points.isEmpty()) {
+            return
+        }
+        val polyline = map.addPolyline(
             PolylineOptions()
                 .addAll(points)
-                .color(ContextCompat.getColor(context, R.color.ubc_blue))
-                .width(12f)
+                .color(polylineColor(selected))
+                .width(if (selected) 14f else 8f)
+                .zIndex(if (selected) 2f else 1f),
+        )
+        itineraryPolylines.add(polyline)
+    }
+
+    private fun polylinePoints(route: MapRoute): List<LatLng> {
+        val encoded = selectedTravelOption(route)?.encodedPolyline
+            ?.takeIf { it.isNotBlank() }
+            ?: route.encodedPolyline
+        return runCatching { PolylineDecoder.decode(encoded) }.getOrDefault(emptyList())
+    }
+
+    private fun selectedTravelOption(route: MapRoute) = when (travelMode) {
+        TripTravelMode.WALKING -> route.walking
+        TripTravelMode.DRIVING -> route.driving
+    }
+
+    private fun polylineColor(selected: Boolean): Int {
+        val colorRes = if (!selected) {
+            R.color.text_secondary
+        } else if (travelMode == TripTravelMode.WALKING) {
+            R.color.ubc_gold
+        } else {
+            R.color.ubc_blue_mid
+        }
+        return ContextCompat.getColor(context, colorRes)
+    }
+
+    private fun updateTravelLegend() {
+        binding.textLegend.setText(
+            if (travelMode == TripTravelMode.WALKING) {
+                R.string.map_legend_walking
+            } else {
+                R.string.map_legend_driving
+            },
         )
     }
 
-    private suspend fun loadPopularPlaces(stops: List<ItineraryStop>) {
-        val center = stops.firstOrNull()?.location ?: SampleMapData.ubcCampus
+    private fun markerSnippet(marker: MapMarker): String = buildString {
+        append(marker.address)
+        if (marker.isApproximate) {
+            append('\n')
+            append(context.getString(R.string.map_marker_approximate))
+        }
+        val route = renderedRoutes.find { it.fromActivityId == marker.activityId }
+        val summary = route?.let { travelSummary(it) }.orEmpty()
+        if (summary.isNotBlank()) {
+            append('\n')
+            append(summary)
+        }
+    }
+
+    private fun travelSummary(route: MapRoute): String {
+        val parts = mutableListOf<String>()
+        route.walking?.let { option ->
+            parts += "Walk ${formatMapDuration(option.durationSeconds)}"
+        }
+        route.driving?.let { option ->
+            parts += "Drive ${formatMapDuration(option.durationSeconds)}"
+        }
+        return parts.joinToString(" · ")
+    }
+
+    private fun formatMapDuration(seconds: Double): String {
+        val totalMinutes = kotlin.math.round(seconds / 60.0).toInt().coerceAtLeast(1)
+        val hours = totalMinutes / 60
+        val minutes = totalMinutes % 60
+        return if (hours > 0) "${hours} hr ${minutes} min" else "$totalMinutes min"
+    }
+
+    private fun statusMessage(itineraryMap: ItineraryMap): String {
+        val parts = mutableListOf<String>()
+        if (itineraryMap.markers.isEmpty()) {
+            parts += context.getString(R.string.map_no_activities)
+        } else if (itineraryMap.routes.isEmpty() && itineraryMap.markers.size >= 2) {
+            parts += context.getString(R.string.map_routes_empty)
+        } else if (itineraryMap.routes.isNotEmpty()) {
+            parts += itineraryMap.routes.joinToString("  ") { route ->
+                travelSummary(route).ifBlank {
+                    context.getString(R.string.map_routes_ready)
+                }
+            }
+        }
+        if (itineraryMap.unmappedActivities.isNotEmpty()) {
+            val names = itineraryMap.unmappedActivities.joinToString { it.title }
+            parts += context.getString(R.string.map_unmapped_stops, names)
+        }
+        if (itineraryMap.markers.any { it.isApproximate }) {
+            parts += context.getString(R.string.map_approximate_locations)
+        }
+        return parts.joinToString(" ").ifBlank {
+            context.getString(R.string.map_routes_ready)
+        }
+    }
+
+    private fun openDirections(marker: MapMarker) {
+        val index = renderedMarkers.indexOfFirst { it.activityId == marker.activityId }
+        val next = renderedMarkers.getOrNull(index + 1)
+        val origin = marker.coordinates
+        val uri = if (next != null) {
+            val destination = next.coordinates
+            val mapsMode = if (travelMode == TripTravelMode.WALKING) "walking" else "driving"
+            Uri.parse(
+                "https://www.google.com/maps/dir/?api=1" +
+                    "&origin=${origin.latitude},${origin.longitude}" +
+                    "&destination=${destination.latitude},${destination.longitude}" +
+                    "&travelmode=$mapsMode",
+            )
+        } else {
+            Uri.parse("google.navigation:q=${origin.latitude},${origin.longitude}")
+        }
+        runCatching {
+            context.startActivity(Intent(Intent.ACTION_VIEW, uri))
+        }.onFailure {
+            Toast.makeText(context, "Could not open directions", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private suspend fun loadPopularPlaces() {
+        popularMarkers.forEach { it.remove() }
+        popularMarkers.clear()
+
+        val center = SampleMapData.ubcCampus
         val remotePlaces = withContext(Dispatchers.IO) { mapsApi.fetchPopularPlaces(center) }
         val places = remotePlaces.takeUnless { it.isNullOrEmpty() } ?: SampleMapData.fallbackPopularPlaces
-        val usedFallback = remotePlaces.isNullOrEmpty()
 
         places.forEach { place ->
             val marker = map.addMarker(
@@ -142,15 +379,14 @@ class CampusMapController(
                     .title(place.name)
                     .snippet("${place.category} · ${place.address}")
                     .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_ORANGE))
-                    .visible(binding.checkboxPopular.isChecked)
             )
             marker?.tag = place
             if (marker != null) popularMarkers.add(marker)
         }
 
-        fitCamera(stops.map { it.location } + places.map { it.location })
+        fitCamera(places.map { it.location })
         binding.textMapStatus.setText(
-            if (usedFallback) R.string.map_popular_fallback else R.string.map_popular_ready
+            if (remotePlaces.isNullOrEmpty()) R.string.map_popular_fallback else R.string.map_popular_ready
         )
     }
 
@@ -173,7 +409,7 @@ class CampusMapController(
         }
     }
 
-    private suspend fun showStaticMapFallback(stops: List<ItineraryStop>) {
+    private suspend fun showStaticMapFallback(points: List<LatLng>) {
         val key = BuildConfig.MAPS_API_KEY
         if (key.isBlank() || key == "YOUR_API_KEY") {
             binding.textMapStatus.text =
@@ -181,8 +417,8 @@ class CampusMapController(
             return
         }
 
-        val markers = stops.take(5).joinToString("&") { stop ->
-            "markers=color:0x0055B7|${stop.location.latitude},${stop.location.longitude}"
+        val markers = points.take(5).joinToString("&") { point ->
+            "markers=color:0x0055B7|${point.latitude},${point.longitude}"
         }
         val url =
             "https://maps.googleapis.com/maps/api/staticmap?center=49.2606,-123.2460&zoom=14&size=600x900&scale=2&maptype=roadmap&$markers&key=$key"

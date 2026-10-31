@@ -158,9 +158,15 @@ private fun NewActivityScreen(
             "new_activity_category",
             required = true,
         )
-        FormField(
-            location, { location = it }, "Location", "new_activity_location",
-            required = true, maxLength = LOCATION_MAX_LENGTH,
+        AddressAutocompleteField(
+            value = location,
+            onValueChange = { location = it },
+            label = "Location",
+            tag = "new_activity_location",
+            options = AddressAutocompleteOptions(
+                required = true,
+                maxLength = LOCATION_MAX_LENGTH,
+            ),
         )
         DateTimePickerField(
             "Start time", startTime, { startTime = it }, "new_activity_start_time",
@@ -223,15 +229,25 @@ private fun NewTransportationScreen(
             "Mode", transportationModes, mode, { mode = it }, "new_transportation_mode",
             required = true,
         )
-        FormField(
-            startLocation, { startLocation = it }, "Start location",
-            "new_transportation_start_location", required = true,
-            maxLength = LOCATION_MAX_LENGTH,
+        AddressAutocompleteField(
+            value = startLocation,
+            onValueChange = { startLocation = it },
+            label = "Start location",
+            tag = "new_transportation_start_location",
+            options = AddressAutocompleteOptions(
+                required = true,
+                maxLength = LOCATION_MAX_LENGTH,
+            ),
         )
-        FormField(
-            endLocation, { endLocation = it }, "End location",
-            "new_transportation_end_location", required = true,
-            maxLength = LOCATION_MAX_LENGTH,
+        AddressAutocompleteField(
+            value = endLocation,
+            onValueChange = { endLocation = it },
+            label = "End location",
+            tag = "new_transportation_end_location",
+            options = AddressAutocompleteOptions(
+                required = true,
+                maxLength = LOCATION_MAX_LENGTH,
+            ),
         )
         FormField(
             distanceMeters, { distanceMeters = it }, "Distance in meters",

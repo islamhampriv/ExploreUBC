@@ -6,47 +6,67 @@ import java.net.HttpURLConnection
 import java.net.URL
 import org.json.JSONObject
 
-class GoogleMapsApiClient(private val apiKey: String) {
+class GoogleMapsApiClient(
+    private val mapsApiKey: String,
+    private val placesApiKey: String = mapsApiKey,
+) {
+    fun autocompleteAddresses(query: String): List<AddressSuggestion> {
+        val trimmed = query.trim()
+        if (trimmed.length < 3) return emptyList()
+        val keys = listOf(placesApiKey, mapsApiKey)
+            .map { it.trim() }
+            .filter { it.isNotBlank() && it != "YOUR_API_KEY" }
+            .distinct()
+        for (key in keys) {
+            val suggestions = autocompleteAddressesWithKey(trimmed, key) ?: continue
+            return suggestions
+        }
+        return emptyList()
+    }
 
-    fun fetchRoutePolyline(stops: List<ItineraryStop>): List<LatLng>? {
-        if (stops.size < 2 || apiKey.isBlank() || apiKey == "YOUR_API_KEY") return null
-
-        val origin = stops.first().location
-        val destination = stops.last().location
-        val waypoints = stops.drop(1).dropLast(1).joinToString("|") { "${it.location.latitude},${it.location.longitude}" }
-
-        val uri = Uri.parse("https://maps.googleapis.com/maps/api/directions/json").buildUpon()
-            .appendQueryParameter("origin", "${origin.latitude},${origin.longitude}")
-            .appendQueryParameter("destination", "${destination.latitude},${destination.longitude}")
-            .appendQueryParameter("mode", "walking")
-            .apply {
-                if (waypoints.isNotBlank()) {
-                    appendQueryParameter("waypoints", waypoints)
-                }
-            }
-            .appendQueryParameter("key", apiKey)
+    private fun autocompleteAddressesWithKey(
+        query: String,
+        key: String,
+    ): List<AddressSuggestion>? {
+        val uri = Uri.parse("https://maps.googleapis.com/maps/api/place/autocomplete/json").buildUpon()
+            .appendQueryParameter("input", query)
+            .appendQueryParameter("types", "address")
+            .appendQueryParameter("components", "country:ca")
+            .appendQueryParameter("location", "49.2606,-123.2460")
+            .appendQueryParameter("radius", "30000")
+            .appendQueryParameter("key", key)
             .build()
 
         val json = getJson(uri) ?: return null
-        if (json.optString("status") != "OK") return null
-
-        val encoded = json.getJSONArray("routes")
-            .optJSONObject(0)
-            ?.getJSONObject("overview_polyline")
-            ?.optString("points")
-            .orEmpty()
-
-        return encoded.takeIf { it.isNotBlank() }?.let { decodePolyline(it) }
+        val status = json.optString("status")
+        if (status != "OK" && status != "ZERO_RESULTS") return null
+        val predictions = json.optJSONArray("predictions") ?: return emptyList()
+        return buildList {
+            for (i in 0 until minOf(predictions.length(), 6)) {
+                val prediction = predictions.optJSONObject(i) ?: continue
+                val fullAddress = prediction.optString("description")
+                if (fullAddress.isBlank()) continue
+                val structured = prediction.optJSONObject("structured_formatting")
+                add(
+                    AddressSuggestion(
+                        primaryText = structured?.optString("main_text").orEmpty().ifBlank { fullAddress },
+                        fullAddress = fullAddress,
+                        placeId = prediction.optString("place_id"),
+                    ),
+                )
+            }
+        }
     }
 
     fun fetchPopularPlaces(center: LatLng): List<PopularPlace>? {
-        if (apiKey.isBlank() || apiKey == "YOUR_API_KEY") return null
+        val key = placesApiKey.ifBlank { mapsApiKey }
+        if (key.isBlank() || key == "YOUR_API_KEY") return null
 
         val uri = Uri.parse("https://maps.googleapis.com/maps/api/place/nearbysearch/json").buildUpon()
             .appendQueryParameter("location", "${center.latitude},${center.longitude}")
             .appendQueryParameter("radius", "3000")
             .appendQueryParameter("type", "tourist_attraction")
-            .appendQueryParameter("key", apiKey)
+            .appendQueryParameter("key", key)
             .build()
 
         val json = getJson(uri) ?: return null
@@ -84,36 +104,5 @@ class GoogleMapsApiClient(private val apiKey: String) {
         } finally {
             connection.disconnect()
         }
-    }
-
-    private fun decodePolyline(encoded: String): List<LatLng> {
-        val points = mutableListOf<LatLng>()
-        var index = 0
-        var lat = 0
-        var lng = 0
-
-        while (index < encoded.length) {
-            var result = 0
-            var shift = 0
-            var byte: Int
-            do {
-                byte = encoded[index++].code - 63
-                result = result or ((byte and 0x1f) shl shift)
-                shift += 5
-            } while (byte >= 0x20)
-            lat += if (result and 1 != 0) (result shr 1).inv() else result shr 1
-
-            result = 0
-            shift = 0
-            do {
-                byte = encoded[index++].code - 63
-                result = result or ((byte and 0x1f) shl shift)
-                shift += 5
-            } while (byte >= 0x20)
-            lng += if (result and 1 != 0) (result shr 1).inv() else result shr 1
-
-            points.add(LatLng(lat / 1e5, lng / 1e5))
-        }
-        return points
     }
 }
