@@ -7,15 +7,20 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -26,6 +31,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.exploreUBC.cpen321application.R
 import com.exploreUBC.cpen321application.data.itineraries.ItineraryMap
@@ -207,29 +213,69 @@ private fun SelectableTravelDirections(
 }
 
 @Composable
+@OptIn(ExperimentalMaterial3Api::class)
 private fun RouteSelectionRow(
     itineraryMap: ItineraryMap,
     selectedRouteKey: String?,
     onRouteSelected: (String) -> Unit,
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    var expanded by remember { mutableStateOf(false) }
+    val selectedIndex = itineraryMap.routes.indexOfFirst {
+        it.routeKey() == selectedRouteKey
+    }.takeIf { it >= 0 } ?: 0
+    val selectedRoute = itineraryMap.routes[selectedIndex]
+    val selectedLabel = routeLabel(itineraryMap, selectedIndex, selectedRoute)
+
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { expanded = !expanded },
+        modifier = Modifier.fillMaxWidth(),
     ) {
-        itineraryMap.routes.forEachIndexed { index, route ->
-            val key = route.routeKey()
-            TravelModeChoice(
-                label = "${index + 1}. ${activityTitle(itineraryMap, route.fromActivityId)} → " +
-                    activityTitle(itineraryMap, route.toActivityId),
-                selected = key == selectedRouteKey,
-                onClick = { onRouteSelected(key) },
-                modifier = Modifier.testTag("map_route_$index"),
-            )
+        OutlinedTextField(
+            value = selectedLabel,
+            onValueChange = {},
+            readOnly = true,
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                .testTag("map_route_dropdown"),
+            maxLines = 2,
+            textStyle = MaterialTheme.typography.bodyMedium,
+        )
+        ExposedDropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+        ) {
+            itineraryMap.routes.forEachIndexed { index, route ->
+                val key = route.routeKey()
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            text = routeLabel(itineraryMap, index, route),
+                            fontWeight = if (key == selectedRouteKey) {
+                                FontWeight.Bold
+                            } else {
+                                FontWeight.Normal
+                            },
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    },
+                    onClick = {
+                        onRouteSelected(key)
+                        expanded = false
+                    },
+                    modifier = Modifier.testTag("map_route_$index"),
+                )
+            }
         }
     }
 }
+
+private fun routeLabel(itineraryMap: ItineraryMap, index: Int, route: MapRoute): String =
+    "${index + 1}. ${activityTitle(itineraryMap, route.fromActivityId)} → " +
+        activityTitle(itineraryMap, route.toActivityId)
 
 @Composable
 private fun TravelLegDirections(

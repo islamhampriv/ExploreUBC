@@ -24,3 +24,8 @@ data class AddressSuggestion(
     val fullAddress: String,
     val placeId: String,
 )
+
+data class AddressAutocompleteResult(
+    val suggestions: List<AddressSuggestion>,
+    val errorMessage: String? = null,
+)

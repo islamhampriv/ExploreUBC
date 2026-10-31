@@ -38,14 +38,12 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.exploreUBC.cpen321application.R
-import com.exploreUBC.cpen321application.data.itineraries.ActivityItem
 import com.exploreUBC.cpen321application.data.itineraries.ItinerariesRepository
 import com.exploreUBC.cpen321application.data.itineraries.Itinerary
 import com.exploreUBC.cpen321application.data.itineraries.ItineraryDetails
 import com.exploreUBC.cpen321application.data.itineraries.ItineraryHttpException
 import com.exploreUBC.cpen321application.data.itineraries.ItineraryItem
 import com.exploreUBC.cpen321application.data.itineraries.ItineraryMap
-import com.exploreUBC.cpen321application.data.itineraries.MapRoute
 import com.exploreUBC.cpen321application.ui.map.CampusMapView
 import com.exploreUBC.cpen321application.ui.map.MapLayerMode
 import com.exploreUBC.cpen321application.ui.map.TripTravelMode
@@ -117,21 +115,9 @@ private fun SelectedItineraryRoute(
     modifier: Modifier,
 ) {
     var showMap by remember(itinerary.id) { mutableStateOf(false) }
-    var travelRoutes by remember(userId, itinerary.id) {
-        mutableStateOf<List<MapRoute>>(emptyList())
-    }
     val item = state.selectedItem
     val itemType = state.newItemType
 
-    LaunchedEffect(userId, itinerary.id, itinerary.updatedAt) {
-        travelRoutes = if (userId.isNullOrBlank()) {
-            emptyList()
-        } else {
-            runCatching {
-                repository.getItineraryMap(userId, itinerary.id).routes
-            }.getOrDefault(emptyList())
-        }
-    }
     when {
         showMap -> ItineraryMapScreen(
             userId = userId.orEmpty(),
@@ -169,7 +155,6 @@ private fun SelectedItineraryRoute(
         else -> SelectedItineraryDetails(
             state,
             itinerary,
-            travelRoutes,
             { showMap = true },
             modifier,
         )
@@ -180,7 +165,6 @@ private fun SelectedItineraryRoute(
 private fun SelectedItineraryDetails(
     state: TripsRouteState,
     itinerary: Itinerary,
-    travelRoutes: List<MapRoute>,
     onViewMap: () -> Unit,
     modifier: Modifier,
 ) {
@@ -189,7 +173,6 @@ private fun SelectedItineraryDetails(
             itinerary,
             state.isSaving,
             state.statusMessage,
-            travelRoutes,
         ),
         actions = ItineraryScreenActions(
             onBack = state.closeItinerary,
@@ -594,7 +577,6 @@ data class ItineraryScreenModel(
     val itinerary: Itinerary,
     val isSaving: Boolean,
     val statusMessage: String?,
-    val travelRoutes: List<MapRoute> = emptyList(),
 )
 
 data class ItineraryScreenActions(
@@ -660,7 +642,7 @@ fun ItineraryScreen(
             Text("View on Map")
         }
         model.statusMessage?.let { Text(it, modifier = Modifier.testTag("itinerary_status")) }
-        ItineraryItems(itinerary, model.travelRoutes, actions.onItemClick)
+        ItineraryItems(itinerary, actions.onItemClick)
         ItineraryActions(model, actions)
         Button(
             onClick = { showDeleteConfirmation = true },
@@ -768,7 +750,6 @@ private fun ItineraryDetailsContent(itinerary: Itinerary) {
 @Composable
 private fun ItineraryItems(
     itinerary: Itinerary,
-    travelRoutes: List<MapRoute>,
     onItemClick: (ItineraryItem) -> Unit,
 ) {
     Text(
@@ -778,22 +759,8 @@ private fun ItineraryItems(
         modifier = Modifier.padding(top = 8.dp),
     )
     if (itinerary.items.isEmpty()) Text("No activities or transportation.")
-    itinerary.items.forEachIndexed { index, item ->
+    itinerary.items.forEach { item ->
         ItineraryItemCard(item = item, onClick = { onItemClick(item) })
-        val nextActivity = itinerary.items
-            .drop(index + 1)
-            .filterIsInstance<ActivityItem>()
-            .firstOrNull()
-        val route = travelRoutes.find { candidate ->
-            candidate.fromActivityId == item.id && candidate.toActivityId == nextActivity?.id
-        }
-        if (
-            item is ActivityItem &&
-            route != null &&
-            nextActivity != null
-        ) {
-            TravelLegCard(route, item.name, nextActivity.name)
-        }
     }
 }
 
