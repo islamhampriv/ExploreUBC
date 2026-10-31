@@ -17,6 +17,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import com.exploreUBC.cpen321application.data.events.EventsApi
@@ -64,6 +65,7 @@ fun CPEN321ApplicationApp(
         navigationSuiteItems = {
             AppDestinations.entries.forEach {
                 item(
+                    modifier = Modifier.testTag("navigation_${it.label}"),
                     icon = {
                         Icon(
                             painterResource(it.icon),

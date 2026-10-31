@@ -4,7 +4,7 @@
 
 | **Change Date**   | **Modified Sections** | **Rationale** |
 | ----------------- | --------------------- | ------------- |
-| _Nothing to show_ |
+| October 28, 2026  | 3.1, 3.2              | Added automated and manual verification details and results for the Accessibility NFR. |
 
 ---
 
@@ -92,6 +92,7 @@ The main remaining branches are unreachable empty Express route parameters and `
 | ------------------------------- | ------------------------------------------------ |
 | **Performance (Response Time)** | [`backend/tests/nfr/response_time.test.js`](#) |
 | **Chat Data Security**          | [`backend/tests/nfr/chat_security.test.js`](#) |
+| **Accessibility**               | [`frontend/app/src/androidTest/java/com/exploreUBC/cpen321application/nfr/AccessibilityTest.kt`](../frontend/app/src/androidTest/java/com/exploreUBC/cpen321application/nfr/AccessibilityTest.kt)<br>[`frontend/app/src/androidTest/java/com/exploreUBC/cpen321application/nfr/AccessibilityScreenScalingTest.kt`](../frontend/app/src/androidTest/java/com/exploreUBC/cpen321application/nfr/AccessibilityScreenScalingTest.kt) |
 
 ### 3.2. Test Verification and Logs
 
@@ -108,6 +109,63 @@ The main remaining branches are unreachable empty Express route parameters and `
   - **Log Output**
     ```
     [Placeholder for chat security test logs]
+    ```
+
+- **Accessibility: Visual Label and Content Description Consistency**
+
+  - **Verification:** The test renders the primary navigation and reads each destination's visible text and icon `contentDescription` from the Compose semantics tree. It asserts that both values are equal for Events, Trips, Map, and Profile, and confirms that each label is present in the merged accessibility tree.
+  - **Log Output:** This test was run as part of the combined automated accessibility test suite. The combined Gradle output is shown under **Accessibility: Automated Test Suite Execution**.
+
+- **Accessibility: Minimum Navigation Target Size**
+
+  - **Verification:** The test measures the rendered bounds of every primary navigation target, converts the measurements from pixels to density-independent pixels, and asserts that both the width and height are at least 48 dp.
+  - **Log Output:** This test was run as part of the combined automated accessibility test suite. The combined Gradle output is shown under **Accessibility: Automated Test Suite Execution**.
+
+- **Accessibility: Navigation Click Actions**
+
+  - **Verification:** The test confirms that Events, Trips, Map, and Profile each expose a click action in the Compose semantics tree, ensuring that accessibility services recognize every primary navigation target as interactive.
+  - **Log Output:** This test was run as part of the combined automated accessibility test suite. The combined Gradle output is shown under **Accessibility: Automated Test Suite Execution**.
+
+- **Accessibility: Navigation at 200% Font Scale**
+
+  - **Verification:** The test renders the application with a font scale of 2.0 and asserts that the Events, Trips, Map, and Profile labels remain displayed and expose click actions. This automated check verifies basic visibility and operability at 200% font scaling. A separate manual test verifies visual clipping and overlap.
+  - **Log Output:** This test was run as part of the combined automated accessibility test suite. The combined Gradle output is shown under **Accessibility: Automated Test Suite Execution**.
+
+- **Accessibility: Automated Test Suite Execution**
+
+  - **Verification:** All four automated accessibility tests were executed together on a Pixel 9 API 36 emulator. The Gradle task completed successfully with no accessibility test failures.
+  - **Log Output**
+    ```
+    > ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.package=com.exploreUBC.cpen321application.nfr
+    Starting 4 tests on Pixel_9_2(AVD) - 16
+    Finished 4 tests on Pixel_9_2(AVD) - 16
+    BUILD SUCCESSFUL in 15s
+    ```
+
+- **Accessibility: Manual TalkBack Verification**
+
+  - **Verification:** TalkBack was enabled on the Pixel 9 API 36 emulator. Each primary navigation destination was focused and activated. TalkBack announced the same destination name shown in the interface, and each item remained operable.
+  - **Log Output**
+    ```
+    Device: Pixel 9 emulator, API 36
+    Events: Correct name announced and item activated successfully.
+    Trips: Correct name announced and item activated successfully.
+    Map: Correct name announced and item activated successfully.
+    Profile: Correct name announced and item activated successfully.
+    Overall result: PASS
+    ```
+
+- **Accessibility: Manual 200% Font-Scale Verification**
+
+  - **Verification:** Android font scaling was set to 200% on the Pixel 9 API 36 emulator. The Events, Trips, Map, and Profile labels remained visible and operable. No navigation label was clipped, overlapped, or displayed with unusable wrapping.
+  - **Log Output**
+    ```
+    Device: Pixel 9 emulator, API 36
+    Events: Visible and operable with no clipping or overlap.
+    Trips: Visible and operable with no clipping or overlap.
+    Map: Visible and operable with no clipping or overlap.
+    Profile: Visible and operable with no clipping or overlap.
+    Overall result: PASS
     ```
 
 ---
