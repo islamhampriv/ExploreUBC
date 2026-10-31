@@ -263,9 +263,7 @@ private fun ItineraryMapScreen(
             onRetry = { reloadToken += 1 },
         )
         ItineraryMapChrome(
-            state = state,
-            travelMode = travelMode,
-            selectedRouteKey = selectedRouteKey,
+            model = ItineraryMapChromeModel(state, travelMode, selectedRouteKey),
             onTravelModeChange = { travelMode = it },
             onRouteSelected = { selectedRouteKey = it },
             onHideMap = onHideMap,
@@ -274,6 +272,12 @@ private fun ItineraryMapScreen(
         )
     }
 }
+
+private data class ItineraryMapChromeModel(
+    val state: ItineraryMapUiState,
+    val travelMode: TripTravelMode,
+    val selectedRouteKey: String?,
+)
 
 @Composable
 private fun ItineraryMapContent(
@@ -316,9 +320,7 @@ private fun ItineraryMapContent(
 
 @Composable
 private fun ItineraryMapChrome(
-    state: ItineraryMapUiState,
-    travelMode: TripTravelMode,
-    selectedRouteKey: String?,
+    model: ItineraryMapChromeModel,
     onTravelModeChange: (TripTravelMode) -> Unit,
     onRouteSelected: (String) -> Unit,
     onHideMap: () -> Unit,
@@ -328,11 +330,11 @@ private fun ItineraryMapChrome(
     val measuredModifier = modifier.onSizeChanged { size ->
         onOverlayHeightChanged(size.height)
     }
-    when (state) {
+    when (val state = model.state) {
         is ItineraryMapUiState.Ready -> TripTravelOverlay(
             itineraryMap = state.map,
-            travelMode = travelMode,
-            selectedRouteKey = selectedRouteKey,
+            travelMode = model.travelMode,
+            selectedRouteKey = model.selectedRouteKey,
             onTravelModeChange = onTravelModeChange,
             onRouteSelected = onRouteSelected,
             onHideMap = onHideMap,
