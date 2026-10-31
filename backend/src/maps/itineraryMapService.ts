@@ -48,18 +48,19 @@ export class ItineraryMapService {
       throw new ItineraryNotFoundError(itineraryId);
     }
 
+    const orderedItems = orderItemsByStartTime(itinerary.items);
     const cachedMap =
       await this.itineraryMapRepository.findByItineraryId(itineraryId);
     if (
       cachedMap?.itineraryUpdatedAt === itinerary.updatedAt &&
       hasWalkingAndDriving(cachedMap) &&
-      hasExpectedStartingLocation(cachedMap, itinerary.startingLocation)
+      hasExpectedStartingLocation(cachedMap, itinerary.startingLocation) &&
+      hasExpectedReturnRoute(cachedMap, orderedItems, itinerary.startingLocation)
     ) {
       return cachedMap;
     }
 
     try {
-      const orderedItems = orderItemsByStartTime(itinerary.items);
       const { markers, unmappedActivities } =
         await createMarkers(orderedItems, itinerary.startingLocation);
       const routes = await createRoutes(
@@ -165,6 +166,9 @@ async function createRoutes(
   const stopIds = [
     ...(startingLocation?.trim() ? [STARTING_LOCATION_ID] : []),
     ...activities.map((activity) => activity.id),
+    ...(startingLocation?.trim() && activities.length > 0
+      ? [STARTING_LOCATION_ID]
+      : []),
   ];
   for (let index = 0; index < stopIds.length - 1; index += 1) {
     const originId = stopIds[index];
@@ -257,6 +261,32 @@ function hasExpectedStartingLocation(
     (activity) => activity.activityId === STARTING_LOCATION_ID,
   );
   return hasStartingLocation === Boolean(startingLocation?.trim());
+}
+
+/** Ensures cached maps include the final trip back to the starting location. */
+function hasExpectedReturnRoute(
+  map: ItineraryMap,
+  items: ItineraryItem[],
+  startingLocation?: string,
+): boolean {
+  if (!startingLocation?.trim()) {
+    return true;
+  }
+  const lastActivity = items
+    .filter((item): item is ActivityItem => item.type === 'activity')
+    .at(-1);
+  if (
+    lastActivity === undefined ||
+    !map.markers.some((marker) => marker.activityId === STARTING_LOCATION_ID) ||
+    !map.markers.some((marker) => marker.activityId === lastActivity.id)
+  ) {
+    return true;
+  }
+  return map.routes.some(
+    (route) =>
+      route.fromActivityId === lastActivity.id &&
+      route.toActivityId === STARTING_LOCATION_ID,
+  );
 }
 
 /** Finds the transportation mode between two activities. */
