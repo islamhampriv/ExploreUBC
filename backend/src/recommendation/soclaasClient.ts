@@ -52,6 +52,15 @@ export class SoclaasClient implements ItineraryGenerator {
       max_output_tokens: this.config.maxOutputTokens,
     }, apiKey);
 
+    if (response.status === 'incomplete') {
+      const reason = response.incomplete_details?.reason;
+      throw new RecommendationGenerationError(
+        reason === 'max_output_tokens'
+          ? 'The itinerary generation service reached its output token limit.'
+          : 'The itinerary generation service returned an incomplete response.',
+      );
+    }
+
     const outputText = this.extractOutputText(response);
     if (outputText === undefined || outputText.trim() === '') {
       throw new RecommendationGenerationError(

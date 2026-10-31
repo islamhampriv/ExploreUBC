@@ -320,7 +320,7 @@ describe('Mocked: SoCLaaS Responses API client', () => {
       endpoint: 'https://soclaas-api.comp.nus.edu.sg/v1/',
       apiKey: 'test-key',
       model: 'qwen3.5:9b',
-      maxOutputTokens: 2_000,
+      maxOutputTokens: 16_384,
     }, fetchMock);
 
     const output = await client.generateItineraries({
@@ -339,8 +339,50 @@ describe('Mocked: SoCLaaS Responses API client', () => {
     });
     expect(JSON.parse(request?.body as string)).toMatchObject({
       model: 'qwen3.5:9b',
-      max_output_tokens: 2_000,
+      max_output_tokens: 16_384,
     });
     expect(request?.signal).toBeInstanceOf(AbortSignal);
+  });
+
+  test('reports when the provider marks output incomplete due to the token limit', async () => {
+    const fetchMock = jest.fn(async () => new Response(JSON.stringify({
+      status: 'incomplete',
+      incomplete_details: { reason: 'max_output_tokens' },
+      output: [],
+    }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    }));
+    const client = new SoclaasClient({
+      endpoint: 'https://soclaas-api.comp.nus.edu.sg/v1',
+      apiKey: 'test-key',
+      model: 'qwen3.5:9b',
+      maxOutputTokens: 2_000,
+    }, fetchMock);
+
+    await expect(client.generateItineraries({
+      start_location: 'UBC Bus Exchange',
+      preferences: PREFERENCES,
+    })).rejects.toThrow('reached its output token limit');
+  });
+
+  test('reports provider HTTP errors without trying to parse output', async () => {
+    const fetchMock = jest.fn(async () => new Response(JSON.stringify({
+      error: { message: 'Model is unavailable.' },
+    }), {
+      status: 503,
+      headers: { 'Content-Type': 'application/json' },
+    }));
+    const client = new SoclaasClient({
+      endpoint: 'https://soclaas-api.comp.nus.edu.sg/v1',
+      apiKey: 'test-key',
+      model: 'qwen3.5:9b',
+      maxOutputTokens: 16_384,
+    }, fetchMock);
+
+    await expect(client.generateItineraries({
+      start_location: 'UBC Bus Exchange',
+      preferences: PREFERENCES,
+    })).rejects.toThrow('returned 503: Model is unavailable.');
   });
 });
