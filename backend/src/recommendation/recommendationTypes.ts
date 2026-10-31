@@ -29,6 +29,9 @@ export interface ItineraryRanker {
 
 export type SoclaasResponsesApiResponse = {
   status?: string;
+  incomplete_details?: {
+    reason?: string;
+  };
   output_text?: string;
   output?: Array<{
     content?: Array<{

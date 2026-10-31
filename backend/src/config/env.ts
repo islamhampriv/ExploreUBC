@@ -30,7 +30,7 @@ if (
 const rawSoclaasMaxOutputTokens = process.env.SOCLAAS_MAX_OUTPUT_TOKENS;
 const soclaasMaxOutputTokens =
   rawSoclaasMaxOutputTokens === undefined || rawSoclaasMaxOutputTokens === ""
-    ? 2_000
+    ? 16_384
     : Number.parseInt(rawSoclaasMaxOutputTokens, 10);
 
 if (
