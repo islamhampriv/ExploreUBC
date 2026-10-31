@@ -69,6 +69,7 @@ class CampusMapController(
     private var renderedMarkers: List<MapMarker> = emptyList()
     private var renderedRoutes: List<MapRoute> = emptyList()
     private var travelMode: TripTravelMode = TripTravelMode.DRIVING
+    private var selectedRouteKey: String? = null
     private var controlBottomInsetPx = 0
 
     fun start() {
@@ -129,6 +130,14 @@ class CampusMapController(
         if (shouldRedraw) {
             redrawTravelPolylines()
             updateTravelLegend()
+        }
+    }
+
+    fun setSelectedRoute(routeKey: String?) {
+        val shouldRedraw = selectedRouteKey != routeKey && ::map.isInitialized
+        selectedRouteKey = routeKey
+        if (shouldRedraw) {
+            redrawTravelPolylines()
         }
     }
 
@@ -221,12 +230,13 @@ class CampusMapController(
     private fun redrawTravelPolylines() {
         itineraryPolylines.forEach { it.remove() }
         itineraryPolylines.clear()
-        renderedRoutes.forEach { route ->
-            addRoutePolyline(route)
+        val activeRouteKey = selectedRouteKey ?: renderedRoutes.firstOrNull()?.routeKey()
+        renderedRoutes.sortedBy { it.routeKey() == activeRouteKey }.forEach { route ->
+            addRoutePolyline(route, route.routeKey() == activeRouteKey)
         }
     }
 
-    private fun addRoutePolyline(route: MapRoute) {
+    private fun addRoutePolyline(route: MapRoute, selected: Boolean) {
         val points = polylinePoints(route)
         if (points.isEmpty()) {
             return
@@ -234,8 +244,9 @@ class CampusMapController(
         val polyline = map.addPolyline(
             PolylineOptions()
                 .addAll(points)
-                .color(polylineColor())
-                .width(12f),
+                .color(polylineColor(selected))
+                .width(if (selected) 14f else 8f)
+                .zIndex(if (selected) 2f else 1f),
         )
         itineraryPolylines.add(polyline)
     }
@@ -252,8 +263,10 @@ class CampusMapController(
         TripTravelMode.DRIVING -> route.driving
     }
 
-    private fun polylineColor(): Int {
-        val colorRes = if (travelMode == TripTravelMode.WALKING) {
+    private fun polylineColor(selected: Boolean): Int {
+        val colorRes = if (!selected) {
+            R.color.text_secondary
+        } else if (travelMode == TripTravelMode.WALKING) {
             R.color.ubc_gold
         } else {
             R.color.ubc_blue_mid

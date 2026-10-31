@@ -21,6 +21,9 @@ type MarkerGenerationResult = {
   unmappedActivities: UnmappedActivity[];
 };
 
+const STARTING_LOCATION_ID = 'starting-location';
+const STARTING_LOCATION_TITLE = 'Starting location';
+
 export class ItineraryMapService {
   constructor(
     private readonly itineraryRepository: ItineraryRepository,
@@ -49,7 +52,8 @@ export class ItineraryMapService {
       await this.itineraryMapRepository.findByItineraryId(itineraryId);
     if (
       cachedMap?.itineraryUpdatedAt === itinerary.updatedAt &&
-      hasWalkingAndDriving(cachedMap)
+      hasWalkingAndDriving(cachedMap) &&
+      hasExpectedStartingLocation(cachedMap, itinerary.startingLocation)
     ) {
       return cachedMap;
     }
@@ -57,8 +61,12 @@ export class ItineraryMapService {
     try {
       const orderedItems = orderItemsByStartTime(itinerary.items);
       const { markers, unmappedActivities } =
-        await createMarkers(orderedItems);
-      const routes = await createRoutes(orderedItems, markers);
+        await createMarkers(orderedItems, itinerary.startingLocation);
+      const routes = await createRoutes(
+        orderedItems,
+        markers,
+        itinerary.startingLocation,
+      );
       const mapData: ItineraryMap = {
         itineraryId: itinerary.id,
         ownerId: itinerary.ownerId,
@@ -96,9 +104,29 @@ function orderItemsByStartTime(items: ItineraryItem[]): ItineraryItem[] {
 /** Geocodes activities into markers and records unresolved addresses. */
 async function createMarkers(
   items: ItineraryItem[],
+  startingLocation?: string,
 ): Promise<MarkerGenerationResult> {
   const markers: MapMarker[] = [];
   const unmappedActivities: UnmappedActivity[] = [];
+  if (startingLocation?.trim()) {
+    const location = await geocodeAddress(startingLocation);
+    if (location === null) {
+      unmappedActivities.push({
+        activityId: STARTING_LOCATION_ID,
+        title: STARTING_LOCATION_TITLE,
+        address: startingLocation,
+      });
+    } else {
+      markers.push({
+        activityId: STARTING_LOCATION_ID,
+        title: STARTING_LOCATION_TITLE,
+        address: location.formattedAddress,
+        placeId: location.placeId,
+        coordinates: location.coordinates,
+        isApproximate: location.isApproximate,
+      });
+    }
+  }
   for (const item of items) {
     if (item.type !== 'activity') {
       continue;
@@ -128,34 +156,37 @@ async function createMarkers(
 async function createRoutes(
   items: ItineraryItem[],
   markers: MapMarker[],
+  startingLocation?: string,
 ): Promise<MapRoute[]> {
   const routes: MapRoute[] = [];
   const activities = items.filter(
     (item): item is ActivityItem => item.type === 'activity',
   );
-  for (let index = 0; index < activities.length - 1; index += 1) {
-    const originActivity = activities[index];
-    const destinationActivity = activities[index + 1];
-    if (originActivity === undefined || destinationActivity === undefined) {
+  const stopIds = [
+    ...(startingLocation?.trim() ? [STARTING_LOCATION_ID] : []),
+    ...activities.map((activity) => activity.id),
+  ];
+  for (let index = 0; index < stopIds.length - 1; index += 1) {
+    const originId = stopIds[index];
+    const destinationId = stopIds[index + 1];
+    if (originId === undefined || destinationId === undefined) {
       continue;
     }
     const origin = markers.find(
-      (marker) => marker.activityId === originActivity.id,
+      (marker) => marker.activityId === originId,
     );
     const destination = markers.find(
-      (marker) => marker.activityId === destinationActivity.id,
+      (marker) => marker.activityId === destinationId,
     );
     if (origin === undefined || destination === undefined) {
       continue;
     }
-    const transportationMode = findTransportationMode(
-      items,
-      originActivity.id,
-      destinationActivity.id,
-    );
+    const transportationMode = originId === STARTING_LOCATION_ID
+      ? 'driving'
+      : findTransportationMode(items, originId, destinationId);
     const mapRoute = await buildMapRoute(
-      originActivity,
-      destinationActivity,
+      originId,
+      destinationId,
       origin,
       destination,
       transportationMode,
@@ -168,8 +199,8 @@ async function createRoutes(
 }
 
 async function buildMapRoute(
-  originActivity: ActivityItem,
-  destinationActivity: ActivityItem,
+  originId: string,
+  destinationId: string,
   origin: MapMarker,
   destination: MapMarker,
   transportationMode: TransportationMode,
@@ -187,8 +218,8 @@ async function buildMapRoute(
     return null;
   }
   return {
-    fromActivityId: originActivity.id,
-    toActivityId: destinationActivity.id,
+    fromActivityId: originId,
+    toActivityId: destinationId,
     transportationMode,
     encodedPolyline: preferred.encodedPolyline,
     distanceMeters: preferred.distanceMeters,
@@ -213,6 +244,19 @@ function hasWalkingAndDriving(map: ItineraryMap): boolean {
   return map.routes.every(
     (route) => route.walking !== undefined && route.driving !== undefined,
   );
+}
+
+/** Checks whether cached map data matches the itinerary origin. */
+function hasExpectedStartingLocation(
+  map: ItineraryMap,
+  startingLocation?: string,
+): boolean {
+  const hasStartingLocation = map.markers.some(
+    (marker) => marker.activityId === STARTING_LOCATION_ID,
+  ) || map.unmappedActivities.some(
+    (activity) => activity.activityId === STARTING_LOCATION_ID,
+  );
+  return hasStartingLocation === Boolean(startingLocation?.trim());
 }
 
 /** Finds the transportation mode between two activities. */

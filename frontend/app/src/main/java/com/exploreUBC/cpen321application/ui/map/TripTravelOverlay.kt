@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -37,7 +38,9 @@ import com.exploreUBC.cpen321application.ui.trips.formatTravelDuration
 fun TripTravelOverlay(
     itineraryMap: ItineraryMap,
     travelMode: TripTravelMode,
+    selectedRouteKey: String?,
     onTravelModeChange: (TripTravelMode) -> Unit,
+    onRouteSelected: (String) -> Unit,
     onHideMap: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -59,7 +62,12 @@ fun TripTravelOverlay(
                     onToggle = { showDirections = !showDirections },
                 )
                 if (showDirections) {
-                    TravelDirectionsList(itineraryMap, travelMode)
+                    SelectableTravelDirections(
+                        itineraryMap = itineraryMap,
+                        travelMode = travelMode,
+                        selectedRouteKey = selectedRouteKey,
+                        onRouteSelected = onRouteSelected,
+                    )
                 }
             }
         }
@@ -155,10 +163,27 @@ private fun DirectionsVisibilityButton(
 }
 
 @Composable
-private fun TravelDirectionsList(
+private fun SelectableTravelDirections(
     itineraryMap: ItineraryMap,
     travelMode: TripTravelMode,
+    selectedRouteKey: String?,
+    onRouteSelected: (String) -> Unit,
 ) {
+    if (itineraryMap.routes.isEmpty()) {
+        Text(
+            text = stringResource(R.string.map_routes_empty),
+            style = MaterialTheme.typography.bodySmall,
+        )
+        return
+    }
+    RouteSelectionRow(
+        itineraryMap = itineraryMap,
+        selectedRouteKey = selectedRouteKey,
+        onRouteSelected = onRouteSelected,
+    )
+    val selectedRoute = itineraryMap.routes.firstOrNull {
+        it.routeKey() == selectedRouteKey
+    } ?: itineraryMap.routes.first()
     val modeLabel = if (travelMode == TripTravelMode.WALKING) {
         stringResource(R.string.map_travel_walk)
     } else {
@@ -171,19 +196,36 @@ private fun TravelDirectionsList(
             .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        if (itineraryMap.routes.isEmpty()) {
-            Text(
-                text = stringResource(R.string.map_routes_empty),
-                style = MaterialTheme.typography.bodySmall,
-            )
-        }
-        itineraryMap.routes.forEach { route ->
-            TravelLegDirections(
-                route = route,
-                fromTitle = activityTitle(itineraryMap, route.fromActivityId),
-                toTitle = activityTitle(itineraryMap, route.toActivityId),
-                option = selectedOption(route, travelMode),
-                modeLabel = modeLabel,
+        TravelLegDirections(
+            route = selectedRoute,
+            fromTitle = activityTitle(itineraryMap, selectedRoute.fromActivityId),
+            toTitle = activityTitle(itineraryMap, selectedRoute.toActivityId),
+            option = selectedOption(selectedRoute, travelMode),
+            modeLabel = modeLabel,
+        )
+    }
+}
+
+@Composable
+private fun RouteSelectionRow(
+    itineraryMap: ItineraryMap,
+    selectedRouteKey: String?,
+    onRouteSelected: (String) -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        itineraryMap.routes.forEachIndexed { index, route ->
+            val key = route.routeKey()
+            TravelModeChoice(
+                label = "${index + 1}. ${activityTitle(itineraryMap, route.fromActivityId)} → " +
+                    activityTitle(itineraryMap, route.toActivityId),
+                selected = key == selectedRouteKey,
+                onClick = { onRouteSelected(key) },
+                modifier = Modifier.testTag("map_route_$index"),
             )
         }
     }
@@ -230,6 +272,8 @@ private fun selectedOption(route: MapRoute, travelMode: TripTravelMode): TravelO
         TripTravelMode.WALKING -> route.walking
         TripTravelMode.DRIVING -> route.driving
     }
+
+internal fun MapRoute.routeKey(): String = "$fromActivityId:$toActivityId"
 
 private fun activityTitle(itineraryMap: ItineraryMap, activityId: String): String =
     itineraryMap.markers.firstOrNull { marker -> marker.activityId == activityId }?.title

@@ -35,6 +35,7 @@ fun CampusMapView(
     itineraryMap: ItineraryMap? = null,
     overlayTitle: String? = null,
     travelMode: TripTravelMode = TripTravelMode.DRIVING,
+    selectedRouteKey: String? = null,
     controlsBottomInsetPx: Int = 0,
 ) {
     val context = LocalContext.current
@@ -54,6 +55,7 @@ fun CampusMapView(
         itineraryMap,
         overlayTitle,
         travelMode,
+        selectedRouteKey,
         controlsBottomInsetPx,
         controller,
     )
@@ -140,6 +142,7 @@ private fun ShowItineraryOnMap(
     itineraryMap: ItineraryMap?,
     overlayTitle: String?,
     travelMode: TripTravelMode,
+    selectedRouteKey: String?,
     controlsBottomInsetPx: Int,
     controller: CampusMapController,
 ) {
@@ -154,6 +157,11 @@ private fun ShowItineraryOnMap(
     LaunchedEffect(travelMode) {
         if (mode == MapLayerMode.TRIP_ROUTES) {
             controller.setTravelMode(travelMode)
+        }
+    }
+    LaunchedEffect(selectedRouteKey) {
+        if (mode == MapLayerMode.TRIP_ROUTES) {
+            controller.setSelectedRoute(selectedRouteKey)
         }
     }
 }

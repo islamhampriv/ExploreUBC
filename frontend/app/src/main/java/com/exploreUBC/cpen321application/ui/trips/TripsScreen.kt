@@ -50,6 +50,7 @@ import com.exploreUBC.cpen321application.ui.map.CampusMapView
 import com.exploreUBC.cpen321application.ui.map.MapLayerMode
 import com.exploreUBC.cpen321application.ui.map.TripTravelMode
 import com.exploreUBC.cpen321application.ui.map.TripTravelOverlay
+import com.exploreUBC.cpen321application.ui.map.routeKey
 import java.util.Locale
 
 private const val MISSING_USER_MESSAGE = "A user ID is required to load itineraries."
@@ -228,6 +229,7 @@ private fun ItineraryMapScreen(
     var travelMode by remember(userId, itineraryId) {
         mutableStateOf(TripTravelMode.DRIVING)
     }
+    var selectedRouteKey by remember(userId, itineraryId) { mutableStateOf<String?>(null) }
     var overlayHeightPx by remember(userId, itineraryId) { mutableIntStateOf(0) }
 
     LaunchedEffect(userId, itineraryId, reloadToken) {
@@ -236,6 +238,9 @@ private fun ItineraryMapScreen(
             itinerariesRepository.getItineraryMap(userId, itineraryId)
         }.onSuccess { map ->
             state = ItineraryMapUiState.Ready(map)
+            if (map.routes.none { it.routeKey() == selectedRouteKey }) {
+                selectedRouteKey = map.routes.firstOrNull()?.routeKey()
+            }
         }.onFailure { error ->
             state = if (error is ItineraryHttpException && error.statusCode == 404) {
                 ItineraryMapUiState.NotFound
@@ -252,6 +257,7 @@ private fun ItineraryMapScreen(
             state,
             itineraryName,
             travelMode,
+            selectedRouteKey,
             overlayHeightPx,
             onItineraryMissing,
             onRetry = { reloadToken += 1 },
@@ -259,7 +265,9 @@ private fun ItineraryMapScreen(
         ItineraryMapChrome(
             state = state,
             travelMode = travelMode,
+            selectedRouteKey = selectedRouteKey,
             onTravelModeChange = { travelMode = it },
+            onRouteSelected = { selectedRouteKey = it },
             onHideMap = onHideMap,
             onOverlayHeightChanged = { overlayHeightPx = it },
             modifier = Modifier.align(Alignment.BottomCenter),
@@ -272,6 +280,7 @@ private fun ItineraryMapContent(
     state: ItineraryMapUiState,
     itineraryName: String,
     travelMode: TripTravelMode,
+    selectedRouteKey: String?,
     controlsBottomInsetPx: Int,
     onItineraryMissing: () -> Unit,
     onRetry: () -> Unit,
@@ -286,6 +295,7 @@ private fun ItineraryMapContent(
             itineraryMap = state.map,
             overlayTitle = itineraryName,
             travelMode = travelMode,
+            selectedRouteKey = selectedRouteKey,
             controlsBottomInsetPx = controlsBottomInsetPx,
             modifier = Modifier.fillMaxSize(),
         )
@@ -308,7 +318,9 @@ private fun ItineraryMapContent(
 private fun ItineraryMapChrome(
     state: ItineraryMapUiState,
     travelMode: TripTravelMode,
+    selectedRouteKey: String?,
     onTravelModeChange: (TripTravelMode) -> Unit,
+    onRouteSelected: (String) -> Unit,
     onHideMap: () -> Unit,
     onOverlayHeightChanged: (Int) -> Unit,
     modifier: Modifier = Modifier,
@@ -320,7 +332,9 @@ private fun ItineraryMapChrome(
         is ItineraryMapUiState.Ready -> TripTravelOverlay(
             itineraryMap = state.map,
             travelMode = travelMode,
+            selectedRouteKey = selectedRouteKey,
             onTravelModeChange = onTravelModeChange,
+            onRouteSelected = onRouteSelected,
             onHideMap = onHideMap,
             modifier = measuredModifier,
         )
