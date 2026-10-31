@@ -49,6 +49,8 @@ import com.exploreUBC.cpen321application.data.users.User
 import com.exploreUBC.cpen321application.data.users.UserPreferences
 import com.exploreUBC.cpen321application.data.users.UserUpdate
 import com.exploreUBC.cpen321application.data.users.UsersRepository
+import com.exploreUBC.cpen321application.ui.trips.AddressAutocompleteField
+import com.exploreUBC.cpen321application.ui.trips.AddressAutocompleteOptions
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
@@ -551,25 +553,16 @@ private fun RowScope.ProfileEditFields(
                 modifier = Modifier.testTag("profile_display_name_length_error"),
             )
         }
-        OutlinedTextField(
+        AddressAutocompleteField(
             value = startLocation,
             onValueChange = onStartLocationChanged,
-            label = { Text("Start location") },
-            placeholder = { Text("Enter a starting location") },
-            singleLine = true,
-            isError = startLocationTooLong,
-            modifier = Modifier
-                .fillMaxWidth()
-                .testTag("profile_start_location"),
+            label = "Start location",
+            tag = "profile_start_location",
+            options = AddressAutocompleteOptions(
+                placeholder = "Enter a starting location",
+                maxLength = START_LOCATION_MAX_LENGTH,
+            ),
         )
-        if (startLocationTooLong) {
-            Text(
-                text = "Start location must be at most $START_LOCATION_MAX_LENGTH characters.",
-                color = MaterialTheme.colorScheme.error,
-                style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier.testTag("profile_start_location_length_error"),
-            )
-        }
         Button(
             onClick = onSave,
             enabled = !isSaving && displayName.isNotBlank() && startLocation.isNotBlank() &&
