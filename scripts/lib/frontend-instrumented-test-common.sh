@@ -46,16 +46,6 @@ application_id() {
     | head -1 | sed -E 's/.*=[[:space:]]*["'\'']([^"'\'']+)["'\''].*/\1/'
 }
 
-kotlin_test_class() {
-  local file="$1" package class_name
-  package="$(grep -E '^[[:space:]]*package[[:space:]]+' "$file" | head -1 \
-    | sed -E 's/^[[:space:]]*package[[:space:]]+//;s/[[:space:]]*$//')"
-  class_name="$(grep -E '^[[:space:]]*(class|object)[[:space:]]+' "$file" | head -1 \
-    | sed -E 's/^[[:space:]]*(class|object)[[:space:]]+([A-Za-z0-9_]+).*/\2/')"
-  [[ -n "$package" && -n "$class_name" ]] || die "Could not resolve test class from $file"
-  printf '%s.%s' "$package" "$class_name"
-}
-
 discover_test_files() {
   local subdir="$1"
   TEST_FILES=()
@@ -87,10 +77,10 @@ wait_for_app_sign_in() {
 
 run_instrumented_tests() {
   local suite="$1"
-  local subdir label
+  local subdir label test_package
   case "$suite" in
-    e2e) subdir=e2e; label=E2E ;;
-    nfr) subdir=nfr; label=NFR ;;
+    e2e) subdir=e2e; label=E2E; test_package=com.exploreUBC.cpen321application.e2e ;;
+    nfr) subdir=nfr; label=NFR; test_package=com.exploreUBC.cpen321application.nfr ;;
     *) die "Unknown suite '$suite' (expected e2e or nfr)." ;;
   esac
 
@@ -102,7 +92,7 @@ run_instrumented_tests() {
     exit 0
   fi
 
-  local app_id classes=() class_arg
+  local app_id
   app_id="$(application_id)"
   [[ -n "$app_id" ]] || die "Could not resolve applicationId from $APP_BUILD."
 
@@ -114,16 +104,11 @@ run_instrumented_tests() {
   wait_for_app_sign_in
   adb shell am force-stop "$app_id" >/dev/null 2>&1 || true
 
-  for file in "${TEST_FILES[@]}"; do
-    classes+=("$(kotlin_test_class "$file")")
-  done
-  class_arg="$(IFS=,; echo "${classes[*]}")"
-
-  info "Running frontend ${label} tests (${class_arg}) ..."
+  info "Running frontend ${label} tests ($test_package) ..."
   (
     cd "$FRONTEND_DIR"
     ./gradlew "$GRADLE_TASK" \
-      -Pandroid.testInstrumentationRunnerArguments.class="$class_arg"
+      -Pandroid.testInstrumentationRunnerArguments.package="$test_package"
   )
   info "Frontend ${label} tests finished."
 }
