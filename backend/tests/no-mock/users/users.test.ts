@@ -13,7 +13,7 @@ jest.setTimeout(30_000);
 
 const USER_ID = new ObjectId();
 const MISSING_USER_ID = new ObjectId();
-const DATABASE_NAME = `exploreubc_jest_users_${new ObjectId().toHexString()}`;
+const DATABASE_NAME = `eubc_u_${new ObjectId().toHexString()}`;
 
 let client: MongoClient;
 let database: Db;
@@ -53,7 +53,7 @@ beforeEach(async () => {
 });
 
 afterAll(async () => {
-  await database.dropDatabase();
+  await database.dropCollection('users');
   await client.close();
 });
 
