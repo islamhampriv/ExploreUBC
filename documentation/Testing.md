@@ -5,6 +5,7 @@
 | **Change Date**   | **Modified Sections** | **Rationale** |
 | ----------------- | --------------------- | ------------- |
 | October 28, 2026  | 3.1, 3.2              | Added automated and manual verification details and results for the Accessibility NFR. |
+| November 8, 2026  | 2.1.1                 | Added Geocoding, Places, and Routes interface tests. |
 
 ---
 
@@ -30,6 +31,10 @@
 | **POST /api/v1/users/:userId/itineraries/:itineraryId/transportation-segments** | [`backend/tests/no-mock/itineraries/itineraries.test.ts`](../backend/tests/no-mock/itineraries/itineraries.test.ts) | [`backend/tests/mock/itineraries/itineraries.test.ts`](../backend/tests/mock/itineraries/itineraries.test.ts) | Add a transportation segment to an itinerary in the database |
 | **PATCH /api/v1/users/:userId/itineraries/:itineraryId/transportation-segments/:segmentId** | [`backend/tests/no-mock/itineraries/itineraries.test.ts`](../backend/tests/no-mock/itineraries/itineraries.test.ts) | [`backend/tests/mock/itineraries/itineraries.test.ts`](../backend/tests/mock/itineraries/itineraries.test.ts) | Update a transportation segment in the database |
 | **DELETE /api/v1/users/:userId/itineraries/:itineraryId/transportation-segments/:segmentId** | [`backend/tests/no-mock/itineraries/itineraries.test.ts`](../backend/tests/no-mock/itineraries/itineraries.test.ts) | [`backend/tests/mock/itineraries/itineraries.test.ts`](../backend/tests/mock/itineraries/itineraries.test.ts) | Remove a transportation segment from an itinerary in the database |
+| **GET https://maps.googleapis.com/maps/api/geocode/json** (`geocodeAddress`) | [`backend/tests/no-mock/maps/googleMaps.test.ts`](../backend/tests/no-mock/maps/googleMaps.test.ts) | [`backend/tests/mock/maps/googleMaps.test.ts`](../backend/tests/mock/maps/googleMaps.test.ts) | Google Geocoding HTTP responses, including a missing or placeholder `GEOCODING_API_KEY` |
+| **POST https://routes.googleapis.com/directions/v2:computeRoutes** (`getRoute`) | [`backend/tests/no-mock/maps/googleMaps.test.ts`](../backend/tests/no-mock/maps/googleMaps.test.ts) | [`backend/tests/mock/maps/googleMaps.test.ts`](../backend/tests/mock/maps/googleMaps.test.ts) | Google Routes HTTP responses for walking, cycling, transit, driving, and other, including a missing `ROUTES_API_KEY` |
+| **POST https://places.googleapis.com/v1/places:autocomplete** (`autocompleteAddresses`) | [`backend/tests/no-mock/maps/googleMaps.test.ts`](../backend/tests/no-mock/maps/googleMaps.test.ts) | [`backend/tests/mock/maps/googleMaps.test.ts`](../backend/tests/mock/maps/googleMaps.test.ts) | Google Places Autocomplete HTTP responses, including a missing or placeholder `PLACES_API_KEY` |
+| **POST https://places.googleapis.com/v1/places:searchNearby** (`fetchPopularPlaces`) | [`backend/tests/no-mock/maps/googleMaps.test.ts`](../backend/tests/no-mock/maps/googleMaps.test.ts) | [`backend/tests/mock/maps/googleMaps.test.ts`](../backend/tests/mock/maps/googleMaps.test.ts) | Google Places Nearby Search HTTP responses, including a missing `PLACES_API_KEY` |
 
 #### 2.1.2. Commit Hash Where Tests Run
 
@@ -39,7 +44,7 @@
 
 1. Add a reachable `MONGODB_URI` to `backend/.env`. The no-mock suites create uniquely named temporary databases and drop them after the run.
 2. From `backend`, install dependencies with `npm install`.
-3. Run the user and itinerary API suites with coverage:
+3. Run the user, itinerary, and Google Maps API suites with coverage:
    ```sh
    npm run test:no-mock
    ```

@@ -1,14 +1,20 @@
 import { env } from '../config/env';
 import type { TransportationMode } from '../users/userTypes';
 import type {
+  AddressAutocompleteResult,
+  AddressSuggestion,
   GeocodedLocation,
   MapCoordinates,
+  PopularPlace,
   RouteStep,
   TravelOption,
 } from './mapTypes';
 
 const GEOCODING_URL = 'https://maps.googleapis.com/maps/api/geocode/json';
 const ROUTES_URL = 'https://routes.googleapis.com/directions/v2:computeRoutes';
+const PLACES_AUTOCOMPLETE_URL = 'https://places.googleapis.com/v1/places:autocomplete';
+const PLACES_NEARBY_URL = 'https://places.googleapis.com/v1/places:searchNearby';
+const UBC_CENTER = { latitude: 49.2606, longitude: -123.246 };
 
 interface GeocodingResponse {
   status?: string;
@@ -194,6 +200,164 @@ function toWaypoint(coordinates: MapCoordinates): object {
       latLng: coordinates,
     },
   };
+}
+
+interface PlacesAutocompleteResponse {
+  error?: {
+    status?: string;
+    message?: string;
+  };
+  suggestions?: Array<{
+    placePrediction?: {
+      placeId?: string;
+      text?: { text?: string };
+      structuredFormat?: { mainText?: { text?: string } };
+    };
+  }>;
+}
+
+interface NearbySearchResponse {
+  places?: Array<{
+    displayName?: { text?: string };
+    formattedAddress?: string;
+    types?: string[];
+    location?: { latitude?: number; longitude?: number };
+  }>;
+}
+
+/**
+ * Retrieves Google Places address suggestions near UBC.
+ * @param query Partial address typed by the user.
+ * @returns Matching suggestions, or an error message when Places rejects the request.
+ */
+export async function autocompleteAddresses(
+  query: string,
+): Promise<AddressAutocompleteResult> {
+  const trimmed = query.trim();
+  if (trimmed.length < 3) {
+    return { suggestions: [] };
+  }
+  const apiKey = requireApiKey(env.googleMaps.placesApiKey, 'PLACES_API_KEY');
+  const response = await fetch(PLACES_AUTOCOMPLETE_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Goog-Api-Key': apiKey,
+      'X-Goog-FieldMask':
+        'suggestions.placePrediction.placeId,suggestions.placePrediction.text,suggestions.placePrediction.structuredFormat',
+    },
+    body: JSON.stringify({
+      input: trimmed,
+      includedRegionCodes: ['ca'],
+      locationBias: {
+        circle: { center: UBC_CENTER, radius: 30_000 },
+      },
+    }),
+  });
+  return parseAutocompleteResponse(response);
+}
+
+/**
+ * Retrieves popular places near a map center.
+ * @param center Coordinates to search around.
+ * @returns Up to eight places, an empty list when none match, or null when the request fails.
+ */
+export async function fetchPopularPlaces(
+  center: MapCoordinates,
+): Promise<PopularPlace[] | null> {
+  const apiKey = requireApiKey(env.googleMaps.placesApiKey, 'PLACES_API_KEY');
+
+  try {
+    const response = await fetch(PLACES_NEARBY_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Goog-Api-Key': apiKey,
+        'X-Goog-FieldMask':
+          'places.displayName,places.formattedAddress,places.types,places.location',
+      },
+      body: JSON.stringify({
+        includedTypes: ['tourist_attraction'],
+        maxResultCount: 8,
+        locationRestriction: {
+          circle: { center, radius: 3000 },
+        },
+      }),
+    });
+    if (!response.ok) {
+      return null;
+    }
+    const body = (await response.json()) as NearbySearchResponse;
+    return parsePopularPlaces(body.places ?? []);
+  } catch (error: unknown) {
+    console.error('Places nearby request failed', error);
+    return null;
+  }
+}
+
+async function parseAutocompleteResponse(
+  response: Response,
+): Promise<AddressAutocompleteResult> {
+  const body = (await response.json()) as PlacesAutocompleteResponse;
+  if (!response.ok || body.error !== undefined) {
+    return {
+      suggestions: [],
+      errorMessage: placesErrorMessage(response.status, body.error),
+    };
+  }
+  return { suggestions: parseSuggestions(body.suggestions ?? []) };
+}
+
+function placesErrorMessage(
+  status: number,
+  error: PlacesAutocompleteResponse['error'],
+): string {
+  if (error?.message !== undefined && error.message.trim() !== '') {
+    return `Places API error (${error.status ?? 'unknown error'}): ${error.message}`;
+  }
+  return `Places request failed with status ${status}`;
+}
+
+function parseSuggestions(
+  suggestions: NonNullable<PlacesAutocompleteResponse['suggestions']>,
+): AddressSuggestion[] {
+  const parsed: AddressSuggestion[] = [];
+  for (const suggestion of suggestions.slice(0, 6)) {
+    const prediction = suggestion.placePrediction;
+    const fullAddress = prediction?.text?.text?.trim() ?? '';
+    if (prediction === undefined || fullAddress === '') {
+      continue;
+    }
+    const primary = prediction.structuredFormat?.mainText?.text?.trim();
+    parsed.push({
+      primaryText: primary !== undefined && primary !== '' ? primary : fullAddress,
+      fullAddress,
+      placeId: prediction.placeId ?? '',
+    });
+  }
+  return parsed;
+}
+
+function parsePopularPlaces(
+  results: NonNullable<NearbySearchResponse['places']>,
+): PopularPlace[] {
+  const places: PopularPlace[] = [];
+  for (const place of results) {
+    const name = place.displayName?.text?.trim() ?? '';
+    const latitude = place.location?.latitude;
+    const longitude = place.location?.longitude;
+    if (name === '' || latitude === undefined || longitude === undefined) {
+      continue;
+    }
+    const category = place.types?.[0]?.replaceAll('_', ' ');
+    places.push({
+      name,
+      category: category !== undefined && category !== '' ? category : 'Place',
+      address: place.formattedAddress ?? '',
+      coordinates: { latitude, longitude },
+    });
+  }
+  return places;
 }
 
 /** Converts an internal transportation mode to a Google travel mode. */

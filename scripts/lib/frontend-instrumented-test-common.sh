@@ -117,6 +117,22 @@ run_instrumented_tests() {
   for file in "${TEST_FILES[@]}"; do
     classes+=("$(kotlin_test_class "$file")")
   done
+  if [[ -n "${EXTRA_INSTRUMENTATION_CLASSES:-}" ]]; then
+    IFS=',' read -r -a extra_classes <<< "$EXTRA_INSTRUMENTATION_CLASSES"
+    for extra in "${extra_classes[@]}"; do
+      [[ -n "$extra" ]] || continue
+      local already=0
+      for existing in "${classes[@]}"; do
+        if [[ "$existing" == "$extra" ]]; then
+          already=1
+          break
+        fi
+      done
+      if (( already == 0 )); then
+        classes+=("$extra")
+      fi
+    done
+  fi
   class_arg="$(IFS=,; echo "${classes[*]}")"
 
   info "Running frontend ${label} tests (${class_arg}) ..."

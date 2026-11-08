@@ -76,6 +76,7 @@ fun MapRoute(
     selectedItineraryId: String? = null,
     onItinerarySelected: (String?) -> Unit = {},
     onVisitItinerary: () -> Unit = {},
+    showMap: Boolean = true,
 ) {
     val uiState = remember(userId, itinerariesRepository) { MapRouteUiState() }
     LoadSavedItineraries(userId, itinerariesRepository, uiState)
@@ -87,6 +88,7 @@ fun MapRoute(
         uiState,
         onItinerarySelected,
         onVisitItinerary,
+        showMap,
         modifier,
     )
 }
@@ -186,10 +188,13 @@ private fun MapRouteContent(
     uiState: MapRouteUiState,
     onItinerarySelected: (String?) -> Unit,
     onVisitItinerary: () -> Unit,
+    showMap: Boolean,
     modifier: Modifier,
 ) {
     Box(modifier = modifier.fillMaxSize()) {
-        MapBackground(selectedItineraryId, uiState)
+        if (showMap) {
+            MapBackground(selectedItineraryId, uiState)
+        }
         AnimatedVisibility(
             visible = uiState.cardsVisible,
             modifier = Modifier

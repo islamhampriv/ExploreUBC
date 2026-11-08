@@ -12,6 +12,24 @@ export type GeocodedLocation = {
   isApproximate: boolean;
 };
 
+export type AddressSuggestion = {
+  primaryText: string;
+  fullAddress: string;
+  placeId: string;
+};
+
+export type AddressAutocompleteResult = {
+  suggestions: AddressSuggestion[];
+  errorMessage?: string;
+};
+
+export type PopularPlace = {
+  name: string;
+  category: string;
+  address: string;
+  coordinates: MapCoordinates;
+};
+
 export type MapMarker = {
   activityId: string;
   title: string;

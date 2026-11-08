@@ -316,36 +316,48 @@ class CampusMapController(
     }
 
     private suspend fun loadPopularPlaces() {
-        popularMarkers.forEach { it.remove() }
-        popularMarkers.clear()
+        withContext(Dispatchers.Main) {
+            popularMarkers.forEach { it.remove() }
+            popularMarkers.clear()
+        }
 
         val center = SampleMapData.ubcCampus
         val remotePlaces = withContext(Dispatchers.IO) { mapsApi.fetchPopularPlaces(center) }
-        val places = remotePlaces.takeUnless { it.isNullOrEmpty() } ?: SampleMapData.fallbackPopularPlaces
+        val places = remotePlaces.takeUnless { it.isNullOrEmpty() }
+            ?: SampleMapData.fallbackPopularPlaces
 
+        withContext(Dispatchers.Main) {
+            if (::map.isInitialized) {
+                addPopularMarkers(places)
+                if (renderedPoints.isEmpty()) {
+                    fitMapCamera(map, places.map { it.location }, binding.map)
+                }
+                binding.textMapStatus.setText(R.string.map_popular_ready)
+            }
+        }
+    }
+
+    private fun addPopularMarkers(places: List<PopularPlace>) {
         places.forEach { place ->
             val marker = map.addMarker(
                 MarkerOptions()
                     .position(place.location)
                     .title(place.name)
                     .snippet("${place.category} · ${place.address}")
-                    .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_ORANGE))
+                    .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_ORANGE)),
             )
             marker?.tag = place
             if (marker != null) popularMarkers.add(marker)
         }
-
-        if (renderedPoints.isEmpty()) {
-            fitMapCamera(map, places.map { it.location }, binding.map)
-        }
-        binding.textMapStatus.setText(R.string.map_popular_ready)
     }
 
     private suspend fun showStaticMapFallback(points: List<LatLng>) {
         val key = BuildConfig.MAPS_API_KEY
         if (key.isBlank() || key == "YOUR_API_KEY") {
-            binding.textMapStatus.text =
-                "Map tiles did not load. Add MAPS_API_KEY and enable Maps SDK for Android."
+            withContext(Dispatchers.Main) {
+                binding.textMapStatus.text =
+                    "Map tiles did not load. Add MAPS_API_KEY and enable Maps SDK for Android."
+            }
             return
         }
 
@@ -373,13 +385,15 @@ class CampusMapController(
             }
         }
 
-        if (bitmap != null) {
-            binding.mapFallback.setImageBitmap(bitmap)
-            binding.mapFallback.visibility = View.VISIBLE
-            binding.textMapStatus.text =
-                "Showing a static campus map. Enable Maps SDK for Android on this API key for the interactive map."
-        } else {
-            binding.textMapStatus.text = "Map tiles did not load. Enable Maps SDK for Android."
+        withContext(Dispatchers.Main) {
+            if (bitmap != null) {
+                binding.mapFallback.setImageBitmap(bitmap)
+                binding.mapFallback.visibility = View.VISIBLE
+                binding.textMapStatus.text =
+                    "Showing a static campus map. Enable Maps SDK for Android on this API key for the interactive map."
+            } else {
+                binding.textMapStatus.text = "Map tiles did not load. Enable Maps SDK for Android."
+            }
         }
     }
 

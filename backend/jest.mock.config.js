@@ -5,6 +5,7 @@ module.exports = {
   testMatch: [
     '<rootDir>/tests/mock/users/**/*.test.ts',
     '<rootDir>/tests/mock/itineraries/**/*.test.ts',
+    '<rootDir>/tests/mock/maps/**/*.test.ts',
   ],
   collectCoverageFrom: [
     'src/users/**/*.ts',
