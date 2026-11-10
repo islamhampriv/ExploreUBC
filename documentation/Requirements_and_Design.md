@@ -39,13 +39,15 @@ The features in this app will facilitate the entire trip planning process for UB
 
 ### **3.2. Use Case Diagram**
 
-![My diagram](https://raw.githubusercontent.com/islamhampriv/ExploreUBC/main/documentation/images/Usecase_diagram.png)
+![Use case diagram](images/Usecase_diagram_recreated.png)
 
 ### **3.3. Actors Description**
 
 1. **Exchange Student**: The primary user of ExploreUBC. An incoming or current UBC exchange student who plans trips around campus and Vancouver, maintains a travel profile, creates itineraries, views maps, estimates transportation costs, and receives live event recommendations.
 2. **Google Maps Service**: An external mapping service that supplies map tiles, geocoded activity coordinates, transportation routes between itinerary stops, and popular nearby locations.
 3. **Ticketmaster Discovery API**: An external event service that supplies upcoming event details, venues, locations, prices, images, and ticket links used to generate live-event recommendations.
+4. **Google Authentication Service**: An external identity service that authenticates users with Google and provides identity credentials for the backend to validate.
+5. **External LLM Service**: An external AI service that generates candidate itinerary content from the user's trip constraints and preferences.
 
 ### **3.4. Use Case Description**
 

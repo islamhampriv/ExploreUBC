@@ -1,0 +1,116 @@
+@startuml
+!pragma layout smetana
+left to right direction
+skinparam packageStyle rectangle
+skinparam ranksep 150
+skinparam nodesep 20
+hide stereotype
+
+skinparam rectangle {
+  BorderColor<<invis>> Transparent
+  BackgroundColor<<invis>> Transparent
+  ShadowColor<<invis>> Transparent
+  FontColor<<invis>> Transparent
+}
+
+skinparam usecase {
+  BackgroundColor<<auth>> #F5C6CB
+  BorderColor<<auth>> #C0392B
+  BackgroundColor<<profile>> #C3E6CB
+  BorderColor<<profile>> #27AE60
+  BackgroundColor<<itinerary>> #FFE8A1
+  BorderColor<<itinerary>> #E67E22
+  BackgroundColor<<maps>> #BEE3F8
+  BorderColor<<maps>> #2980B9
+  BackgroundColor<<event>> #E2D4F0
+  BorderColor<<event>> #8E44AD
+}
+
+rectangle " " as ActorsBox <<invis>> {
+  actor "Exchange Student" as Traveller
+}
+
+rectangle "UBC Exchange Travel Planner" as SystemBox {
+  usecase "Sign up" as UC1 <<auth>>
+  usecase "Sign in" as UC2 <<auth>>
+  usecase "Sign out" as UC3 <<auth>>
+  usecase "Delete account" as UC4 <<auth>>
+
+  usecase "Generate itineraries" as UC14 <<itinerary>>
+  usecase "Review recommendations" as UC19 <<itinerary>>
+  usecase "Save a recommendation" as UC20 <<itinerary>>
+  usecase "Create itinerary" as UC9 <<itinerary>>
+
+  usecase "Create or update profile" as UC5 <<profile>>
+  usecase "Set interests" as UC6 <<profile>>
+  usecase "Set budget preference" as UC7 <<profile>>
+  usecase "Set transportation preferences" as UC8 <<profile>>
+
+  usecase "View itinerary" as UC10 <<itinerary>>
+  usecase "Modify itinerary details" as UC21 <<itinerary>>
+  usecase "Add activity" as UC11 <<itinerary>>
+  usecase "Edit activity" as UC12 <<itinerary>>
+  usecase "Remove activity" as UC13 <<itinerary>>
+  usecase "Reorder activities" as UC22 <<itinerary>>
+  usecase "Delete itinerary" as UC23 <<itinerary>>
+
+  usecase "View map and activity locations" as UC15 <<maps>>
+  usecase "View routes between activities" as UC16 <<maps>>
+  usecase "Calculate transportation cost" as UC17 <<maps>>
+
+  usecase "View event recommendations" as UC18 <<event>>
+  usecase "View event details" as UC24 <<event>>
+  usecase "Add event to itinerary" as UC25 <<event>>
+  usecase "Refresh event recommendations" as UC26 <<event>>
+}
+
+rectangle " " as ExternalBox <<invis>> {
+  rectangle "External services horizontal spacing placeholder" as ExternalPad <<invis>>
+  usecase "Google Authentication Service" as ExtAuth
+  usecase "External LLM Service" as AIService
+  usecase "Google Maps Service" as GoogleMaps
+  usecase "Ticketmaster Discovery API" as EventService
+
+  ExternalPad -[#FFFFFF]right-> ExtAuth
+}
+
+Traveller -- UC1
+Traveller -- UC2
+Traveller -- UC3
+Traveller -- UC4
+Traveller -- UC5
+Traveller -- UC6
+Traveller -- UC7
+Traveller -- UC8
+Traveller -- UC9
+Traveller -- UC10
+Traveller -- UC19
+Traveller -- UC20
+Traveller -- UC21
+Traveller -- UC11
+Traveller -- UC12
+Traveller -- UC13
+Traveller -- UC22
+Traveller -- UC23
+Traveller -- UC15
+Traveller -- UC16
+Traveller -- UC17
+Traveller -- UC18
+Traveller -- UC24
+Traveller -- UC25
+Traveller -- UC26
+
+Traveller -- UC14
+UC9 <.left. UC20 : <<include>>
+SystemBox -[#FFFFFF]right-> ExternalBox
+
+UC1 -[norank]- ExtAuth
+UC2 -[norank]- ExtAuth
+UC3 -[norank]- ExtAuth
+UC4 -[norank]- ExtAuth
+UC14 -[norank]- AIService
+UC15 -[norank]- GoogleMaps
+UC16 -[norank]- GoogleMaps
+UC18 -[norank]- EventService
+UC24 -[norank]- EventService
+@enduml

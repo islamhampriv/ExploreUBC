@@ -52,15 +52,33 @@ alt cached map is current
     Reuse the stored markers and routes.
     end note
 else cache is missing or outdated
-    MapService -> GoogleMaps : geocodeAddress(address: String): GeocodedLocation?
-    activate GoogleMaps
-    GoogleMaps --> MapService : location: GeocodedLocation?
-    deactivate GoogleMaps
+    loop each itinerary location
+        MapService -> GoogleMaps : geocodeAddress(address: String): GeocodedLocation?
+        activate GoogleMaps
+        alt address is valid
+            GoogleMaps --> MapService : location: GeocodedLocation
+        else address is missing or invalid
+            GoogleMaps --> MapService : location: null
+            note over MapService
+            Record the activity as unmapped.
+            end note
+        end
+        deactivate GoogleMaps
+    end
 
-    MapService -> GoogleMaps : getRoute(origin: Coordinates, destination: Coordinates, mode: TravelMode): TravelOption?
-    activate GoogleMaps
-    GoogleMaps --> MapService : route: TravelOption?
-    deactivate GoogleMaps
+    loop each pair of consecutive mapped stops
+        MapService -> GoogleMaps : getRoute(origin: Coordinates, destination: Coordinates, mode: TravelMode): TravelOption?
+        activate GoogleMaps
+        alt route is available
+            GoogleMaps --> MapService : route: TravelOption
+        else route cannot be computed
+            GoogleMaps --> MapService : route: null
+            note over MapService
+            Keep both pins and omit only this route leg.
+            end note
+        end
+        deactivate GoogleMaps
+    end
 
     MapService -> DB : upsertMapData(mapData: ItineraryMap): void
     activate DB
@@ -73,14 +91,28 @@ deactivate MapService
 
 App -> GoogleMaps : loadMapTiles(): MapTiles
 activate GoogleMaps
-GoogleMaps --> App : mapTiles: MapTiles
-deactivate GoogleMaps
+alt map tiles load successfully
+    GoogleMaps --> App : mapTiles: MapTiles
+    deactivate GoogleMaps
 
-App --> User : Display activity pins and route legs
+    App --> User : Display mapped activity pins and available route legs
 
-opt User selects a route leg
-    User -> App : Select route leg
-    App --> User : Highlight polyline and display directions
+    opt map contains unmapped activities
+        App --> User : Warn that some activities could not be shown
+    end
+
+    opt map contains unavailable route legs
+        App --> User : Warn that some route legs could not be drawn
+    end
+
+    opt User selects a route leg
+        User -> App : Select route leg
+        App --> User : Highlight polyline and display directions
+    end
+else map tiles fail to load
+    GoogleMaps --> App : error: MapUnavailable
+    deactivate GoogleMaps
+    App --> User : Display map-unavailable message and itinerary list
 end
 
 deactivate App
