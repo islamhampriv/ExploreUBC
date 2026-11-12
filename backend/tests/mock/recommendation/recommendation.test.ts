@@ -1,7 +1,9 @@
 import supertest from 'supertest';
+import type { Db } from 'mongodb';
 
 import { createApp } from '../../../src/index';
 import type { Itinerary } from '../../../src/itineraries/itineraryTypes';
+import { RecommendationDao } from '../../../src/recommendation/recommendationDao';
 import type { RecommendationRepository } from '../../../src/recommendation/recommendationRepository';
 import { SoclaasClient } from '../../../src/recommendation/soclaasClient';
 import {
@@ -202,14 +204,6 @@ describe('Mocked: POST /api/v1/users/:userId/recommendations', () => {
         interestSimilarityOutOfFive: 5,
       },
     });
-
-    const fetched = await supertest(app)
-      .get(`/api/v1/users/${USER_ID}/recommendations`);
-
-    expect(fetched.status).toBe(200);
-    expect(fetched.body.itineraries.map((itinerary: Itinerary) =>
-      itinerary.score.interestSimilarity,
-    )).toEqual([0.9, 0.75, 0.5, 0.25]);
   });
 
   test('keeps existing recommendations when the LLM returns fewer than four', async () => {
@@ -250,6 +244,62 @@ describe('Mocked: POST /api/v1/users/:userId/recommendations', () => {
 
     expect(response.status).toBe(404);
     expect(response.body.error.code).toBe('USER_NOT_FOUND');
+  });
+});
+
+describe('Mocked: GET /api/v1/users/:userId/recommendations', () => {
+  test('returns the current recommendations sorted by score', async () => {
+    const repository = new TestRecommendationRepository();
+    const scoredRecommendations: Array<[string, number]> = [
+      ['Low', 0.25],
+      ['High', 0.9],
+      ['Medium', 0.5],
+    ];
+    repository.itineraries = scoredRecommendations.map(
+      ([name, interestSimilarity], index) => ({
+        id: `recommendation-${index}`,
+        ownerId: USER_ID,
+        name,
+        items: [],
+        createdAt: '2026-11-01T00:00:00.000Z',
+        updatedAt: '2026-11-01T00:00:00.000Z',
+        saved: false,
+        inRecommendation: true,
+        score: { interestSimilarity },
+      }),
+    );
+    const { app } = buildApp(new TestGenerator(generatedJson()), repository);
+
+    const response = await supertest(app)
+      .get(`/api/v1/users/${USER_ID}/recommendations`);
+
+    expect(response.status).toBe(200);
+    expect(response.body.itineraries.map((itinerary: Itinerary) => itinerary.name))
+      .toEqual(['High', 'Medium', 'Low']);
+  });
+
+  test('returns an empty list when the repository has no recommendations', async () => {
+    const { app } = buildApp(new TestGenerator(generatedJson()));
+
+    const response = await supertest(app)
+      .get('/api/v1/users/6705f0000000000000000099/recommendations');
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ itineraries: [] });
+  });
+
+  test('maps unexpected repository failures to an internal error', async () => {
+    const repository = new TestRecommendationRepository();
+    repository.findLatestRecommendations = async () => {
+      throw new Error('database unavailable');
+    };
+    const { app } = buildApp(new TestGenerator(generatedJson()), repository);
+
+    const response = await supertest(app)
+      .get(`/api/v1/users/${USER_ID}/recommendations`);
+
+    expect(response.status).toBe(500);
+    expect(response.body.error.code).toBe('INTERNAL_SERVER_ERROR');
   });
 });
 
@@ -300,9 +350,57 @@ describe('Universal Sentence Encoder itinerary ranking', () => {
     expect(ranked[3]?.score.interestSimilarityOutOfFive).toBe(3.5);
     expect(dispose).toHaveBeenCalledTimes(1);
   });
+
+  test('handles empty descriptions, equal scores, and mismatched vectors', async () => {
+    const dispose = jest.fn();
+    const loadModel = jest.fn(async () => ({
+      embed: async () => ({
+        array: async () => [[1, 0], [1], [0, 0], [1, 0]],
+        dispose,
+      }),
+    }));
+    const ranker = new UniversalSentenceEncoderItineraryRanker(loadModel);
+    const candidates: GeneratedItineraryInput[] = [
+      { name: 'Missing description', items: [] },
+      { name: 'Zero vector', description: 'zero', items: [] },
+      { name: 'Matching vector', description: 'match', items: [] },
+    ];
+
+    const first = await ranker.rankItineraries(candidates, 'art');
+    const second = await ranker.rankItineraries(candidates, 'art');
+
+    expect(first.map((itinerary) => itinerary.score.interestSimilarity))
+      .toEqual([1, 0, 0]);
+    expect(first[0]?.score.interestSimilarityOutOfFive).toBe(5);
+    expect(first[1]?.score.interestSimilarityOutOfFive).toBe(3.5);
+    expect(second).toEqual(first);
+    expect(loadModel).toHaveBeenCalledTimes(1);
+    expect(dispose).toHaveBeenCalledTimes(2);
+  });
+
+  test.each([
+    [new Error('model download failed'), 'model download failed'],
+    ['non-error rejection', 'Could not load the sentence encoder model.'],
+  ])('maps model loader failure %# to a generation error', async (failure, message) => {
+    const ranker = new UniversalSentenceEncoderItineraryRanker(
+      async () => Promise.reject(failure),
+    );
+
+    await expect(ranker.rankItineraries([], 'art'))
+      .rejects.toThrow(message);
+  });
 });
 
 describe('Mocked: SoCLaaS Responses API client', () => {
+  function clientWith(fetchFunction: jest.Mock) {
+    return new SoclaasClient({
+      endpoint: 'https://soclaas-api.comp.nus.edu.sg/v1',
+      apiKey: 'test-key',
+      model: 'qwen3.5:9b',
+      maxOutputTokens: 16_384,
+    }, fetchFunction);
+  }
+
   test('posts the profile to /v1/responses and reads nested output text', async () => {
     const fetchMock = jest.fn(async (
       _input: string | URL,
@@ -384,5 +482,144 @@ describe('Mocked: SoCLaaS Responses API client', () => {
       start_location: 'UBC Bus Exchange',
       preferences: PREFERENCES,
     })).rejects.toThrow('returned 503: Model is unavailable.');
+  });
+
+  test('reads top-level output text', async () => {
+    const client = clientWith(jest.fn(async () => new Response(JSON.stringify({
+      status: 'completed',
+      output_text: generatedJson(),
+    }), { status: 200 })));
+
+    await expect(client.generateItineraries({
+      start_location: 'UBC Bus Exchange',
+      preferences: PREFERENCES,
+    })).resolves.toBe(generatedJson());
+  });
+
+  test('reports incomplete output for provider reasons other than token limits', async () => {
+    const client = clientWith(jest.fn(async () => new Response(JSON.stringify({
+      status: 'incomplete',
+      incomplete_details: { reason: 'content_filter' },
+    }), { status: 200 })));
+
+    await expect(client.generateItineraries({
+      start_location: 'UBC Bus Exchange',
+      preferences: PREFERENCES,
+    })).rejects.toThrow('returned an incomplete response');
+  });
+
+  test.each([
+    [{ status: 'completed' }, 'no output text'],
+    [{ status: 'completed', output_text: ' ', output: [{}] }, 'no output text'],
+    [{
+      status: 'completed',
+      output: [{ content: [{ type: 'refusal', text: 'No' }] }],
+    }, 'no output text'],
+  ])('rejects responses without usable output text %#', async (payload, message) => {
+    const client = clientWith(jest.fn(async () => new Response(
+      JSON.stringify(payload),
+      { status: 200 },
+    )));
+
+    await expect(client.generateItineraries({
+      start_location: 'UBC Bus Exchange',
+      preferences: PREFERENCES,
+    })).rejects.toThrow(message);
+  });
+
+  test.each([
+    [new Error('offline'), 'offline'],
+    ['offline', 'itinerary generation service is unavailable'],
+  ])('wraps fetch rejection %#', async (failure, message) => {
+    const fetchMock = jest.fn(async () => Promise.reject(failure));
+    const client = clientWith(fetchMock);
+
+    await expect(client.generateItineraries({
+      start_location: 'UBC Bus Exchange',
+      preferences: PREFERENCES,
+    })).rejects.toThrow(message);
+  });
+
+  test('reports successful responses containing invalid JSON', async () => {
+    const client = clientWith(jest.fn(async () => new Response(
+      'not-json',
+      { status: 200 },
+    )));
+
+    await expect(client.generateItineraries({
+      start_location: 'UBC Bus Exchange',
+      preferences: PREFERENCES,
+    })).rejects.toThrow('returned invalid JSON');
+  });
+
+  test.each([
+    [JSON.stringify({ error: 'Overloaded' }), 'returned 429: Overloaded'],
+    ['not-json', 'returned 500.'],
+  ])('reports alternate HTTP error payload %#', async (body, message) => {
+    const status = body === 'not-json' ? 500 : 429;
+    const client = clientWith(jest.fn(async () => new Response(body, { status })));
+
+    await expect(client.generateItineraries({
+      start_location: 'UBC Bus Exchange',
+      preferences: PREFERENCES,
+    })).rejects.toThrow(message);
+  });
+});
+
+describe('Mocked: RecommendationDao publication', () => {
+  function createDao(options: {
+    deleteFailure?: Error;
+    matchedCount?: number;
+  } = {}) {
+    const findCursor = {
+      sort: jest.fn().mockReturnThis(),
+      limit: jest.fn().mockReturnThis(),
+      toArray: jest.fn().mockResolvedValue([]),
+    };
+    const deleteMany = options.deleteFailure === undefined
+      ? jest.fn().mockResolvedValue({ deletedCount: 0 })
+      : jest.fn()
+        .mockRejectedValueOnce(options.deleteFailure)
+        .mockResolvedValueOnce({ deletedCount: 4 });
+    const collection = {
+      find: jest.fn().mockReturnValue(findCursor),
+      insertMany: jest.fn().mockResolvedValue({ insertedCount: 4 }),
+      deleteMany,
+      updateMany: jest.fn().mockResolvedValue({
+        matchedCount: options.matchedCount ?? 4,
+      }),
+    };
+    const database = {
+      collection: jest.fn().mockReturnValue(collection),
+    } as unknown as Db;
+    return { dao: new RecommendationDao(database), collection };
+  }
+
+  const inputs: RecommendedItineraryInput[] = Array.from(
+    { length: 4 },
+    (_, index) => ({
+      name: `Candidate ${index + 1}`,
+      description: `Description ${index + 1}`,
+      startingLocation: 'UBC Bus Exchange',
+      items: [],
+      score: { interestSimilarity: index / 10 },
+    }),
+  );
+
+  test('cleans up inserted candidates when deleting old recommendations fails', async () => {
+    const failure = new Error('delete failed');
+    const { dao, collection } = createDao({ deleteFailure: failure });
+
+    await expect(dao.replaceLatestRecommendations(USER_ID, inputs))
+      .rejects.toBe(failure);
+    expect(collection.deleteMany).toHaveBeenCalledTimes(2);
+  });
+
+  test('cleans up when not every candidate can be published', async () => {
+    const { dao, collection } = createDao({ matchedCount: 3 });
+
+    await expect(dao.replaceLatestRecommendations(USER_ID, inputs))
+      .rejects.toThrow('Not all generated recommendations could be published.');
+    expect(collection.deleteMany).toHaveBeenCalledTimes(2);
   });
 });

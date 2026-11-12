@@ -2,8 +2,6 @@ name: Backend tests
 
 on:
   push:
-    branches:
-      - main
 
 permissions:
   contents: read
@@ -23,6 +21,10 @@ jobs:
           --health-retries 5
     env:
       MONGODB_URI: mongodb://127.0.0.1:27017/exploreubc_test
+      SOCLAAS_ENDPOINT: ${{ secrets.SOCLAAS_ENDPOINT }}
+      SOCLAAS_API_KEY: ${{ secrets.SOCLAAS_API_KEY }}
+      SOCLAAS_MODEL: ${{ secrets.SOCLAAS_MODEL }}
+      SOCLAAS_MAX_OUTPUT_TOKENS: 16384
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -38,4 +40,4 @@ jobs:
         run: npm ci --prefix backend
 
       - name: Run backend tests
-        run: npm test --prefix backend
+        run: npm run test:combined --prefix backend

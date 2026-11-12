@@ -30,6 +30,8 @@
 | **POST /api/v1/users/:userId/itineraries/:itineraryId/transportation-segments** | [`backend/tests/no-mock/itineraries/itineraries.test.ts`](../backend/tests/no-mock/itineraries/itineraries.test.ts) | [`backend/tests/mock/itineraries/itineraries.test.ts`](../backend/tests/mock/itineraries/itineraries.test.ts) | Add a transportation segment to an itinerary in the database |
 | **PATCH /api/v1/users/:userId/itineraries/:itineraryId/transportation-segments/:segmentId** | [`backend/tests/no-mock/itineraries/itineraries.test.ts`](../backend/tests/no-mock/itineraries/itineraries.test.ts) | [`backend/tests/mock/itineraries/itineraries.test.ts`](../backend/tests/mock/itineraries/itineraries.test.ts) | Update a transportation segment in the database |
 | **DELETE /api/v1/users/:userId/itineraries/:itineraryId/transportation-segments/:segmentId** | [`backend/tests/no-mock/itineraries/itineraries.test.ts`](../backend/tests/no-mock/itineraries/itineraries.test.ts) | [`backend/tests/mock/itineraries/itineraries.test.ts`](../backend/tests/mock/itineraries/itineraries.test.ts) | Remove a transportation segment from an itinerary in the database |
+| **GET /api/v1/users/:userId/recommendations** | [`backend/tests/no-mock/recommendation/recommendation.test.ts`](../backend/tests/no-mock/recommendation/recommendation.test.ts) | [`backend/tests/mock/recommendation/recommendation.test.ts`](../backend/tests/mock/recommendation/recommendation.test.ts) | Get itineraries from the recommendation list |
+| **POST /api/v1/users/:userId/recommendations** | [`backend/tests/no-mock/recommendation/recommendation.test.ts`](../backend/tests/no-mock/recommendation/recommendation.test.ts) | [`backend/tests/mock/recommendation/recommendation.test.ts`](../backend/tests/mock/recommendation/recommendation.test.ts) | Generate itineraries with the external LLM, rank them, and replace the recommendation list |
 
 #### 2.1.2. Commit Hash Where Tests Run
 
@@ -37,9 +39,9 @@
 
 #### 2.1.3. Explanation on How to Run the Tests
 
-1. Add a reachable `MONGODB_URI` to `backend/.env`. The no-mock suites create uniquely named temporary databases and drop them after the run.
+1. Add a reachable `MONGODB_URI` and valid `SOCLAAS_ENDPOINT`, `SOCLAAS_API_KEY`, and `SOCLAAS_MODEL` values to `backend/.env`. The no-mock suites create uniquely named temporary databases and drop them after the run.
 2. From `backend`, install dependencies with `npm install`.
-3. Run the user and itinerary API suites with coverage:
+3. Run the user, itinerary, and recommendation API suites with coverage. A live recommendation POST can take up to one minute. The test retries one transient generation failure and allows up to three and a half minutes for both attempts, ranking, and persistence:
    ```sh
    npm run test:no-mock
    ```
@@ -55,15 +57,15 @@
 ### 2.3. Jest Coverage Report Screenshots With Mocks
 
 Run `npm run test:mock` to generate the HTML report under `backend/coverage/mock`.
-![Mocked test coverage](https://raw.githubusercontent.com/islamhampriv/ExploreUBC/main/documentation/images/testing-mock-coverage.png)
-The mocked user and itinerary suites cover 60.22% of statements, 47.09% of branches, 67.56% of functions, and 60.36% of lines. Lower standalone mock coverage is expected because these tests focus on database exceptions and concurrency-related error handling rather than normal API behavior.
+![Mocked test coverage](https://raw.githubusercontent.com/islamhampriv/ExploreUBC/main/documentation/images/tests-mock.png)
+The mocked user, itinerary, and recommendation suites cover 66.95% of statements, 55.86% of branches, 73.80% of functions, and 66.89% of lines. Lower standalone mock coverage is expected because these tests focus on provider failures, database exceptions, vector edge cases, and concurrency-related error handling rather than normal API behavior.
 
 ### 2.4. Jest Coverage Report Screenshots Without Mocks
 
 
 Run `npm run test:no-mock` to generate the HTML report under `backend/coverage/no-mock`.
-![No-mock test coverage](https://raw.githubusercontent.com/islamhampriv/ExploreUBC/main/documentation/images/testing-no-mock-coverage.png)
-The user and itinerary suites cover 96.10% of statements, 93.97% of branches, 99.09% of functions, and 96.07% of lines.
+![No-mock test coverage](https://raw.githubusercontent.com/islamhampriv/ExploreUBC/main/documentation/images/tests-no-mock.png)
+The no-mock user, itinerary, and recommendation suites cover 95.12% of statements, 90.74% of branches, 98.21% of functions, and 95.14% of lines.
 
 The no-mock Jest configuration enforces minimum global thresholds of 95% statements, 90% branches, 95% functions, and 95% lines.
 
@@ -71,13 +73,13 @@ The no-mock Jest configuration enforces minimum global thresholds of 95% stateme
 
 
 Run `npm run test:combined` to generate the HTML report under `backend/coverage/combined`.
-![Combined test coverage](https://raw.githubusercontent.com/islamhampriv/ExploreUBC/main/documentation/images/testing-combined-coverage.png)
-The combined user and itinerary suites cover 98.19% of statements, 97.32% of branches, 100% of functions, and 98.17% of lines.
+![Combined test coverage](https://raw.githubusercontent.com/islamhampriv/ExploreUBC/main/documentation/images/tests-combined.png)
+The combined user, itinerary, and recommendation suites cover 98.24% of statements, 97.22% of branches, 100% of functions, and 98.21% of lines. This exceeds the combined global thresholds of 98% statements, 96% branches, 99% functions, and 98% lines.
 
 ### 2.6. Coverage Justifications
 
 The no-mock run is intentionally below 100% because database/network failure branches require controlled mocks, empty Express path parameters cannot be produced through normal HTTP routing, and race conditions in which a document is removed between a service read and write cannot be triggered deterministically without mocking.
-The main remaining branches are unreachable empty Express route parameters and `findPreferences`, which belongs to the currently excluded recommendation flow. `*Types.ts` and `*Repository.ts` files contain only TypeScript types and interfaces that are erased at runtime, so both focused coverage configurations exclude them. The mock suites cover the controllable database-failure and concurrency-related branches.
+The main remaining branches are unreachable empty Express route parameters. Recommendation interface tests run in both suites; the no-mock suite covers live generation, real persistence, parsing, configuration, profile validation, and ranking, while the mock suite covers provider failures and database publication races. `*Types.ts` and `*Repository.ts` files contain only TypeScript types and interfaces that are erased at runtime, so both focused coverage configurations exclude them.
 
 ---
 
@@ -155,6 +157,7 @@ The main remaining branches are unreachable empty Express route parameters and `
 ### 4.1. Location in Git of Front-end Test Suite:
 
 - Itinerary scenarios: [`frontend/app/src/androidTest/java/com/exploreUBC/cpen321application/e2e/itineraries/ItineraryE2ETest.kt`](../frontend/app/src/androidTest/java/com/exploreUBC/cpen321application/e2e/itineraries/ItineraryE2ETest.kt)
+- Recommendation scenarios: [`frontend/app/src/androidTest/java/com/exploreUBC/cpen321application/e2e/recommendation/RecommendationE2ETest.kt`](../frontend/app/src/androidTest/java/com/exploreUBC/cpen321application/e2e/recommendation/RecommendationE2ETest.kt)
 - User scenarios: [`frontend/app/src/androidTest/java/com/exploreUBC/cpen321application/e2e/users/UserProfileE2ETest.kt`](../frontend/app/src/androidTest/java/com/exploreUBC/cpen321application/e2e/users/UserProfileE2ETest.kt)
 
 ### 4.2. Tests
@@ -277,6 +280,24 @@ The main remaining branches are unreachable empty Express route parameters and `
     | 1. The user opens an itinerary under the "Saved Itineraries" list| Open the Itinerary details <br> Check that the Itinerary details form is present and the `delete` button is present. |
     | 2. The user clicks the 'delete' button  | Check that a dialog with a message "Delete Itinerary?" is present.  |
     | 3. The user clicks the 'yes' button from the dialog | Check that Trip Screen is present <br> Check that the message "Itinerary deleted." is present <br> Check that the deleted itinerary is not present under "Saved itineraries".|
+
+- **Use Case: Generate a list of recommended itineraries** (Recommendation)
+
+  - **Expected Behaviors:**
+    | **Scenario Steps** | **Test Case Steps** |
+    | ------------------ | ------------------- |
+    | 1. The user opens the Trip tab| Check that the `Generate` button is present. |
+    | 2. The user clicks the 'Generate' button  | Check that a dialog with a message "Generate new recommendations?" is present.  |
+    | 3. The user clicks the 'confirm' button from the dialog | Check that button with a loading indicator and the message "Generating" is present.|
+    | 4. The system shows 4 new recommended itineraries | Check that a new list of 4 recommended itineraries are present|
+
+- **Use Case: Save an itinerary** (Recommendation)
+
+  - **Expected Behaviors:**
+    | **Scenario Steps** | **Test Case Steps** |
+    | ------------------ | ------------------- |
+    | 1. The user opens an itinerary under the "Recommended Itineraries" list| Open the Itinerary details <br> Check that the Itinerary details form is present and the `Save Itinerary` button is present. |
+    | 2. The user clicks the 'Save Itinerary' button  | Check that the button "+Activity" and "+Transportation" are present.|
 
 
     <!-- | 3a. The user inputs an ill-formatted string. | Input "_^_^^OQ#$" in the text field. |

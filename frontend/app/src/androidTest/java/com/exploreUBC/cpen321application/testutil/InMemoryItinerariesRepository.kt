@@ -12,6 +12,7 @@ import com.exploreUBC.cpen321application.data.itineraries.ItineraryItem
 import com.exploreUBC.cpen321application.data.itineraries.ItineraryUpdate
 import com.exploreUBC.cpen321application.data.itineraries.TransportationItem
 import com.exploreUBC.cpen321application.data.itineraries.TransportationSegmentUpdate
+import kotlinx.coroutines.CompletableDeferred
 
 internal const val E2E_USER_ID = "6705f0000000000000000001"
 internal const val E2E_ITINERARY_ID = "itinerary-1"
@@ -22,17 +23,23 @@ internal const val E2E_TRANSPORTATION_ID = "transportation-1"
 internal class InMemoryItinerariesRepository : ItinerariesRepository {
     private var revision = 1
     private var nextId = 2
+    private var recommendationsToGenerate: List<Itinerary> = emptyList()
+    private var generationRelease: CompletableDeferred<Unit>? = null
 
     var itineraries: List<Itinerary> = listOf(sampleItinerary())
         private set
 
     fun addRecommendation() {
-        itineraries = itineraries + sampleItinerary().copy(
-            id = E2E_RECOMMENDATION_ID,
-            name = "UBC Recommendation",
-            saved = false,
-            inRecommendation = true,
-        )
+        itineraries = itineraries + sampleRecommendation(1)
+    }
+
+    fun prepareRecommendationGeneration(count: Int = 4) {
+        recommendationsToGenerate = (1..count).map(::sampleRecommendation)
+        generationRelease = CompletableDeferred()
+    }
+
+    fun releaseRecommendationGeneration() {
+        generationRelease?.complete(Unit)
     }
 
     override suspend fun createItinerary(
@@ -69,7 +76,12 @@ internal class InMemoryItinerariesRepository : ItinerariesRepository {
     override suspend fun getItinerary(userId: String, itineraryId: String): Itinerary =
         requireItinerary(userId, itineraryId)
 
-    override suspend fun generateRecommendations(userId: String): List<Itinerary> = emptyList()
+    override suspend fun generateRecommendations(userId: String): List<Itinerary> {
+        generationRelease?.await()
+        val generated = recommendationsToGenerate.filter { it.ownerId == userId }
+        itineraries = itineraries.filterNot { it.inRecommendation } + generated
+        return generated
+    }
 
     override suspend fun getItineraryMap(
         userId: String,
@@ -279,4 +291,12 @@ private fun sampleItinerary() = Itinerary(
     saved = true,
     inRecommendation = false,
     score = emptyMap(),
+)
+
+private fun sampleRecommendation(index: Int) = sampleItinerary().copy(
+    id = if (index == 1) E2E_RECOMMENDATION_ID else "recommendation-$index",
+    name = if (index == 1) "UBC Recommendation" else "UBC Recommendation $index",
+    saved = false,
+    inRecommendation = true,
+    score = mapOf("interestSimilarityOutOfFive" to 5.0 - (index - 1) * 0.4),
 )

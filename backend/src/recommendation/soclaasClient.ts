@@ -13,7 +13,9 @@ type FetchFunction = (
   init?: RequestInit,
 ) => Promise<Response>;
 
-const GENERATION_TIMEOUT_MS = 60_000;
+// The provider can legitimately take a full minute to generate four complete
+// itineraries. Allow a small transport/serialization margin around that SLA.
+const GENERATION_TIMEOUT_MS = 90_000;
 
 export type SoclaasConfig = {
   endpoint: string | undefined;
