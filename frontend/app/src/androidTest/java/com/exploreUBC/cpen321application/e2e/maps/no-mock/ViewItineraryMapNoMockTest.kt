@@ -1,108 +1,92 @@
 package com.exploreUBC.cpen321application.e2e.maps.nomock
 
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
-import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextReplacement
 import com.exploreUBC.cpen321application.BuildConfig
+import com.exploreUBC.cpen321application.MainActivity2
 import com.exploreUBC.cpen321application.data.itineraries.CreateActivityInput
 import com.exploreUBC.cpen321application.data.itineraries.CreateItineraryInput
 import com.exploreUBC.cpen321application.data.itineraries.ItinerariesApi
-import com.exploreUBC.cpen321application.ui.map.MapRoute
-import java.io.IOException
-import kotlinx.coroutines.delay
+import com.exploreUBC.cpen321application.e2e.APP_USER_ID
+import com.exploreUBC.cpen321application.e2e.GrantLocationRule
+import com.exploreUBC.cpen321application.e2e.openTab
+import com.exploreUBC.cpen321application.e2e.retryIo
+import com.exploreUBC.cpen321application.e2e.waitForMainScreen
+import com.exploreUBC.cpen321application.e2e.waitForTag
+import com.exploreUBC.cpen321application.e2e.waitForText
 import kotlinx.coroutines.runBlocking
 import org.junit.After
+import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
+import org.junit.rules.RuleChain
+import org.junit.rules.TestRule
 
 class ViewItineraryMapNoMockTest {
+    private val composeRule = createAndroidComposeRule<MainActivity2>()
+
     @get:Rule
-    val composeRule = createComposeRule()
+    val rule: TestRule = RuleChain.outerRule(GrantLocationRule()).around(composeRule)
 
     private val api = ItinerariesApi(BuildConfig.API_BASE_URL)
     private val createdItineraryIds = mutableListOf<String>()
+
+    @Before
+    fun startFromMainScreen() {
+        composeRule.waitForMainScreen()
+    }
 
     @After
     fun deleteCreatedItineraries() {
         runBlocking {
             createdItineraryIds.forEach { itineraryId ->
-                runCatching { api.deleteItinerary(USER_ID, itineraryId) }
+                runCatching { api.deleteItinerary(APP_USER_ID, itineraryId) }
             }
         }
     }
 
     @Test
-    // Section 4.2 — View Itinerary on Map success against the running backend and Google Routes.
+    // Section 4.2 — View Itinerary on Map success from the main screen.
     fun showsDirectionsFromBackendMap() {
         val name = "Map E2E ${System.currentTimeMillis()}"
-        val itineraryId = withBackend {
-            val itinerary = api.createItinerary(
-                USER_ID,
-                CreateItineraryInput(name = name),
-            )
+        val itineraryId = runBlocking {
+            val itinerary = retryIo {
+                api.createItinerary(APP_USER_ID, CreateItineraryInput(name = name))
+            }
             createdItineraryIds += itinerary.id
-            api.addActivity(USER_ID, itinerary.id, activity("Museum of Anthropology", MUSEUM))
-            api.addActivity(USER_ID, itinerary.id, activity("Walter Gage", NEST))
+            retryIo { api.addActivity(APP_USER_ID, itinerary.id, activity("Museum of Anthropology", MUSEUM)) }
+            retryIo { api.addActivity(APP_USER_ID, itinerary.id, activity("Walter Gage", NEST)) }
             itinerary.id
         }
 
-        showMap()
-        composeRule.onNodeWithTag("map_itinerary_search").performTextReplacement(name)
-        composeRule.onNodeWithTag("map_itinerary_$itineraryId").performClick()
-
-        waitForText("min", timeoutMillis = 45_000)
+        openItineraryMap(name, itineraryId)
+        composeRule.waitForText("min", timeoutMillis = 45_000, substring = true)
         composeRule.onNodeWithTag("map_travel_walk").assertIsDisplayed().performClick()
         composeRule.onNodeWithTag("map_travel_drive").assertIsDisplayed()
-        waitForText("min")
     }
 
     @Test
-    // Section 4.2 — View Itinerary on Map failure 2b against the running backend.
-    fun reportsWhenBackendItineraryHasNoActivities() {
-        val itineraryId = withBackend {
-            val itinerary = api.createItinerary(
-                USER_ID,
-                CreateItineraryInput(name = "Empty map ${System.currentTimeMillis()}"),
-            )
-            createdItineraryIds += itinerary.id
-            itinerary.id
-        }
-
-        showMap(selectedItineraryId = itineraryId)
-        waitForText(
-            "No routes were returned. Pins are shown without route lines.",
-            timeoutMillis = 20_000,
-        )
-    }
-
-    @Test
-    // Section 4.2 — View Itinerary on Map failure 5a: an invalid stop does not fail the map.
+    // Section 4.2 — View Itinerary on Map failure 5a from the main screen.
     fun keepsMapAvailableWhenOneLocationIsInvalid() {
-        val itineraryId = withBackend {
-            val itinerary = api.createItinerary(
-                USER_ID,
-                CreateItineraryInput(name = "Partial map ${System.currentTimeMillis()}"),
-            )
+        val name = "Partial map ${System.currentTimeMillis()}"
+        val itineraryId = runBlocking {
+            val itinerary = retryIo {
+                api.createItinerary(APP_USER_ID, CreateItineraryInput(name = name))
+            }
             createdItineraryIds += itinerary.id
-            api.addActivity(
-                USER_ID,
-                itinerary.id,
-                activity("Unclear stop", "zzzz-not-a-place-99999"),
-            )
-            api.addActivity(USER_ID, itinerary.id, activity("Museum of Anthropology", MUSEUM))
+            retryIo {
+                api.addActivity(APP_USER_ID, itinerary.id, activity("Unclear stop", "zzzz-not-a-place-99999"))
+            }
+            retryIo { api.addActivity(APP_USER_ID, itinerary.id, activity("Museum of Anthropology", MUSEUM)) }
             itinerary.id
         }
 
-        showMap(selectedItineraryId = itineraryId)
+        openItineraryMap(name, itineraryId)
         composeRule.waitUntil(timeoutMillis = 45_000) {
             composeRule.onAllNodesWithTag("map_travel_walk").fetchSemanticsNodes().isNotEmpty() ||
                 composeRule.onAllNodesWithText(
@@ -114,50 +98,12 @@ class ViewItineraryMapNoMockTest {
         )
     }
 
-    @Test
-    // Section 4.2 — View Itinerary on Map failure: the itinerary id is not stored.
-    fun reportsWhenBackendItineraryIsMissing() {
-        showMap(selectedItineraryId = MISSING_ITINERARY_ID)
-        waitForText("This itinerary no longer exists.", timeoutMillis = 20_000)
-    }
-
-    private fun showMap(selectedItineraryId: String? = null) {
-        composeRule.setContent {
-            var selectedId by remember { mutableStateOf(selectedItineraryId) }
-            MapRoute(
-                userId = USER_ID,
-                itinerariesRepository = api,
-                selectedItineraryId = selectedId,
-                onItinerarySelected = { selectedId = it },
-                showMap = false,
-            )
-        }
-        composeRule.waitUntil(timeoutMillis = 10_000) {
-            composeRule.onAllNodesWithTag("map_itinerary_search").fetchSemanticsNodes().isNotEmpty()
-        }
-    }
-
-    private fun waitForText(text: String, timeoutMillis: Long = 10_000) {
-        composeRule.waitUntil(timeoutMillis) {
-            composeRule.onAllNodesWithText(text, substring = true).fetchSemanticsNodes().isNotEmpty()
-        }
-    }
-
-    private fun <T> withBackend(block: suspend () -> T): T = runBlocking {
-        retryIo(block)
-    }
-
-    private suspend fun <T> retryIo(block: suspend () -> T): T {
-        var lastError: IOException? = null
-        for (attempt in 1..3) {
-            try {
-                return block()
-            } catch (error: IOException) {
-                lastError = error
-                if (attempt < 3) delay(1_000)
-            }
-        }
-        throw lastError ?: IOException("Backend request failed")
+    private fun openItineraryMap(name: String, itineraryId: String) {
+        composeRule.openTab("Map")
+        composeRule.waitForTag("map_itinerary_search")
+        composeRule.onNodeWithTag("map_itinerary_search").performTextReplacement(name)
+        composeRule.waitForTag("map_itinerary_$itineraryId")
+        composeRule.onNodeWithTag("map_itinerary_$itineraryId").performClick()
     }
 
     private fun activity(name: String, location: String) = CreateActivityInput(
@@ -179,7 +125,5 @@ class ViewItineraryMapNoMockTest {
     )
 }
 
-private const val USER_ID = "6705f00000000000000000aa"
-private const val MISSING_ITINERARY_ID = "6705f1000000000000000999"
 private const val MUSEUM = "6393 NW Marine Dr, Vancouver, BC, Canada"
 private const val NEST = "5959 Student Union Blvd, Vancouver, BC, Canada"

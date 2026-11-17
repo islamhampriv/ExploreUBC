@@ -12,6 +12,8 @@ import com.exploreUBC.cpen321application.data.events.Event
 import com.exploreUBC.cpen321application.data.events.EventsRepository
 import com.exploreUBC.cpen321application.data.location.UserLocation
 import java.io.IOException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import org.json.JSONException
 
 private const val NOTIFICATION_PAGE_SIZE = 20
@@ -84,7 +86,9 @@ internal fun AppEventRecommendationEffects(
                     page = 1,
                     limit = NOTIFICATION_PAGE_SIZE,
                 )
-                state.recordRecommendations(location, recommendations, true)
+                withContext(Dispatchers.Main.immediate) {
+                    state.recordRecommendations(location, recommendations, true)
+                }
             } catch (_: IOException) {
                 // Live Events will show any loading error when the user opens it.
             } catch (_: JSONException) {

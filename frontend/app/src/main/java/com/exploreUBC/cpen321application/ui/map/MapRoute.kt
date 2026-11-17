@@ -37,6 +37,8 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.exploreUBC.cpen321application.R
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import com.exploreUBC.cpen321application.data.itineraries.ItinerariesRepository
 import com.exploreUBC.cpen321application.data.itineraries.Itinerary
 import com.exploreUBC.cpen321application.data.itineraries.ItineraryHttpException
@@ -108,13 +110,15 @@ private fun LoadSavedItineraries(
             )
         } else {
             uiState.itinerariesState = SavedItinerariesState.Loading
-            runCatching { repository.getItineraries(ownerId, saved = true) }
-                .onSuccess { uiState.itinerariesState = SavedItinerariesState.Ready(it) }
-                .onFailure {
-                    uiState.itinerariesState = SavedItinerariesState.Failed(
-                        it.message ?: "Could not load saved itineraries.",
-                    )
-                }
+            val loaded = runCatching { repository.getItineraries(ownerId, saved = true) }
+            withContext(Dispatchers.Main.immediate) {
+                loaded.onSuccess { uiState.itinerariesState = SavedItinerariesState.Ready(it) }
+                    .onFailure {
+                        uiState.itinerariesState = SavedItinerariesState.Failed(
+                            it.message ?: "Could not load saved itineraries.",
+                        )
+                    }
+            }
         }
     }
 }
@@ -153,12 +157,12 @@ private fun LoadSelectedItineraryMap(
             )
         } else {
             uiState.itineraryMapState = SelectedMapState.Loading
-            runCatching { repository.getItineraryMap(ownerId, selectedItineraryId) }
-                .onSuccess {
+            val loaded = runCatching { repository.getItineraryMap(ownerId, selectedItineraryId) }
+            withContext(Dispatchers.Main.immediate) {
+                loaded.onSuccess {
                     uiState.itineraryMapState = SelectedMapState.Ready(it)
                     uiState.selectedRouteKey = it.routes.firstOrNull()?.routeKey()
-                }
-                .onFailure { error ->
+                }.onFailure { error ->
                     uiState.itineraryMapState = if (
                         error is ItineraryHttpException && error.statusCode == 404
                     ) {
@@ -169,6 +173,7 @@ private fun LoadSelectedItineraryMap(
                         )
                     }
                 }
+            }
         }
     }
 }

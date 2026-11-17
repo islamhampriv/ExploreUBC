@@ -50,10 +50,14 @@ kotlin_test_class() {
   local file="$1" package class_name
   package="$(grep -E '^[[:space:]]*package[[:space:]]+' "$file" | head -1 \
     | sed -E 's/^[[:space:]]*package[[:space:]]+//;s/[[:space:]]*$//')"
-  class_name="$(grep -E '^[[:space:]]*(class|object)[[:space:]]+' "$file" | head -1 \
-    | sed -E 's/^[[:space:]]*(class|object)[[:space:]]+([A-Za-z0-9_]+).*/\2/')"
+  class_name="$(grep -E '^[[:space:]]*((public|internal|private|open|abstract|data|sealed)[[:space:]]+)*(class|object)[[:space:]]+' "$file" | head -1 \
+    | sed -E 's/^[[:space:]]*((public|internal|private|open|abstract|data|sealed)[[:space:]]+)*(class|object)[[:space:]]+([A-Za-z0-9_]+).*/\4/')"
   [[ -n "$package" && -n "$class_name" ]] || die "Could not resolve test class from $file"
   printf '%s.%s' "$package" "$class_name"
+}
+
+is_instrumented_test_file() {
+  grep -q '@Test' "$1"
 }
 
 discover_test_files() {
@@ -115,8 +119,12 @@ run_instrumented_tests() {
   adb shell am force-stop "$app_id" >/dev/null 2>&1 || true
 
   for file in "${TEST_FILES[@]}"; do
+    is_instrumented_test_file "$file" || continue
     classes+=("$(kotlin_test_class "$file")")
   done
+  if ((${#classes[@]} == 0)); then
+    die "No @Test classes found in app/src/androidTest/.../${subdir}/."
+  fi
   if [[ -n "${EXTRA_INSTRUMENTATION_CLASSES:-}" ]]; then
     IFS=',' read -r -a extra_classes <<< "$EXTRA_INSTRUMENTATION_CLASSES"
     for extra in "${extra_classes[@]}"; do

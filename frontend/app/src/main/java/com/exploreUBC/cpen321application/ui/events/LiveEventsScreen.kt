@@ -47,8 +47,9 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import org.json.JSONException
+import kotlinx.coroutines.withContext
 
 private const val EVENTS_PAGE_SIZE = 20
 
@@ -129,34 +130,47 @@ private fun LoadEventsEffect(
         state.isLoadingMore = !isFirstPage
         state.errorMessage = null
         if (userId.isNullOrBlank()) {
-            state.errorMessage = "User is unavailable"
-            state.isLoading = false
-            state.isLoadingMore = false
+            publishEventsLoad(
+                state,
+                isFirstPage,
+                Result.failure(IOException("User is unavailable")),
+                onFirstPageLoaded,
+            )
         } else {
-            try {
-                val newEvents = repository.getEvents(
+            val loaded = runCatching {
+                repository.getEvents(
                     userId,
                     location.latitude,
                     location.longitude,
                     state.currentPage,
                     EVENTS_PAGE_SIZE,
                 )
-                state.events = if (isFirstPage) {
-                    newEvents
-                } else {
-                    (state.events + newEvents).distinctBy { it.id }
-                }
-                if (isFirstPage) onFirstPageLoaded(newEvents)
-                state.hasMoreEvents = newEvents.size == EVENTS_PAGE_SIZE
-            } catch (error: IOException) {
-                state.errorMessage = error.message ?: "Unable to load events"
-            } catch (error: JSONException) {
-                state.errorMessage = error.message ?: "Unable to load events"
-            } finally {
-                state.isLoading = false
-                state.isLoadingMore = false
             }
+            publishEventsLoad(state, isFirstPage, loaded, onFirstPageLoaded)
         }
+    }
+}
+
+private suspend fun publishEventsLoad(
+    state: LiveEventsScreenState,
+    isFirstPage: Boolean,
+    loaded: Result<List<Event>>,
+    onFirstPageLoaded: (List<Event>) -> Unit,
+) {
+    withContext(Dispatchers.Main.immediate) {
+        loaded.onSuccess { newEvents ->
+            state.events = if (isFirstPage) {
+                newEvents
+            } else {
+                (state.events + newEvents).distinctBy { it.id }
+            }
+            if (isFirstPage) onFirstPageLoaded(newEvents)
+            state.hasMoreEvents = newEvents.size == EVENTS_PAGE_SIZE
+        }.onFailure { error ->
+            state.errorMessage = error.message ?: "Unable to load events"
+        }
+        state.isLoading = false
+        state.isLoadingMore = false
     }
 }
 
@@ -170,12 +184,14 @@ private fun LoadItinerariesEffect(
         if (state.eventToAdd != null && !userId.isNullOrBlank()) {
             state.isLoadingItineraries = true
             state.itineraryError = null
-            runCatching { repository.getItineraries(userId, saved = true) }
-                .onSuccess { state.itineraries = it }
-                .onFailure {
-                    state.itineraryError = it.message ?: "Unable to load itineraries"
-                }
-            state.isLoadingItineraries = false
+            val loaded = runCatching { repository.getItineraries(userId, saved = true) }
+            withContext(Dispatchers.Main.immediate) {
+                loaded.onSuccess { state.itineraries = it }
+                    .onFailure {
+                        state.itineraryError = it.message ?: "Unable to load itineraries"
+                    }
+                state.isLoadingItineraries = false
+            }
         }
     }
 }
