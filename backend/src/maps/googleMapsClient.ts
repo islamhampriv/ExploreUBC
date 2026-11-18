@@ -1,5 +1,6 @@
 import { env } from '../config/env';
 import type { TransportationMode } from '../users/userTypes';
+import type { MapProvider } from './mapProvider';
 import type {
   GeocodedLocation,
   MapCoordinates,
@@ -45,98 +46,97 @@ interface RoutesResponse {
   }>;
 }
 
-/**
- * Converts an address into coordinates and Google location details.
- * @param address Address to geocode.
- * @returns The matched location, or null when no location is found.
- */
-export async function geocodeAddress(
-  address: string,
-): Promise<GeocodedLocation | null> {
-  const trimmed = address.trim();
-  if (trimmed === '') {
-    return null;
-  }
-  const apiKey = requireApiKey(
-    env.googleMaps.geocodingApiKey,
-    'GEOCODING_API_KEY',
-  );
-
-  const query = new URLSearchParams({
-    address: trimmed,
-    region: 'ca',
-    key: apiKey,
-  });
-  const response = await fetch(`${GEOCODING_URL}?${query.toString()}`);
-  if (!response.ok) {
-    throw new Error(`Geocoding request failed with status ${response.status}`);
-  }
-
-  const body = (await response.json()) as GeocodingResponse;
-  if (body.status === 'ZERO_RESULTS') {
-    return null;
-  }
-  if (body.status !== 'OK') {
-    throw new Error(body.error_message ?? `Geocoding failed: ${body.status}`);
-  }
-
-  const result = body.results?.[0];
-  const latitude = result?.geometry?.location?.lat;
-  const longitude = result?.geometry?.location?.lng;
-  if (
-    result?.place_id === undefined ||
-    result.formatted_address === undefined ||
-    latitude === undefined ||
-    longitude === undefined
-  ) {
-    throw new Error('Geocoding response is missing location data');
-  }
-
-  return {
-    coordinates: { latitude, longitude },
-    formattedAddress: result.formatted_address,
-    placeId: result.place_id,
-    isApproximate: result.partial_match ?? false,
-  };
-}
-
-/**
- * Calculates a route between two coordinates.
- * @param origin Starting coordinates.
- * @param destination Ending coordinates.
- * @param transportationMode Requested transportation mode.
- * @returns The calculated route, or null when no route is found.
- */
-export async function getRoute(
-  origin: MapCoordinates,
-  destination: MapCoordinates,
-  transportationMode: TransportationMode,
-): Promise<TravelOption | null> {
-  const apiKey = requireApiKey(env.googleMaps.routesApiKey, 'ROUTES_API_KEY');
-
-  try {
-    const response = await fetch(ROUTES_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Goog-Api-Key': apiKey,
-        'X-Goog-FieldMask':
-          'routes.distanceMeters,routes.duration,routes.polyline.encodedPolyline,routes.legs.steps.navigationInstruction',
-      },
-      body: JSON.stringify({
-        origin: toWaypoint(origin),
-        destination: toWaypoint(destination),
-        travelMode: toGoogleTravelMode(transportationMode),
-      }),
-    });
-    if (!response.ok) {
-      console.error(`Routes request failed with status ${response.status}`);
+/** Google Maps implementation of the map provider boundary. */
+export class GoogleMapsClient implements MapProvider {
+  /**
+   * Converts an address into coordinates and Google location details.
+   * @returns The matched location, or null when no location is found.
+   */
+  async geocodeAddress(address: string): Promise<GeocodedLocation | null> {
+    const trimmed = address.trim();
+    if (trimmed === '') {
       return null;
     }
-    return parseTravelOption((await response.json()) as RoutesResponse);
-  } catch (error: unknown) {
-    console.error('Routes request failed', error);
-    return null;
+    const apiKey = requireApiKey(
+      env.googleMaps.geocodingApiKey,
+      'GEOCODING_API_KEY',
+    );
+
+    const query = new URLSearchParams({
+      address: trimmed,
+      region: 'ca',
+      key: apiKey,
+    });
+    const response = await fetch(`${GEOCODING_URL}?${query.toString()}`);
+    if (!response.ok) {
+      throw new Error(`Geocoding request failed with status ${response.status}`);
+    }
+
+    const body = (await response.json()) as GeocodingResponse;
+    if (body.status === 'ZERO_RESULTS') {
+      return null;
+    }
+    if (body.status !== 'OK') {
+      throw new Error(
+        body.error_message ?? `Geocoding failed: ${body.status}`,
+      );
+    }
+
+    const result = body.results?.[0];
+    const latitude = result?.geometry?.location?.lat;
+    const longitude = result?.geometry?.location?.lng;
+    if (
+      result?.place_id === undefined ||
+      result.formatted_address === undefined ||
+      latitude === undefined ||
+      longitude === undefined
+    ) {
+      throw new Error('Geocoding response is missing location data');
+    }
+
+    return {
+      coordinates: { latitude, longitude },
+      formattedAddress: result.formatted_address,
+      placeId: result.place_id,
+      isApproximate: result.partial_match ?? false,
+    };
+  }
+
+  /**
+   * Calculates a route between two coordinates.
+   * @returns The calculated route, or null when no route is found.
+   */
+  async getRoute(
+    origin: MapCoordinates,
+    destination: MapCoordinates,
+    transportationMode: TransportationMode,
+  ): Promise<TravelOption | null> {
+    const apiKey = requireApiKey(env.googleMaps.routesApiKey, 'ROUTES_API_KEY');
+
+    try {
+      const response = await fetch(ROUTES_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Goog-Api-Key': apiKey,
+          'X-Goog-FieldMask':
+            'routes.distanceMeters,routes.duration,routes.polyline.encodedPolyline,routes.legs.steps.navigationInstruction',
+        },
+        body: JSON.stringify({
+          origin: toWaypoint(origin),
+          destination: toWaypoint(destination),
+          travelMode: toGoogleTravelMode(transportationMode),
+        }),
+      });
+      if (!response.ok) {
+        console.error(`Routes request failed with status ${response.status}`);
+        return null;
+      }
+      return parseTravelOption((await response.json()) as RoutesResponse);
+    } catch (error: unknown) {
+      console.error('Routes request failed', error);
+      return null;
+    }
   }
 }
 

@@ -172,21 +172,6 @@ export function createItineraryRouter(
     }
   });
 
-  if (itineraryMapService !== undefined) {
-    router.get('/:itineraryId/map', async (request, response) => {
-      try {
-        const { userId, itineraryId } = getRouteIds(request.params);
-        const itineraryMap = await itineraryMapService.getItineraryMap(
-          userId,
-          itineraryId,
-        );
-        response.json({ itineraryMap });
-      } catch (error: unknown) {
-        sendError(response, error);
-      }
-    });
-  }
-
   router.get('/:itineraryId', async (request, response) => {
     try {
       const { userId, itineraryId } = getRouteIds(request.params);

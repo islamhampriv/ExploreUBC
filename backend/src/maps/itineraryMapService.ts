@@ -6,8 +6,8 @@ import type {
   TransportationItem,
 } from '../itineraries/itineraryTypes';
 import type { TransportationMode } from '../users/userTypes';
-import { geocodeAddress, getRoute } from './googleMaps.client';
 import type { ItineraryMapRepository } from './itineraryMapRepository';
+import type { MapProvider } from './mapProvider';
 import type {
   ItineraryMap,
   MapMarker,
@@ -28,6 +28,7 @@ export class ItineraryMapService {
   constructor(
     private readonly itineraryRepository: ItineraryRepository,
     private readonly itineraryMapRepository: ItineraryMapRepository,
+    private readonly mapProvider: MapProvider,
   ) {}
 
   /**
@@ -62,10 +63,15 @@ export class ItineraryMapService {
 
     try {
       const { markers, unmappedActivities } =
-        await createMarkers(orderedItems, itinerary.startingLocation);
+        await createMarkers(
+          orderedItems,
+          this.mapProvider,
+          itinerary.startingLocation,
+        );
       const routes = await createRoutes(
         orderedItems,
         markers,
+        this.mapProvider,
         itinerary.startingLocation,
       );
       const mapData: ItineraryMap = {
@@ -105,12 +111,13 @@ function orderItemsByStartTime(items: ItineraryItem[]): ItineraryItem[] {
 /** Geocodes activities into markers and records unresolved addresses. */
 async function createMarkers(
   items: ItineraryItem[],
+  mapProvider: MapProvider,
   startingLocation?: string,
 ): Promise<MarkerGenerationResult> {
   const markers: MapMarker[] = [];
   const unmappedActivities: UnmappedActivity[] = [];
   if (startingLocation?.trim()) {
-    const location = await geocodeAddress(startingLocation);
+    const location = await mapProvider.geocodeAddress(startingLocation);
     if (location === null) {
       unmappedActivities.push({
         activityId: STARTING_LOCATION_ID,
@@ -132,7 +139,7 @@ async function createMarkers(
     if (item.type !== 'activity') {
       continue;
     }
-    const location = await geocodeAddress(item.location);
+    const location = await mapProvider.geocodeAddress(item.location);
     if (location === null) {
       unmappedActivities.push({
         activityId: item.id,
@@ -157,6 +164,7 @@ async function createMarkers(
 async function createRoutes(
   items: ItineraryItem[],
   markers: MapMarker[],
+  mapProvider: MapProvider,
   startingLocation?: string,
 ): Promise<MapRoute[]> {
   const routes: MapRoute[] = [];
@@ -171,11 +179,8 @@ async function createRoutes(
       : []),
   ];
   for (let index = 0; index < stopIds.length - 1; index += 1) {
-    const originId = stopIds[index];
-    const destinationId = stopIds[index + 1];
-    if (originId === undefined || destinationId === undefined) {
-      continue;
-    }
+    const originId = stopIds[index]!;
+    const destinationId = stopIds[index + 1]!;
     const origin = markers.find(
       (marker) => marker.activityId === originId,
     );
@@ -194,6 +199,7 @@ async function createRoutes(
       origin,
       destination,
       transportationMode,
+      mapProvider,
     );
     if (mapRoute !== null) {
       routes.push(mapRoute);
@@ -208,10 +214,11 @@ async function buildMapRoute(
   origin: MapMarker,
   destination: MapMarker,
   transportationMode: TransportationMode,
+  mapProvider: MapProvider,
 ): Promise<MapRoute | null> {
   const [walking, driving] = await Promise.all([
-    getRoute(origin.coordinates, destination.coordinates, 'walking'),
-    getRoute(origin.coordinates, destination.coordinates, 'driving'),
+    mapProvider.getRoute(origin.coordinates, destination.coordinates, 'walking'),
+    mapProvider.getRoute(origin.coordinates, destination.coordinates, 'driving'),
   ]);
   const preferred = preferredTravelOption(
     transportationMode,

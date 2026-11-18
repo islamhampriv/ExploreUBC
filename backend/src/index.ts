@@ -11,9 +11,12 @@ import { ItineraryDao } from './itineraries/itineraryDao';
 import type { ItineraryRepository } from './itineraries/itineraryRepository';
 import { createItineraryRouter } from './itineraries/itineraryRouter';
 import { ItineraryService } from './itineraries/itineraryService';
+import { GoogleMapsClient } from './maps/googleMapsClient';
 import { ItineraryMapDao } from './maps/itineraryMapDao';
 import type { ItineraryMapRepository } from './maps/itineraryMapRepository';
+import { createItineraryMapRouter } from './maps/itineraryMapRouter';
 import { ItineraryMapService } from './maps/itineraryMapService';
+import type { MapProvider } from './maps/mapProvider';
 import { RecommendationDao } from './recommendation/recommendationDao';
 import type { RecommendationRepository } from './recommendation/recommendationRepository';
 import { createRecommendationRouter } from './recommendation/recommendationRouter';
@@ -31,6 +34,7 @@ import { UserService } from './users/userService';
 
 export type AppDependencies = {
   eventRepository?: EventRepository;
+  mapProvider?: MapProvider;
   itineraryMapRepository?: ItineraryMapRepository;
   itineraryRepository?: ItineraryRepository;
   recommendationGenerator?: ItineraryGenerator;
@@ -63,7 +67,14 @@ export function createApp(dependencies: AppDependencies = {}): Express {
         : new ItineraryMapService(
             dependencies.itineraryRepository,
             dependencies.itineraryMapRepository,
+            dependencies.mapProvider ?? new GoogleMapsClient(),
           );
+    if (itineraryMapService !== undefined) {
+      app.use(
+        '/api/v1/users/:userId/itineraries/:itineraryId/map',
+        createItineraryMapRouter(itineraryMapService),
+      );
+    }
     app.use(
       '/api/v1/users/:userId/itineraries',
       createItineraryRouter(itineraryService, itineraryMapService),

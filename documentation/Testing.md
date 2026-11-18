@@ -4,6 +4,8 @@
 
 | **Change Date**   | **Modified Sections** | **Rationale** |
 | ----------------- | --------------------- | ------------- |
+| November 18, 2026 | 2.1, 2.3–2.6         | Added mock and no-mock coverage for the itinerary map GET API and Google Maps integration. |
+| November 17, 2026 | 3.1, 3.2              | Added frontend and backend NFR coverage for secure authentication and session management. |
 | October 28, 2026  | 3.1, 3.2              | Added automated and manual verification details and results for the Accessibility NFR. |
 
 ---
@@ -22,6 +24,7 @@
 | **GET /api/v1/users/:userId/itineraries** | [`backend/tests/no-mock/itineraries/itineraries.test.ts`](../backend/tests/no-mock/itineraries/itineraries.test.ts) | [`backend/tests/mock/itineraries/itineraries.test.ts`](../backend/tests/mock/itineraries/itineraries.test.ts) | Get all itineraries for a user from the database. The itinerary-list endpoint accepts the optional Boolean query parameters `saved` and `inRecommendation`. |
 | **GET /api/v1/users/:userId/itineraries/:itineraryId/details** | [`backend/tests/no-mock/itineraries/itineraries.test.ts`](../backend/tests/no-mock/itineraries/itineraries.test.ts) | [`backend/tests/mock/itineraries/itineraries.test.ts`](../backend/tests/mock/itineraries/itineraries.test.ts) | Get an itinerary's details from the database |
 | **GET /api/v1/users/:userId/itineraries/:itineraryId** | [`backend/tests/no-mock/itineraries/itineraries.test.ts`](../backend/tests/no-mock/itineraries/itineraries.test.ts) | [`backend/tests/mock/itineraries/itineraries.test.ts`](../backend/tests/mock/itineraries/itineraries.test.ts) | Get one complete itinerary from the database |
+| **GET /api/v1/users/:userId/itineraries/:itineraryId/map** | [`backend/tests/no-mock/maps/itineraryMap.test.ts`](../backend/tests/no-mock/maps/itineraryMap.test.ts) | [`backend/tests/mock/maps/itineraryMap.test.ts`](../backend/tests/mock/maps/itineraryMap.test.ts) and [`backend/tests/mock/maps/googleMapsClient.test.ts`](../backend/tests/mock/maps/googleMapsClient.test.ts) | Generate or retrieve map data with controlled itinerary, cache, and Google Maps dependencies |
 | **PATCH /api/v1/users/:userId/itineraries/:itineraryId** | [`backend/tests/no-mock/itineraries/itineraries.test.ts`](../backend/tests/no-mock/itineraries/itineraries.test.ts) | [`backend/tests/mock/itineraries/itineraries.test.ts`](../backend/tests/mock/itineraries/itineraries.test.ts) | Update an itinerary's details in the database |
 | **DELETE /api/v1/users/:userId/itineraries/:itineraryId** | [`backend/tests/no-mock/itineraries/itineraries.test.ts`](../backend/tests/no-mock/itineraries/itineraries.test.ts) | [`backend/tests/mock/itineraries/itineraries.test.ts`](../backend/tests/mock/itineraries/itineraries.test.ts) | Delete an itinerary from the database |
 | **POST /api/v1/users/:userId/itineraries/:itineraryId/activities** | [`backend/tests/no-mock/itineraries/itineraries.test.ts`](../backend/tests/no-mock/itineraries/itineraries.test.ts) | [`backend/tests/mock/itineraries/itineraries.test.ts`](../backend/tests/mock/itineraries/itineraries.test.ts) | Add an activity to an itinerary in the database |
@@ -39,7 +42,7 @@
 
 #### 2.1.3. Explanation on How to Run the Tests
 
-1. Add a reachable `MONGODB_URI` and valid `SOCLAAS_ENDPOINT`, `SOCLAAS_API_KEY`, and `SOCLAAS_MODEL` values to `backend/.env`. The no-mock suites create uniquely named temporary databases and drop them after the run.
+1. Add a reachable `MONGODB_URI` and valid `SOCLAAS_ENDPOINT`, `SOCLAAS_API_KEY`, `SOCLAAS_MODEL`, `GEOCODING_API_KEY`, and `ROUTES_API_KEY` values to `backend/.env`. The no-mock suites create uniquely named temporary databases and drop them after the run.
 2. From `backend`, install dependencies with `npm install`.
 3. Run the user, itinerary, and recommendation API suites with coverage. A live recommendation POST can take up to one minute. The test retries one transient generation failure and allows up to three and a half minutes for both attempts, ranking, and persistence:
    ```sh
@@ -58,28 +61,27 @@
 
 Run `npm run test:mock` to generate the HTML report under `backend/coverage/mock`.
 ![Mocked test coverage](https://raw.githubusercontent.com/islamhampriv/ExploreUBC/main/documentation/images/tests-mock.png)
-The mocked user, itinerary, and recommendation suites cover 66.95% of statements, 55.86% of branches, 73.80% of functions, and 66.89% of lines. Lower standalone mock coverage is expected because these tests focus on provider failures, database exceptions, vector edge cases, and concurrency-related error handling rather than normal API behavior.
+The mocked suites cover 76.40% of statements, 66.62% of branches, 79.69% of functions, and 77.40% of lines. The map router has 100% coverage in this run. Lower standalone mock coverage is expected because these tests focus on provider failures, database exceptions, vector edge cases, and concurrency-related error handling rather than normal API behavior.
 
 ### 2.4. Jest Coverage Report Screenshots Without Mocks
 
 
 Run `npm run test:no-mock` to generate the HTML report under `backend/coverage/no-mock`.
 ![No-mock test coverage](https://raw.githubusercontent.com/islamhampriv/ExploreUBC/main/documentation/images/tests-no-mock.png)
-The no-mock user, itinerary, and recommendation suites cover 95.12% of statements, 90.74% of branches, 98.21% of functions, and 95.14% of lines.
-
-The no-mock Jest configuration enforces minimum global thresholds of 95% statements, 90% branches, 95% functions, and 95% lines.
+The current no-mock suites cover 90.37% of statements, 84.81% of branches, 96.10% of functions, and 90.34% of lines. The map suite exercises the real Express router, services, MongoDB DAOs, session ownership middleware, Google Geocoding API, and Google Routes API. This run is currently below the configured 95% statement/line and 90% branch thresholds; the shortfall is retained as a visible test failure rather than weakening the gate.
 
 ### 2.5. Jest Coverage Report Screenshots (Mock + No-Mocks)
 
 
 Run `npm run test:combined` to generate the HTML report under `backend/coverage/combined`.
 ![Combined test coverage](https://raw.githubusercontent.com/islamhampriv/ExploreUBC/main/documentation/images/tests-combined.png)
-The combined user, itinerary, and recommendation suites cover 98.24% of statements, 97.22% of branches, 100% of functions, and 98.21% of lines. This exceeds the combined global thresholds of 98% statements, 96% branches, 99% functions, and 98% lines.
+The combined suites cover 98.24% of statements, 96.76% of branches, 100% of functions, and 98.33% of lines. The maps feature reaches 98.97% of statements, 97.74% of branches, 100% of functions, and 98.95% of lines. This exceeds the combined global thresholds of 98% statements, 96% branches, 99% functions, and 98% lines.
 
 ### 2.6. Coverage Justifications
 
-The no-mock run is intentionally below 100% because database/network failure branches require controlled mocks, empty Express path parameters cannot be produced through normal HTTP routing, and race conditions in which a document is removed between a service read and write cannot be triggered deterministically without mocking.
+The no-mock run is intentionally below 100% because database/network failure branches require controlled mocks, empty Express path parameters cannot be produced through normal HTTP routing, and race conditions in which a document is removed between a service read and write cannot be triggered deterministically without mocking. Both the no-mock and combined configurations retain their coverage gates.
 The main remaining branches are unreachable empty Express route parameters. Recommendation interface tests run in both suites; the no-mock suite covers live generation, real persistence, parsing, configuration, profile validation, and ranking, while the mock suite covers provider failures and database publication races. `*Types.ts` and `*Repository.ts` files contain only TypeScript types and interfaces that are erased at runtime, so both focused coverage configurations exclude them.
+The no-mock configuration excludes `googleTokenVerifier.ts` because CI cannot non-interactively obtain a valid user Google ID token. The mocked suites cover verified identity claims, invalid claims, Google Maps response parsing, configuration failures, and transport failures.
 
 ---
 
