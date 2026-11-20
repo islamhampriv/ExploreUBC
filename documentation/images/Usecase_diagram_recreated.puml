@@ -41,7 +41,8 @@ rectangle "UBC Exchange Travel Planner" as SystemBox {
   usecase "Save a recommendation" as UC20 <<itinerary>>
   usecase "Create itinerary" as UC9 <<itinerary>>
 
-  usecase "Create or update profile" as UC5 <<profile>>
+  usecase "Create profile" as UC5 <<profile>>
+  usecase "Update profile" as UC27 <<profile>>
   usecase "Set interests" as UC6 <<profile>>
   usecase "Set budget preference" as UC7 <<profile>>
   usecase "Set transportation preferences" as UC8 <<profile>>
@@ -54,7 +55,8 @@ rectangle "UBC Exchange Travel Planner" as SystemBox {
   usecase "Reorder activities" as UC22 <<itinerary>>
   usecase "Delete itinerary" as UC23 <<itinerary>>
 
-  usecase "View map and activity locations" as UC15 <<maps>>
+  usecase "View map" as UC15 <<maps>>
+  usecase "View activity locations" as UC28 <<maps>>
   usecase "View routes between activities" as UC16 <<maps>>
   usecase "Calculate transportation cost" as UC17 <<maps>>
 
@@ -79,6 +81,7 @@ Traveller -- UC2
 Traveller -- UC3
 Traveller -- UC4
 Traveller -- UC5
+Traveller -- UC27
 Traveller -- UC6
 Traveller -- UC7
 Traveller -- UC8
@@ -93,12 +96,14 @@ Traveller -- UC13
 Traveller -- UC22
 Traveller -- UC23
 Traveller -- UC15
+Traveller -- UC28
 Traveller -- UC16
 Traveller -- UC17
 Traveller -- UC18
 Traveller -- UC24
 Traveller -- UC25
 Traveller -- UC26
+
 
 Traveller -- UC14
 UC9 <.left. UC20 : <<include>>
@@ -111,6 +116,7 @@ UC4 -[norank]- ExtAuth
 UC14 -[norank]- AIService
 UC15 -[norank]- GoogleMaps
 UC16 -[norank]- GoogleMaps
+UC28 -[norank]- GoogleMaps
 UC18 -[norank]- EventService
 UC24 -[norank]- EventService
 @enduml
