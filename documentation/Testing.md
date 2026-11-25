@@ -40,6 +40,7 @@
 
 The backend CI workflow is defined in
 [`.github/workflows/backend-tests.yml`](../.github/workflows/backend-tests.yml).
+It runs the combined backend test suite on every push using a MongoDB 7 service.
 
 ### 2.3. Jest Coverage Report Screenshots With Mocks
 

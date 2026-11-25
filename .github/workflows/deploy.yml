@@ -1,0 +1,86 @@
+name: Deploy to EC2
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ec2-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Prepare backend environment
+        env:
+          PROD_PORT: ${{ secrets.PROD_PORT }}
+          PROD_MONGODB_URI: ${{ secrets.PROD_MONGODB_URI }}
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          SESSION_TTL_DAYS: ${{ secrets.SESSION_TTL_DAYS }}
+          EVENT_SEARCH_PAGE_SIZE: ${{ secrets.EVENT_SEARCH_PAGE_SIZE }}
+          TICKETMASTER_API_KEY: ${{ secrets.TICKETMASTER_API_KEY }}
+          QWEN_TIMEOUT_MS: ${{ secrets.QWEN_TIMEOUT_MS }}
+          QWEN_ENDPOINT: ${{ secrets.QWEN_ENDPOINT }}
+          QWEN_API_KEY: ${{ secrets.QWEN_API_KEY }}
+          QWEN_MODEL: ${{ secrets.QWEN_MODEL }}
+          MAPS_API_KEY: ${{ secrets.MAPS_API_KEY }}
+          GEOCODING_API_KEY: ${{ secrets.GEOCODING_API_KEY }}
+          ROUTES_API_KEY: ${{ secrets.ROUTES_API_KEY }}
+          PLACES_API_KEY: ${{ secrets.PLACES_API_KEY }}
+        run: |
+          set -eu
+          : "${PROD_MONGODB_URI:?PROD_MONGODB_URI must be set}"
+          : "${GOOGLE_CLIENT_ID:?GOOGLE_CLIENT_ID must be set}"
+          umask 077
+          : > backend/.env
+          write_env() {
+            local escaped=${2//\'/\\\'}
+            printf "%s='%s'\n" "$1" "$escaped" >> backend/.env
+          }
+          write_env NODE_ENV production
+          write_env PORT 3000
+          write_env PROD_PORT "${PROD_PORT:-3000}"
+          write_env MONGODB_URI "$PROD_MONGODB_URI"
+          write_env GOOGLE_CLIENT_ID "$GOOGLE_CLIENT_ID"
+          write_env SESSION_TTL_DAYS "$SESSION_TTL_DAYS"
+          write_env EVENT_SEARCH_PAGE_SIZE "$EVENT_SEARCH_PAGE_SIZE"
+          write_env TICKETMASTER_API_KEY "$TICKETMASTER_API_KEY"
+          write_env QWEN_TIMEOUT_MS "$QWEN_TIMEOUT_MS"
+          write_env QWEN_ENDPOINT "$QWEN_ENDPOINT"
+          write_env QWEN_API_KEY "$QWEN_API_KEY"
+          write_env QWEN_MODEL "$QWEN_MODEL"
+          write_env MAPS_API_KEY "$MAPS_API_KEY"
+          write_env GEOCODING_API_KEY "$GEOCODING_API_KEY"
+          write_env ROUTES_API_KEY "$ROUTES_API_KEY"
+          write_env PLACES_API_KEY "$PLACES_API_KEY"
+
+      - name: Copy backend files to EC2
+        uses: appleboy/scp-action@v1.0.0
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_KEY }}
+          port: 22
+          source: "backend,database,docker-compose.deploy.yml"
+          target: "/home/ubuntu/exploreubc"
+
+      - name: Build and deploy
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_KEY }}
+          port: 22
+          script: |
+            set -eu
+            cd /home/ubuntu/exploreubc
+            chmod 600 backend/.env
+            docker compose -f docker-compose.deploy.yml --env-file backend/.env up --build -d --wait --wait-timeout 120
