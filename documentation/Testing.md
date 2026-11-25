@@ -38,7 +38,8 @@
 
 ### 2.2. GitHub Actions Configuration Location
 
-`~/.github/workflows/backend-tests.yml`
+The backend CI workflow is defined in
+[`.github/workflows/backend-tests.yml`](../.github/workflows/backend-tests.yml).
 
 ### 2.3. Jest Coverage Report Screenshots With Mocks
 
