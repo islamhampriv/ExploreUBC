@@ -6,34 +6,38 @@ flowchart LR
     android[Android App]
 
     subgraph backend[Node.js Backend]
-        api[Router]
-        account[Users]
+        api[API Router]
+        auth[Auth / Session]
+
+        users[Users]
         itinerary[Itineraries]
-        recommendation[Recommendation]
-        liveEvents[LiveEvent]
+        recommendation[Recommendations]
+        liveEvents[Live Events / Sync]
+        maps[Itinerary Maps]
+
+        api -->|Protected requests| auth
+        auth --> users & itinerary & recommendation & liveEvents & maps
     end
 
     mongo[(MongoDB)]
 
     subgraph external[External Services]
-        authProvider[Authentication Provider]
+        googleAuth[Google Auth]
+        mapsSdk[Google Maps SDK]
+        places[Google Places API]
+        mapsApi[Google Geocoding / Routes APIs]
         llm[LLM Service]
-        routing[Routing Provider]
-        eventApi[Event API]
-        mapsSdk[Maps SDK]
+        eventApi[Ticketmaster API]
     end
 
-    android <-->|REST and WebSocket| api
-    android -.->|Render maps| mapsSdk
+    android -->|REST| api
+    android -.-> googleAuth & mapsSdk & places
 
-    api --> account & itinerary & recommendation & liveEvents
-
-    account & itinerary & recommendation & liveEvents --> mongo
-    account -.->|Verify identity| authProvider
-    recommendation -.->|Generate itineraries ideas| llm
-    recommendation -.->|Calculate routes| routing
-    liveEvents -.->|Fetch events| eventApi
-    liveEvents -.->|Add to itinerary| itinerary
+    auth -.-> googleAuth
+    backend --> mongo
+    recommendation -.-> llm
+    liveEvents -.-> eventApi
+    maps -.-> mapsApi
 
     style backend fill:#C2E5FF,stroke:#3DADFF
     style external fill:#FFECBD,stroke:#FFC943
