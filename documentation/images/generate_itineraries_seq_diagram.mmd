@@ -1,55 +1,55 @@
 sequenceDiagram
     actor User
-    participant Frontend
+    participant App as FrontEnd
     participant Recommendations
     participant Users
-    participant Itineraries
+    participant DB as MongoDB
     participant LLM as LLM Service
-    participant MongoDB
 
-    User->>Frontend: void openGenerationScreen()
-    Frontend-->>User: TripRequestForm getTripRequestForm()
-
-    User->>Frontend: void submitTripRequest(TripRequest tripRequest)
-    Frontend->>Frontend: ValidationResult validateTripRequest(TripRequest tripRequest)
-
-    alt required trip input is missing or invalid
-        Frontend-->>User: void displayValidationErrors(FieldError[] errors)
-        User->>Frontend: void submitCorrectedTripRequest(TripRequest tripRequest)
-
-    else ValidationResult.isValid() == true
-        Frontend->>Recommendations: RecommendationSet generateRecommendations(String userId, TripRequest tripRequest)
-
-        Recommendations->>Users: UserPreferences getPreferences(String userId)
-        Users-->>Recommendations: UserPreferences
-
-        Recommendations->>LLM: String generateItineraries(TripRequest tripRequest, UserPreferences preferences)
-
-        alt generation or place-resolution service is unavailable or returns invalid data
-            LLM-->>Recommendations: GenerationError
-            Note over Recommendations,MongoDB: Previous recommendations remain unchanged
-            Recommendations-->>Frontend: GenerationError
-            Frontend-->>User: void displayGenerationError(GenerationError error)
-            Frontend-->>User: void enableGenerateRetry()
-
-        else external response is valid
-            LLM-->>Recommendations: String itineraryJson
-            Recommendations->>Itineraries: Itinerary[] parseAndValidateItineraries(String itineraryJson)
-            Itineraries-->>Recommendations: Itinerary[] feasibleItineraries
-
-            alt feasibleItineraries.length < 4
-                Recommendations-->>Frontend: RecommendationSet feasibleRecommendations
-                Frontend-->>User: void displayRecommendations(RecommendationSet feasibleRecommendations)
-                Frontend-->>User: void suggestRelaxingConstraints()
-
-            else feasibleItineraries.length == 4
-                Recommendations->>Recommendations: Itinerary[] rankItineraries(Itinerary[] feasibleItineraries, UserPreferences preferences)
-
-                Recommendations->>MongoDB: bool replaceLatestRecommendations(String userId, Itinerary[] rankedItineraries)
-                MongoDB-->>Recommendations: bool stored
-
-                Recommendations-->>Frontend: RecommendationSet
-                Frontend-->>User: void displayRecommendations(RecommendationSet recommendations)
+    User->>App: Open Trips
+    User->>App: Select Generate recommendations
+    App-->>User: Confirm replacement of current recommendations
+    User->>App: Confirm generation
+    App->>Recommendations: generateRecommendations(userId: string): Promise<Itinerary[]>
+    Recommendations->>Users: UserRepository.findUser(userId): Promise<User | null>
+    Users->>DB: findUser(userId)
+    DB-->>Users: User or null
+    Users-->>Recommendations: User or null
+    alt user missing or starting location blank
+        Note over Recommendations,DB: Previous recommendations remain stored.
+        Recommendations-->>App: UserNotFoundError or RecommendationProfileIncompleteError
+        App-->>User: Show profile error and offer profile completion or retry
+    else profile complete
+        Recommendations->>LLM: generateItineraries({start_location, preferences})
+        alt generation service unavailable
+            LLM-->>Recommendations: generation error
+            Note over Recommendations,DB: Previous recommendations remain stored.
+            Recommendations-->>App: generation error
+            App-->>User: Show error and allow retry
+        else generation service responds
+            LLM-->>Recommendations: itineraryJson
+            Recommendations->>Recommendations: parseItineraries(itineraryJson)
+            alt response does not contain exactly four valid itineraries
+                Note over Recommendations,DB: Previous recommendations remain stored.
+                Recommendations-->>App: invalid response error
+                App-->>User: Show generation error and allow retry
+            else response is valid
+                Recommendations->>Recommendations: rankItineraries(itineraries, interest)
+                alt ranking fails
+                    Recommendations-->>App: ranking error
+                    App-->>User: Show error and allow retry
+                else ranking succeeds
+                    Recommendations->>DB: replaceLatestRecommendations(userId, rankedItineraries)
+                    alt storage fails
+                        DB-->>Recommendations: storage error
+                        Recommendations-->>App: storage error
+                        App-->>User: Show save error and allow retry
+                    else storage succeeds
+                        DB-->>Recommendations: Itinerary[]
+                        Recommendations-->>App: Itinerary[] sorted by interest similarity
+                        App-->>User: Display ranked recommendations with activities and transportation segments
+                    end
+                end
             end
         end
     end

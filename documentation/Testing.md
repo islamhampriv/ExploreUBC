@@ -4,6 +4,9 @@
 
 | **Change Date**   | **Modified Sections** | **Rationale** |
 | ----------------- | --------------------- | ------------- |
+| November 26, 2026 | 4.2–4.3 | Linked scenario steps to individual generated E2E test results. |
+| November 26, 2026 | 4.3 | Ran all frontend E2E classes and recorded the runner output and generated result for every test. |
+| November 26, 2026 | 2.1.2, 2.3–2.5 | Reran all three backend suites on the current backend commit and captured matching folder-level and file-level coverage screenshots from each fresh report. |
 | November 20, 2026 | 2.1.2, 2.3–2.5 | Reran the backend test suites and refreshed the commit, results, coverage figures, and HTML report screenshots. |
 | November 20, 2026 | 2.1, 3.1, 3.2, 4.1   | Separated functional Authentication coverage from the Security NFR, documented session and ownership coverage, and clarified that Authentication is outside the selected frontend feature-E2E scope. |
 | November 20, 2026 | 2.1, 4.2              | Named the mocked Security dependencies and verified that every frontend use-case scenario references its Section 3.4 use-case number. |
@@ -51,7 +54,9 @@
 
 #### 2.1.2. Commit Hash Where Tests Run
 
-`28a87f5a9ac0bd34055d657babae829028c40d5a`
+`934a48e1316311b22c26edb0b47fec390cc2fe1b`
+
+All three runs used the backend source and tests at this commit. The documentation and screenshot updates are uncommitted working-tree changes.
 
 #### 2.1.3. Explanation on How to Run the Tests
 
@@ -78,22 +83,34 @@
 ### 2.3. Jest Coverage Report Screenshots With Mocks
 
 Run `npm run test:mock` to generate the HTML report under `backend/coverage/mock`.
-![Mocked test coverage](https://raw.githubusercontent.com/islamhampriv/ExploreUBC/main/documentation/images/tests-mock.png)
-The latest `npm run test:mock` run passed all 13 suites and all 225 tests in 2.148 seconds. It covers 76.83% of statements, 67.29% of branches, 79.10% of functions, and 77.46% of lines. The map router has 100% coverage in this run. Lower standalone mock coverage is expected because these tests focus on provider failures, database exceptions, vector edge cases, and concurrency-related error handling rather than normal API behavior.
+![Mocked test coverage by folder](https://raw.githubusercontent.com/islamhampriv/ExploreUBC/main/documentation/images/tests-mock.png)
+
+The file-level tables from the same report are shown below, grouped by source folder.
+![Mocked test coverage by file](https://raw.githubusercontent.com/islamhampriv/ExploreUBC/main/documentation/images/tests-mock-by-file.png)
+
+The `npm run test:mock` run passed all 13 suites and all 225 tests in 2.087 seconds. It covers 76.83% of statements, 67.29% of branches, 79.10% of functions, and 77.46% of lines. The map router has 100% coverage in this run. Lower standalone mock coverage is expected because these tests focus on provider failures, database exceptions, vector edge cases, and concurrency-related error handling rather than normal API behavior.
 
 ### 2.4. Jest Coverage Report Screenshots Without Mocks
 
 
 Run `npm run test:no-mock` to generate the HTML report under `backend/coverage/no-mock`.
-![No-mock test coverage](https://raw.githubusercontent.com/islamhampriv/ExploreUBC/main/documentation/images/tests-no-mock.png)
-The latest `npm run test:no-mock` run passed all 10 suites and all 291 tests in 153.056 seconds. It covers 96.07% of statements, 90.68% of branches, 99.65% of functions, and 96.21% of lines. The enforced no-mock thresholds are 95% of statements, 89% of branches, 99% of functions, and 95% of lines. The map suite exercises the real Express router, services, MongoDB DAOs, session ownership middleware, Google Geocoding API, and Google Routes API. External-provider clients use real HTTP against deterministic local provider servers where practical, while MongoDB and application components remain unmocked.
+![No-mock test coverage by folder](https://raw.githubusercontent.com/islamhampriv/ExploreUBC/main/documentation/images/tests-no-mock.png)
+
+The file-level tables from the same report are shown below, grouped by source folder.
+![No-mock test coverage by file](https://raw.githubusercontent.com/islamhampriv/ExploreUBC/main/documentation/images/tests-no-mock-by-file.png)
+
+The `npm run test:no-mock` run passed all 10 suites and all 291 tests in 126.319 seconds. It covers 96.07% of statements, 90.68% of branches, 99.65% of functions, and 96.21% of lines. The enforced no-mock thresholds are 95% of statements, 89% of branches, 99% of functions, and 95% of lines. The map suite exercises the real Express router, services, MongoDB DAOs, session ownership middleware, Google Geocoding API, and Google Routes API. External-provider clients use real HTTP against deterministic local provider servers where practical, while MongoDB and application components remain unmocked.
 
 ### 2.5. Jest Coverage Report Screenshots (Mock + No-Mocks)
 
 
 Run `npm run test:combined` to generate the HTML report under `backend/coverage/combined`.
-![Combined test coverage](https://raw.githubusercontent.com/islamhampriv/ExploreUBC/main/documentation/images/tests-combined.png)
-The latest `npm run test:combined` run passed all 23 suites and all 516 tests in 169.297 seconds. It covers 98.90% of statements, 97.24% of branches, 100% of functions, and 99.00% of lines. The maps feature reaches 98.97% of statements, 98.49% of branches, 100% of functions, and 98.95% of lines. This exceeds the combined global thresholds of 98% statements, 96% branches, 99% functions, and 98% lines.
+![Combined test coverage by folder](https://raw.githubusercontent.com/islamhampriv/ExploreUBC/main/documentation/images/tests-combined.png)
+
+The file-level tables from the same report are shown below, grouped by source folder.
+![Combined test coverage by file](https://raw.githubusercontent.com/islamhampriv/ExploreUBC/main/documentation/images/tests-combined-by-file.png)
+
+The `npm run test:combined` run passed all 23 suites and all 516 tests in 144.098 seconds. It covers 98.90% of statements, 97.24% of branches, 100% of functions, and 99.00% of lines. The maps feature reaches 98.97% of statements, 98.49% of branches, 100% of functions, and 98.95% of lines. This exceeds the combined global thresholds of 98% statements, 96% branches, 99% functions, and 98% lines.
 
 ### 2.6. Coverage Justifications
 
@@ -220,7 +237,11 @@ The only uncovered area is:
 
 ### 4.2. Tests
 
+<a id="e2e-steps-01"></a>
+
 - **Use Case 3.4.3.1: Create Profile** (User)
+
+  - **Log:** [firstLoginCreatesProfileWithLocationAndPreferences](#e2e-firstlogincreatesprofilewithlocationandpreferences), [incompleteProfileCanLogOut](#e2e-incompleteprofilecanlogout).
 
   The logout control below is an alternate escape path from incomplete profile creation. It verifies that this screen returns to the login screen, but it is not complete frontend E2E coverage of Authentication use case 3.4.4.3.
 
@@ -236,7 +257,11 @@ The only uncovered area is:
     | 2a. The user does not want to finish creating the profile. | Check that the `Log out` button is displayed at the bottom of the page and select it. |
     | 2a1. The stored session is cleared. | Verify that the existing logout callback runs so the application returns to the login screen. |
 
+<a id="e2e-steps-02"></a>
+
 - **Use Case 3.4.3.2: Update Profile** (User)
+
+  - **Log:** [updateDisplayNameAndStartingLocationAndValidateMaximumLength](#e2e-updatedisplaynameandstartinglocationandvalidatemaximumlength), [updateTransportationBudgetAndInterestPreferences](#e2e-updatetransportationbudgetandinterestpreferences).
 
   - **Expected Behaviors:**
     | **Scenario Steps** | **Test Case Steps** |
@@ -252,7 +277,11 @@ The only uncovered area is:
     | 7. The user selects another interest preference. | Open the interest dropdown, verify food, art, outdoors, markets, live music, and gaming are available, then select outdoors. |
     | 8. The user saves the preference changes. | Click `Save preferences`, check that `Preferences saved.` appears, and verify that the selected preferences are persisted. |
 
+<a id="e2e-steps-03"></a>
+
 - **Use Case 3.4.2.1: Create an Itinerary** (Itineraries)
+
+  - **Log:** [createItineraryFromTripsList](#e2e-createitineraryfromtripslist).
 
   - **Expected Behaviors:**
     | **Scenario Steps** | **Test Case Steps** |
@@ -261,7 +290,11 @@ The only uncovered area is:
     | 2. The user clicks the 'Create' button  | Check that a blank itinerary details form is present  |
     | 3. The user clicks 'back to itineraries' button  | Check that a new itinerary is present under "Saved Itineraries" |
 
+<a id="e2e-steps-04"></a>
+
 - **Use Case 3.4.2.3: Modify Itinerary Details** (Itineraries)
+
+  - **Log:** [modifyItineraryAndValidateMaximumLength](#e2e-modifyitineraryandvalidatemaximumlength).
 
   - **Expected Behaviors:**
     | **Scenario Steps** | **Test Case Steps** |
@@ -273,7 +306,11 @@ The only uncovered area is:
     | 3a1. The itinerary length error is displayed. | Check that the `Save details` button is disabled.<br>Check that the red error message `Name must be at most 100 characters.` is present. |
     | 4. The user clicks the  "Save details" button  | Check that the message "Itinerary details saved" is present <br> Check that the fields are updated with the input from step 3 and disabled.  |
 
+<a id="e2e-steps-05"></a>
+
 - **Use Case 3.4.2.4: Add an Activity** (Itineraries)
+
+  - **Log:** [addActivityWithFrontendFailureScenarios](#e2e-addactivitywithfrontendfailurescenarios).
 
   - **Expected Behaviors:**
     | **Scenario Steps** | **Test Case Steps** |
@@ -287,7 +324,11 @@ The only uncovered area is:
     | 3b1. The activity length error is displayed. | Check that the `Add` button is disabled.<br>Check that the red error message `Name must be at most 200 characters.` is present. |
     | 4. The user clicks the  "Add" button  | Check that the "Itinerary details" page is present <br> Check that the new activity is present (check the activity name, start time and end time, and the "Activity" tag is present). |
 
+<a id="e2e-steps-06"></a>
+
 - **Use Case 3.4.2.5: Add a Transportation Segment** (Itineraries)
+
+  - **Log:** [addTransportationWithFrontendFailureScenarios](#e2e-addtransportationwithfrontendfailurescenarios).
 
   - **Expected Behaviors:**
     | **Scenario Steps** | **Test Case Steps** |
@@ -303,7 +344,11 @@ The only uncovered area is:
     | 3c1. The transportation length error is displayed. | Check that the `Add` button is disabled.<br>Check that the red error message `Start location must be at most 500 characters.` is present. |
     | 4. The user clicks the  "Add" button  | Check that the "Itinerary details" page is present <br> Check that the new transportation is present (check the transportation mode, start time and end time, and the "Transportation" tag is present). |
 
+<a id="e2e-steps-07"></a>
+
 - **Use Case 3.4.2.9: Edit an Activity** (Itineraries)
+
+  - **Log:** [modifyAndRemoveActivity](#e2e-modifyandremoveactivity).
 
   - **Expected Behaviors:**
     | **Scenario Steps** | **Test Case Steps** |
@@ -313,7 +358,11 @@ The only uncovered area is:
     | 3. The user types "edited activity" under "Name", selects "art" under "Category", inputs "UBC Nest" under "Location", and sets start time to "2027-11-30 14:00:00" and end time to "2027-11-30 15:00:00". | Input "edited activity" in the "Name" field.<br>Select "art" in the "Category" dropdown.<br>Input "UBC Nest" in the "Location" field.<br>Check that the start and end times are displayed. |
     | 4. The user clicks the  "Save" button  | Check that the message "Activity saved." is present. |
 
+<a id="e2e-steps-08"></a>
+
 - **Use Case 3.4.2.10: Edit a Transportation Segment** (Itineraries)
+
+  - **Log:** [modifyAndRemoveTransportation](#e2e-modifyandremovetransportation).
 
   - **Expected Behaviors:**
     | **Scenario Steps** | **Test Case Steps** |
@@ -329,7 +378,11 @@ The only uncovered area is:
     | 3c1. The transportation length error is displayed. | Check that the `Save` button is disabled.<br>Check that the red error message `Start location must be at most 500 characters.` is present. |
     | 4. The user clicks the  "Save" button  | Check that the message "Transportation saved." is present. |
 
+<a id="e2e-steps-09"></a>
+
 - **Use Case 3.4.2.6: Remove an Activity** (Itineraries)
+
+  - **Log:** [modifyAndRemoveActivity](#e2e-modifyandremoveactivity).
 
   - **Expected Behaviors:**
     | **Scenario Steps** | **Test Case Steps** |
@@ -338,7 +391,11 @@ The only uncovered area is:
     | 2. The user clicks the 'delete' button  | Check that a dialog with a message "Delete Item?" is present.  |
     | 3. The user clicks the 'yes' button from the dialog | Check that Itineray Details page <br> Check that the message "Item deleted." is present <br> Check that the deleted activity is not present".|
 
+<a id="e2e-steps-10"></a>
+
 - **Use Case 3.4.2.7: Remove a Transportation Segment** (Itineraries)
+
+  - **Log:** [modifyAndRemoveTransportation](#e2e-modifyandremovetransportation).
 
   - **Expected Behaviors:**
     | **Scenario Steps** | **Test Case Steps** |
@@ -347,7 +404,11 @@ The only uncovered area is:
     | 2. The user clicks the 'delete' button  | Check that a dialog with a message "Delete Item?" is present.  |
     | 3. The user clicks the 'yes' button from the dialog | Check that Itineray Details page <br> Check that the message "Item deleted." is present <br> Check that the deleted transportation is not present".|
 
+<a id="e2e-steps-11"></a>
+
 - **Use Case 3.4.2.11: Delete an Itinerary** (Itineraries)
+
+  - **Log:** [deleteItineraryRequiresConfirmation](#e2e-deleteitineraryrequiresconfirmation).
 
   - **Expected Behaviors:**
     | **Scenario Steps** | **Test Case Steps** |
@@ -356,7 +417,11 @@ The only uncovered area is:
     | 2. The user clicks the 'delete' button  | Check that a dialog with a message "Delete Itinerary?" is present.  |
     | 3. The user clicks the 'yes' button from the dialog | Check that Trip Screen is present <br> Check that the message "Itinerary deleted." is present <br> Check that the deleted itinerary is not present under "Saved itineraries".|
 
+<a id="e2e-steps-12"></a>
+
 - **Use Case 3.4.5.1: View Itinerary on Map** (Maps)
+
+  - **Log:** [viewSavedItineraryRoutesAndDirectionsFromMainApp](#e2e-viewsaveditineraryroutesanddirectionsfrommainapp).
 
   - **Expected Behaviors:**
     | **Scenario Steps** | **Test Case Steps** |
@@ -368,7 +433,11 @@ The only uncovered area is:
     | 5. The user changes the travel mode. | Click the `Walk` control and check that walking distance, duration, directions, and route are displayed for the selected leg.<br>Click the `Drive` control and check that driving distance, duration, directions, and route are displayed for the selected leg. |
     | 6. The user opens the selected itinerary from the map. | Click the `Visit itinerary` button.<br>Check that the selected itinerary's details page is present. |
 
+<a id="e2e-steps-13"></a>
+
 - **Use Case 3.4.5.3: Browse Popular Locations** (Maps)
+
+  - **Log:** [browseAndTogglePopularLocationsFromMainApp](#e2e-browseandtogglepopularlocationsfrommainapp).
 
   - **Expected Behaviors:**
     | **Scenario Steps** | **Test Case Steps** |
@@ -379,7 +448,11 @@ The only uncovered area is:
     | 4. The user hides popular locations. | Clear the `Show popular locations` control.<br>Check that the popular-location pins are removed and the map reports `Popular locations are hidden`. |
     | 5. The user shows popular locations again. | Select the `Show popular locations` control.<br>Check that the popular-location pins return and the map reports `Popular locations are pinned nearby`. |
 
+<a id="e2e-steps-14"></a>
+
 - **Use Case 3.4.1.1: Generate Itineraries** (Recommendation)
+
+  - **Log:** [generateFourRecommendedItineraries](#e2e-generatefourrecommendeditineraries).
 
   - **Expected Behaviors:**
     | **Scenario Steps** | **Test Case Steps** |
@@ -389,7 +462,11 @@ The only uncovered area is:
     | 3. The user clicks the 'confirm' button from the dialog | Check that button with a loading indicator and the message "Generating" is present.|
     | 4. The system shows 4 new recommended itineraries | Check that a new list of 4 recommended itineraries are present|
 
+<a id="e2e-steps-15"></a>
+
 - **Use Case 3.4.1.3: Save a Recommendation** (Recommendation)
+
+  - **Log:** [saveRecommendedItineraryEnablesEditingActions](#e2e-saverecommendeditineraryenableseditingactions).
 
   - **Expected Behaviors:**
     | **Scenario Steps** | **Test Case Steps** |
@@ -398,7 +475,11 @@ The only uncovered area is:
     | 2. The user clicks the 'Save Itinerary' button  | Check that the button "+Activity" and "+Transportation" are present.|
 
 
+<a id="e2e-steps-16"></a>
+
 - **Use Case 3.4.6.1: View Event Recommendations** (Live Events)
+
+  - **Log:** [viewEventRecommendationsShowsRankedSeededEvents](#e2e-vieweventrecommendationsshowsrankedseededevents), [loadMoreAppendsTheLastEventAndHidesTheButton](#e2e-loadmoreappendsthelasteventandhidesthebutton), [showsNoEventsMessageWhenNothingMatches](#e2e-showsnoeventsmessagewhennothingmatches), [appLaunchesOnEventsScreenAndShowsSeededEventFromBackend](#e2e-applaunchesoneventsscreenandshowsseededeventfrombackend).
 
   - **Setup:** The test starts on the main screen with a known user already logged in. Before the test, the backend is seeded with the user's `live_music` interest and 21 known upcoming Music events near the default location, each with a different distance so their ranking is known. The seeded data is removed after the test.
   - **Expected Behaviors:**
@@ -414,7 +495,11 @@ The only uncovered area is:
     | 2b1. The system informs the user that no matching events are currently available. | Check that the message `No events found` and the `Refresh` button are present. |
 
   - **Omitted failure scenarios:** Failures 2a and 6a (network or server error while loading) can only be produced by replacing the frontend's backend connection with a mock, so they are not part of the required real-backend E2E suite.
+<a id="e2e-steps-17"></a>
+
 - **Use Case 3.4.6.3: Add an Event to an Itinerary** (Live Events to Itineraries)
+
+  - **Log:** [addsNonOverlappingEventToExistingItinerary](#e2e-addsnonoverlappingeventtoexistingitinerary), [createsItineraryWhenUserHasNone](#e2e-createsitinerarywhenuserhasnone), [rejectsEndTimeNotAfterEventStart](#e2e-rejectsendtimenotaftereventstart), [keepsExistingScheduleOnTimeConflict](#e2e-keepsexistingscheduleontimeconflict), [replacesConflictingItemOnTimeConflict](#e2e-replacesconflictingitemontimeconflict).
 
   - **Setup:** The test starts on the main screen with a known user already logged in, one seeded upcoming event, and one seeded saved itinerary. Before each test, the test deletes the user's itineraries and recreates one saved itinerary whose activity overlaps the first seeded event (it creates none for the no-itinerary scenario). Results are checked on screen and by reading the itinerary back from the real backend.
   - **Expected Behaviors:**
@@ -434,7 +519,11 @@ The only uncovered area is:
     | 3b3. The user replaces the conflicting items with the event. | Click the `Replace with new item` button.<br>Check that `Added to <itinerary name>.` is present.<br>Open the itinerary and check that the event is present and the conflicting item is not. |
 
   - **Omitted failure scenarios:** Failures that need the itinerary request to fail (itinerary loading error, creation error, activity insertion error, replacement error) can only be produced by mocking the frontend's backend connection, so they are not part of the required E2E suite.
+<a id="e2e-steps-18"></a>
+
 - **Use Case 3.4.6.4: Refresh Event Recommendations After a Preference Change** (Live Events)
+
+  - **Log:** [changingInterestShowsSnackbarAndLinksToNewEvents](#e2e-changinginterestshowssnackbarandlinkstonewevents).
 
   - **Setup:** The test starts on the main screen (the app opens on Events) with a known user already logged in whose interest is `outdoors`. The backend is seeded with Sports events and Music events, so changing the interest to `live_music` adds Music events to the user's first page of recommendations. The seeded data is removed after the test.
   - **Expected Behaviors:**
@@ -446,7 +535,11 @@ The only uncovered area is:
     | 3a. The new recommendations contain no new events. | Seed so the changed interest produces no event that was not already recommended. Save the changed preference. |
     | 3a1. The system displays no notification. | Check that no `new event` notification is present. |
 
+<a id="e2e-steps-19"></a>
+
 - **Use Case 3.4.6.4: Refresh Event Recommendations After a Location Change** (Live Events)
+
+  - **Log:** [movingFarAwayReplacesTheEventsAndMovingBackRestoresThem](#e2e-movingfarawayreplacestheeventsandmovingbackrestoresthem), [movingLessThanTenKilometresDoesNotRefresh](#e2e-movinglessthantenkilometresdoesnotrefresh).
 
   - **Setup:** The test starts on the main screen with a known user already logged in and location permission granted. The device location is set by the test itself (mock location), first to UBC. Before the test, the backend is seeded with the user's `outdoors` interest, 21 Sports events near UBC, and 3 Sports events ("E2E Far Event 01" to "03") near Abbotsford, about 70 km from UBC and outside the 30 km search radius. The seeded data is removed after the test.
 
@@ -471,4 +564,266 @@ The only uncovered area is:
     | 4. The user presses the "Add" button. | Click the button labelled "add ". |
     | 5. The screen refreshes and the new item is at the bottom of the todo list. | Check that a text box with the text "buy milk" is present on screen.<br>Input "buy chocolate" in the text field.<br>Click the button labelled "add".<br>Check that two text boxes are present on the screen with "buy milk" on top and "buy chocolate" at the bottom. |
     | 5a. The list exceeds the maximum todo-list size. | Repeat steps 3 to 5 ten times.<br>Check that a dialog is opened with the text: "You have too many items, try completing one first". | -->
+
+### 4.3. Frontend E2E Test Execution Log
+
+Run on November 26, 2026 (Pacific time) with `FRONTEND_TESTS_REQUIRE_SIGN_IN=0 ./scripts/run-frontend-e2e-tests.sh` on the Pixel 9 API 36 emulator. The script recreated the isolated E2E MongoDB, started the local backend, installed the app, and ran all discovered E2E classes. The tests supplied their seeded authenticated sessions. Gradle reported **27 tests completed, 0 failures, 0 errors, and 0 skipped**.
+
+**Runner output** (from the completed run):
+
+```text
+> Task :app:connectedDebugAndroidTest
+Starting 27 tests on Pixel_9(AVD) - 16
+
+Pixel_9(AVD) - 16 Tests 5/27 completed. (0 skipped) (0 failed)
+Pixel_9(AVD) - 16 Tests 9/27 completed. (0 skipped) (0 failed)
+Pixel_9(AVD) - 16 Tests 10/27 completed. (0 skipped) (0 failed)
+Pixel_9(AVD) - 16 Tests 12/27 completed. (0 skipped) (0 failed)
+Pixel_9(AVD) - 16 Tests 17/27 completed. (0 skipped) (0 failed)
+Pixel_9(AVD) - 16 Tests 19/27 completed. (0 skipped) (0 failed)
+Pixel_9(AVD) - 16 Tests 21/27 completed. (0 skipped) (0 failed)
+Pixel_9(AVD) - 16 Tests 22/27 completed. (0 skipped) (0 failed)
+Pixel_9(AVD) - 16 Tests 25/27 completed. (0 skipped) (0 failed)
+Finished 27 tests on Pixel_9(AVD) - 16
+
+BUILD SUCCESSFUL in 6m 42s
+75 actionable tasks: 1 executed, 74 up-to-date
+==> Frontend E2E tests finished.
+```
+
+**Generated per-test result lines** (from `frontend/app/build/outputs/androidTest-results/connected/debug/TEST-Pixel_9(AVD) - 16-_app-.xml`; all 27 tests passed). Each header links back to the matching Section 4.2 test steps.
+
+The generated report begins with this suite header and device metadata:
+
+```xml
+<?xml version='1.0' encoding='UTF-8' ?>
+<testsuite name="com.exploreUBC.cpen321application.e2e.events.EventItineraryE2ETest" tests="27" failures="0" errors="0" skipped="0" time="395.722" timestamp="2026-11-27T05:37:39" hostname="localhost">
+  <properties>
+    <property name="device" value="Pixel_9(AVD) - 16" />
+    <property name="flavor" value="" />
+    <property name="project" value=":app" />
+  </properties>
+```
+
+<a id="e2e-addsnonoverlappingeventtoexistingitinerary"></a>
+
+#### [EventItineraryE2ETest.addsNonOverlappingEventToExistingItinerary](#e2e-steps-17)
+
+```xml
+<testcase name="addsNonOverlappingEventToExistingItinerary" classname="com.exploreUBC.cpen321application.e2e.events.EventItineraryE2ETest" time="2.464" />
+```
+
+<a id="e2e-replacesconflictingitemontimeconflict"></a>
+
+#### [EventItineraryE2ETest.replacesConflictingItemOnTimeConflict](#e2e-steps-17)
+
+```xml
+<testcase name="replacesConflictingItemOnTimeConflict" classname="com.exploreUBC.cpen321application.e2e.events.EventItineraryE2ETest" time="1.202" />
+```
+
+<a id="e2e-keepsexistingscheduleontimeconflict"></a>
+
+#### [EventItineraryE2ETest.keepsExistingScheduleOnTimeConflict](#e2e-steps-17)
+
+```xml
+<testcase name="keepsExistingScheduleOnTimeConflict" classname="com.exploreUBC.cpen321application.e2e.events.EventItineraryE2ETest" time="2.288" />
+```
+
+<a id="e2e-createsitinerarywhenuserhasnone"></a>
+
+#### [EventItineraryE2ETest.createsItineraryWhenUserHasNone](#e2e-steps-17)
+
+```xml
+<testcase name="createsItineraryWhenUserHasNone" classname="com.exploreUBC.cpen321application.e2e.events.EventItineraryE2ETest" time="1.503" />
+```
+
+<a id="e2e-rejectsendtimenotaftereventstart"></a>
+
+#### [EventItineraryE2ETest.rejectsEndTimeNotAfterEventStart](#e2e-steps-17)
+
+```xml
+<testcase name="rejectsEndTimeNotAfterEventStart" classname="com.exploreUBC.cpen321application.e2e.events.EventItineraryE2ETest" time="1.641" />
+```
+
+<a id="e2e-loadmoreappendsthelasteventandhidesthebutton"></a>
+
+#### [LiveEventsE2ETest.loadMoreAppendsTheLastEventAndHidesTheButton](#e2e-steps-16)
+
+```xml
+<testcase name="loadMoreAppendsTheLastEventAndHidesTheButton" classname="com.exploreUBC.cpen321application.e2e.events.LiveEventsE2ETest" time="1.639" />
+```
+
+<a id="e2e-changinginterestshowssnackbarandlinkstonewevents"></a>
+
+#### [LiveEventsE2ETest.changingInterestShowsSnackbarAndLinksToNewEvents](#e2e-steps-18)
+
+```xml
+<testcase name="changingInterestShowsSnackbarAndLinksToNewEvents" classname="com.exploreUBC.cpen321application.e2e.events.LiveEventsE2ETest" time="1.52" />
+```
+
+<a id="e2e-vieweventrecommendationsshowsrankedseededevents"></a>
+
+#### [LiveEventsE2ETest.viewEventRecommendationsShowsRankedSeededEvents](#e2e-steps-16)
+
+```xml
+<testcase name="viewEventRecommendationsShowsRankedSeededEvents" classname="com.exploreUBC.cpen321application.e2e.events.LiveEventsE2ETest" time="0.718" />
+```
+
+<a id="e2e-showsnoeventsmessagewhennothingmatches"></a>
+
+#### [LiveEventsEmptyStateE2ETest.showsNoEventsMessageWhenNothingMatches](#e2e-steps-16)
+
+```xml
+<testcase name="showsNoEventsMessageWhenNothingMatches" classname="com.exploreUBC.cpen321application.e2e.events.LiveEventsEmptyStateE2ETest" time="0.867" />
+```
+
+<a id="e2e-movingfarawayreplacestheeventsandmovingbackrestoresthem"></a>
+
+#### [LiveEventsLocationChangeE2ETest.movingFarAwayReplacesTheEventsAndMovingBackRestoresThem](#e2e-steps-19)
+
+```xml
+<testcase name="movingFarAwayReplacesTheEventsAndMovingBackRestoresThem" classname="com.exploreUBC.cpen321application.e2e.events.LiveEventsLocationChangeE2ETest" time="113.194" />
+```
+
+<a id="e2e-movinglessthantenkilometresdoesnotrefresh"></a>
+
+#### [LiveEventsLocationChangeE2ETest.movingLessThanTenKilometresDoesNotRefresh](#e2e-steps-19)
+
+```xml
+<testcase name="movingLessThanTenKilometresDoesNotRefresh" classname="com.exploreUBC.cpen321application.e2e.events.LiveEventsLocationChangeE2ETest" time="75.874" />
+```
+
+<a id="e2e-applaunchesoneventsscreenandshowsseededeventfrombackend"></a>
+
+#### [LiveEventsSmokeE2ETest.appLaunchesOnEventsScreenAndShowsSeededEventFromBackend](#e2e-steps-16)
+
+```xml
+<testcase name="appLaunchesOnEventsScreenAndShowsSeededEventFromBackend" classname="com.exploreUBC.cpen321application.e2e.events.LiveEventsSmokeE2ETest" time="3.352" />
+```
+
+<a id="e2e-addtransportationwithfrontendfailurescenarios"></a>
+
+#### [ItineraryE2ETest.addTransportationWithFrontendFailureScenarios](#e2e-steps-06)
+
+```xml
+<testcase name="addTransportationWithFrontendFailureScenarios" classname="com.exploreUBC.cpen321application.e2e.itineraries.ItineraryE2ETest" time="4.939" />
+```
+
+<a id="e2e-deleteitineraryrequiresconfirmation"></a>
+
+#### [ItineraryE2ETest.deleteItineraryRequiresConfirmation](#e2e-steps-11)
+
+```xml
+<testcase name="deleteItineraryRequiresConfirmation" classname="com.exploreUBC.cpen321application.e2e.itineraries.ItineraryE2ETest" time="1.33" />
+```
+
+<a id="e2e-createitineraryfromtripslist"></a>
+
+#### [ItineraryE2ETest.createItineraryFromTripsList](#e2e-steps-03)
+
+```xml
+<testcase name="createItineraryFromTripsList" classname="com.exploreUBC.cpen321application.e2e.itineraries.ItineraryE2ETest" time="2.076" />
+```
+
+<a id="e2e-modifyitineraryandvalidatemaximumlength"></a>
+
+#### [ItineraryE2ETest.modifyItineraryAndValidateMaximumLength](#e2e-steps-04)
+
+```xml
+<testcase name="modifyItineraryAndValidateMaximumLength" classname="com.exploreUBC.cpen321application.e2e.itineraries.ItineraryE2ETest" time="2.004" />
+```
+
+<a id="e2e-modifyandremovetransportation"></a>
+
+#### [ItineraryE2ETest.modifyAndRemoveTransportation](#e2e-steps-08)
+
+Also covers [Use Case 3.4.2.7: Remove a Transportation Segment ((Itineraries))](#e2e-steps-10).
+
+```xml
+<testcase name="modifyAndRemoveTransportation" classname="com.exploreUBC.cpen321application.e2e.itineraries.ItineraryE2ETest" time="2.531" />
+```
+
+<a id="e2e-modifyandremoveactivity"></a>
+
+#### [ItineraryE2ETest.modifyAndRemoveActivity](#e2e-steps-07)
+
+Also covers [Use Case 3.4.2.6: Remove an Activity ((Itineraries))](#e2e-steps-09).
+
+```xml
+<testcase name="modifyAndRemoveActivity" classname="com.exploreUBC.cpen321application.e2e.itineraries.ItineraryE2ETest" time="2.116" />
+```
+
+<a id="e2e-addactivitywithfrontendfailurescenarios"></a>
+
+#### [ItineraryE2ETest.addActivityWithFrontendFailureScenarios](#e2e-steps-05)
+
+```xml
+<testcase name="addActivityWithFrontendFailureScenarios" classname="com.exploreUBC.cpen321application.e2e.itineraries.ItineraryE2ETest" time="3.572" />
+```
+
+<a id="e2e-browseandtogglepopularlocationsfrommainapp"></a>
+
+#### [MapE2ETest.browseAndTogglePopularLocationsFromMainApp](#e2e-steps-13)
+
+```xml
+<testcase name="browseAndTogglePopularLocationsFromMainApp" classname="com.exploreUBC.cpen321application.e2e.maps.MapE2ETest" time="5.672" />
+```
+
+<a id="e2e-viewsaveditineraryroutesanddirectionsfrommainapp"></a>
+
+#### [MapE2ETest.viewSavedItineraryRoutesAndDirectionsFromMainApp](#e2e-steps-12)
+
+```xml
+<testcase name="viewSavedItineraryRoutesAndDirectionsFromMainApp" classname="com.exploreUBC.cpen321application.e2e.maps.MapE2ETest" time="3.833" />
+```
+
+<a id="e2e-generatefourrecommendeditineraries"></a>
+
+#### [RecommendationE2ETest.generateFourRecommendedItineraries](#e2e-steps-14)
+
+```xml
+<testcase name="generateFourRecommendedItineraries" classname="com.exploreUBC.cpen321application.e2e.recommendation.RecommendationE2ETest" time="92.425" />
+```
+
+<a id="e2e-saverecommendeditineraryenableseditingactions"></a>
+
+#### [RecommendationE2ETest.saveRecommendedItineraryEnablesEditingActions](#e2e-steps-15)
+
+```xml
+<testcase name="saveRecommendedItineraryEnablesEditingActions" classname="com.exploreUBC.cpen321application.e2e.recommendation.RecommendationE2ETest" time="59.56" />
+```
+
+<a id="e2e-firstlogincreatesprofilewithlocationandpreferences"></a>
+
+#### [CreateProfileE2ETest.firstLoginCreatesProfileWithLocationAndPreferences](#e2e-steps-01)
+
+```xml
+<testcase name="firstLoginCreatesProfileWithLocationAndPreferences" classname="com.exploreUBC.cpen321application.e2e.users.CreateProfileE2ETest" time="1.709" />
+```
+
+<a id="e2e-incompleteprofilecanlogout"></a>
+
+#### [CreateProfileLogoutE2ETest.incompleteProfileCanLogOut](#e2e-steps-01)
+
+```xml
+<testcase name="incompleteProfileCanLogOut" classname="com.exploreUBC.cpen321application.e2e.users.CreateProfileLogoutE2ETest" time="1.417" />
+```
+
+<a id="e2e-updatedisplaynameandstartinglocationandvalidatemaximumlength"></a>
+
+#### [UserProfileE2ETest.updateDisplayNameAndStartingLocationAndValidateMaximumLength](#e2e-steps-02)
+
+```xml
+<testcase name="updateDisplayNameAndStartingLocationAndValidateMaximumLength" classname="com.exploreUBC.cpen321application.e2e.users.UserProfileE2ETest" time="1.664" />
+```
+
+<a id="e2e-updatetransportationbudgetandinterestpreferences"></a>
+
+#### [UserProfileE2ETest.updateTransportationBudgetAndInterestPreferences](#e2e-steps-02)
+
+```xml
+<testcase name="updateTransportationBudgetAndInterestPreferences" classname="com.exploreUBC.cpen321application.e2e.users.UserProfileE2ETest" time="2.498" />
+```
+
+The generated report ends with `</testsuite>`.
 

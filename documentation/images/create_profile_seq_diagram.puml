@@ -1,68 +1,33 @@
 @startuml
 title Use Case 5: Create Profile
-
-skinparam ArrowFontStyle plain
+hide footbox
 skinparam ParticipantStyle rectangle
 skinparam Shadowing false
-skinparam DefaultTextAlignment center
-skinparam SequenceMessageAlign center
-skinparam FontName Arial
-hide footbox
 
 actor User
-
-box "User Interface"
-participant ":CreateProfileRoute" as App
-end box
-
-box "Application Logic"
-participant ":UsersApi" as UsersApi
-participant ":UserService" as UserService
-participant ":UserDao" as UserDao
-end box
-
-box "Storage"
-database "db:MongoDB" as DB
-end box
+participant "FrontEnd" as App
+participant "Users" as Users
+database "MongoDB" as DB
 
 App -> App : Check onboardingCompletedAt
-App --> User : Display Create Profile page
-User -> App : Enter starting location and preferences
-
+App --> User : Show Create Profile page with location, transportation, budget, and interest controls
+User -> App : Enter starting location
+User -> App : Select transportation, budget, and interest preferences
 alt starting location is missing or exceeds supported length
-    App --> User : Disable Create profile and identify invalid field
-else profile input is valid
+    App --> User : Disable Create profile and identify field
+else valid profile input
     User -> App : Select Create profile
-    App -> UsersApi : updateUser(userId, profile): User
-    activate UsersApi
-    UsersApi -> UserService : PATCH /users/:userId
-    activate UserService
-    UserService -> UserDao : updateUser(userId, profile): User
-    activate UserDao
-    UserDao -> DB : findOneAndUpdate(profile, onboardingCompletedAt)
-    activate DB
-
-    alt profile saved successfully
-        DB --> UserDao : updated user
-        deactivate DB
-        UserDao --> UserService : user
-        deactivate UserDao
-        UserService --> UsersApi : user
-        deactivate UserService
-        UsersApi --> App : updated user
-        deactivate UsersApi
+    App -> Users : updateUser(userId: string, update: UserUpdate): Promise<User>
+    Users -> DB : findOneAndUpdate({ _id: objectId }, { $set: fields }, { returnDocument: 'after' })
+    note right of DB : Complete profile sets onboardingCompletedAt.
+    alt profile saved
+        DB --> Users : User
+        Users --> App : User
         App --> User : Open main application
-    else profile save fails because of a server or network error
-        DB --> UserDao : database error
-        deactivate DB
-        UserDao --> UserService : update error
-        deactivate UserDao
-        UserService --> UsersApi : error response
-        deactivate UserService
-        UsersApi --> App : network or server error
-        deactivate UsersApi
-        App --> User : Keep entries and allow retry
+    else server or network error
+        DB --> Users : error
+        Users --> App : error
+        App --> User : Keep entered values, show error, and allow retry
     end
 end
-
 @enduml

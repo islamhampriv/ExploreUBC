@@ -4,6 +4,7 @@
 
 | **Change Date**  | **Modified Sections** | **Rationale**                                                                                                                                                        |
 | ---------------- | --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| November 26, 2026 | 2, 3.1–3.5, 4.1, 4.6 | Removed an unsupported itinerary operation from the requirements and diagram; aligned recommendation inputs, behavior, interface signatures, and sequence diagrams with the implementation and dependency components. |
 | November 20, 2026 | 3.1, 3.4, 3.7, 4.1, 4.7 | Separated functional Google Authentication from the Security NFR and aligned the Security design with session restoration, renewal, hash-only persistence, and ownership enforcement. |
 | October 1, 2026  | 3.3, 3.4, 3.5         | Added actors, use case descriptions, and formal use case specifications for Feature Sets 2 and 3.                                                                    |
 | October 14, 2026 | 4.1, 4.3, 4.4         | Added main components and interfaces from the View Itinerary on Map and Browse Popular Locations sequence diagrams, plus the Google Maps API and project frameworks. |
@@ -17,7 +18,7 @@ Our project is called Explore UBC - a travel itinerary planner for UBC users who
 
 Planning a trip often means finding ideas, checking routes, and building a schedule. Travellers can sign up to create a profile with their interests, budget preference, and preferred transportation mode. They can also update their profile at any time. Our application uses Google Credential manager for authentication and session management.
 
-The central use case is creating an itinerary. Travellers can add activities and transportation to their itinerary. At any time, they can also edit, remove and reorder these activities and transportation segments when those plans change. They can also request AI itinerary recommendations based on their profile. External LLMs provide the ideas, but our backend owns the final recommendation logic. This is the technical highlight of our project.
+The central use case is creating an itinerary. Travellers can add activities and transportation to their itinerary. At any time, they can also edit or remove these activities and transportation segments when those plans change. They can also request AI itinerary recommendations based on their profile. External LLMs provide the ideas, but our backend owns the final recommendation logic. This is the technical highlight of our project.
 
 After adding activities, travellers can view activity locations on a map and see routes between them. The map also features pins for popular destinations nearby. Google Maps SDK supports these features.
 
@@ -31,7 +32,7 @@ The features in this app will facilitate the entire trip planning process for UB
 
 ### **3.1. List of Features**
 
-1. **Itinerary Recommendation**: Generates and ranks itinerary recommendations using trip constraints and user preferences.
+1. **Itinerary Recommendation**: Generates and ranks itinerary recommendations using the user's saved profile and preferences.
 2. **Itinerary Management**: Allows users to create, view, modify, and delete saved itineraries and their activities or transportation segments.
 3. **User Profile**: Stores user details and preferences used to personalize itineraries and live-event recommendations.
 4. **Authentication**: Signs users in or up with Google, connects them to their ExploreUBC account, and signs them out by revoking the current ExploreUBC session.
@@ -48,13 +49,13 @@ The features in this app will facilitate the entire trip planning process for UB
 2. **Google Maps Service**: An external mapping service that supplies map tiles, geocoded activity coordinates, transportation routes between itinerary stops, and popular nearby locations.
 3. **Ticketmaster Discovery API**: An external event service that supplies upcoming event details, venues, locations, prices, images, and ticket links used to generate live-event recommendations.
 4. **Google Authentication Service**: An external identity service that authenticates users with Google and provides identity credentials for the backend to validate.
-5. **External LLM Service**: An external AI service that generates candidate itinerary content from the user's trip constraints and preferences.
+5. **External LLM Service**: An external AI service that generates candidate itinerary content from the user's saved profile and preferences.
 
 ### **3.4. Use Case Description**
 
 #### Use Cases for Feature 1: Itinerary Recommendation
 
-1. **Generate Itineraries**: The user can generate four ranked itinerary recommendations based on trip constraints and profile preferences.
+1. **Generate Itineraries**: The user can generate four ranked itinerary recommendations based on their saved profile.
 2. **Review Recommendations**: The user reviews the latest generated itineraries and compares their activities, schedules, transportation segments, and rankings.
 3. **Save a Recommendation**: The user selects a generated recommendation to save.
 
@@ -67,10 +68,9 @@ The features in this app will facilitate the entire trip planning process for UB
 5. **Add a Transportation Segment**: The user adds a transportation segment to a saved itinerary.
 6. **Remove an Activity**: The user removes an activity from a saved itinerary.
 7. **Remove a Transportation Segment**: The user removes a transportation segment from a saved itinerary.
-8. **Reorder Itinerary Items**: The user changes the order of activities and their associated transportation segments.
-9. **Edit an Activity**: The user changes an activity's name, description, location, or time.
-10. **Edit a Transportation Segment**: The user changes a transportation segment's mode or timing.
-11. **Delete an Itinerary**: The user permanently removes a saved itinerary.
+8. **Edit an Activity**: The user changes an activity's name, description, location, or time.
+9. **Edit a Transportation Segment**: The user changes a transportation segment's mode or timing.
+10. **Delete an Itinerary**: The user permanently removes a saved itinerary.
 
 #### Use Cases for Feature 3: User Profile
 
@@ -103,29 +103,28 @@ The features in this app will facilitate the entire trip planning process for UB
 
 #### Use Case 1: Generate Itineraries
 
-**Description**: The user can generate four ranked itinerary recommendations based on trip constraints and profile preferences.
+**Description**: The user can generate four ranked itinerary recommendations based on their saved profile.
 
 **Primary actor(s)**: User
 
 **Main success scenario**:
 
-1. The user opens the itinerary-generation screen.
-2. The user enters a starting location, available time, budget, transportation mode, and any request-specific interests or constraints.
-3. The user selects **Generate Itineraries**.
-4. The system generates and ranks four feasible candidate itineraries.
-5. The system displays the four recommendations with their activities, transportation segments and rankings.
+1. The user opens Trips, where their saved profile provides the starting location and preferences.
+2. The user selects **Generate recommendations** and confirms that the current recommendations will be replaced.
+3. The system loads the user's saved profile and generates four candidate itineraries.
+4. The system validates, ranks, and saves the four itineraries as the latest recommendations.
+5. The system displays the recommendations with their activities, transportation segments, and rankings.
 
 **Failure scenario(s)**:
 
-- 3a. One or more required trip inputs are missing or invalid.
-  - 3a1. The system identifies the invalid fields.
-  - 3a2. The user corrects the inputs and submits the request again.
-- 4a. An external generation or place-resolution service is unavailable or returns invalid data.
-  - 4a1. The system does not replace the user's previous recommendation set.
-  - 4a2. The system informs the user that recommendations could not be generated and allows another attempt.
-- 4b. Fewer than four feasible itineraries satisfy the user's constraints.
-  - 4b1. The system displays the feasible itineraries that were found.
-  - 4b2. The system suggests relaxing the time, transportation, or interest constraints.
+- 3a. The saved profile has no starting location or the user cannot be found.
+  - 3a1. The system leaves the previous recommendations unchanged.
+  - 3a2. The system reports the profile error so the user can complete their profile or retry.
+- 3b. The external generation service is unavailable or does not return exactly four valid itineraries.
+  - 3b1. The system rejects the response and leaves the previous recommendations unchanged.
+  - 3b2. The system informs the user that generation failed and allows another attempt.
+- 4a. Ranking or storage fails.
+  - 4a1. The system reports the failure and allows another attempt.
 
 #### Use Case 2: Edit an Activity
 
@@ -162,6 +161,8 @@ The features in this app will facilitate the entire trip planning process for UB
 
 **Primary actor(s)**: User
 
+**Preconditions**: The user has already been verified.
+
 **Main success scenario**:
 
 1. The user opens ExploreUBC and navigates to their saved itineraries.
@@ -175,9 +176,6 @@ The features in this app will facilitate the entire trip planning process for UB
 
 **Failure scenario(s)**:
 
-- 1a. The user is not authenticated.
-  - 1a1. The system prompts the user to sign in.
-  - 1a2. After successful authentication, the use case resumes at step 1. Otherwise, the use case ends.
 - 2a. The user has no saved itineraries.
   - 2a1. The system shows an empty-state message explaining that an itinerary must be created first.
   - 2a2. The use case ends.
@@ -208,7 +206,7 @@ The features in this app will facilitate the entire trip planning process for UB
 
 - The user has a saved interest preference.
 - The application can provide the user's current location or a default location.
-- The system has previously synchronized Ticketmaster events into MongoDB.
+- The system has a catalog of upcoming events available for recommendations.
 
 **Main success scenario**:
 
@@ -265,8 +263,11 @@ The features in this app will facilitate the entire trip planning process for UB
    - **Description**: On application startup, a stored ExploreUBC session must be restored only when the backend validates it; a valid restored session must have its expiry renewed. Missing, malformed, unknown, expired, or revoked sessions must be rejected, and an expired session must be removed from persistence. The backend must store only a cryptographic hash of each session token. Every protected user-scoped request must be authenticated, and a session for one user must receive `403 Forbidden` when it requests a resource owned by another user. When restoration is rejected with `401 Unauthorized`, the frontend must clear the stored session and return to the authentication screen.
    - **Justification**: Session validation, renewal, revocation, hash-only persistence, and ownership enforcement prevent a previously issued or cross-user credential from granting unauthorized access after authentication has completed.
 2. <a id="nfr2"></a>**Accessibility**
-   - **Description**: 100% of the primary navigation destinations (Events, Trips, Map, and Profile) must expose their destination names to TalkBack, consistent with WCAG 2.2 Success Criterion 4.1.2 (Name, Role, Value). Each navigation target must be at least 48 x 48 dp, addressing WCAG 2.2 Success Criterion 2.5.8 (Target Size (Minimum)); the 48 dp target follows Android guidance and is larger than WCAG's minimum target. At 200% Android font scaling, the primary navigation labels must remain visible and each destination must remain operable, consistent with WCAG 2.2 Success Criterion 1.4.4 (Resize Text).
-   - **Justification**: Clear navigation labels, sufficiently large touch targets, and support for larger text make the app's main sections easier to identify and access.
+   - **Description**: Users must be able to find and open all four main sections (Events, Trips, Map, and Profile), including when they use a screen reader or larger text. This is checked in three ways:
+     1. **Screen reader labels**: TalkBack, Android's built-in screen reader, must announce the correct destination name for each of the four navigation items.
+     2. **Touch targets**: Each navigation item must have a tappable area of at least 48 × 48 dp (density-independent pixels), the size recommended by Android for touch controls.
+     3. **Larger text**: When Android's font size is set to 200%, all four navigation labels must remain visible and each item must still be usable.
+   - **Justification**: TalkBack is the screen reader provided for Android, so testing with it directly checks whether users who rely on spoken feedback can navigate this Android app. The Web Content Accessibility Guidelines (WCAG) are accessibility guidelines published by the World Wide Web Consortium (W3C) and provide a recognized benchmark for clear control names, usable touch targets, and text that can be enlarged (WCAG 2.2 criteria 4.1.2, 2.5.8, and 1.4.4, respectively). Android's 48 dp recommendation gives a platform-specific, measurable touch target. Together, these checks make the app's main sections easier to identify and access.
 
 ---
 
@@ -274,69 +275,73 @@ The features in this app will facilitate the entire trip planning process for UB
 
 ### **4.1. Main Components**
 
+Backend signatures use TypeScript notation; the two Android map-client signatures use Kotlin notation.
+
 1. **Itineraries**
-   - **Purpose and rationale**: Owns the saved-itinerary aggregate, including itinerary details, activities, transportation segments, ordering, conflict resolution, and deletion. These operations are grouped because they enforce the same ownership, scheduling, and item-order invariants; keeping them in one component prevents those rules from being duplicated across activity and transportation workflows.
+   - **Purpose and rationale**: Owns the saved-itinerary aggregate, including itinerary details, activities, transportation segments, conflict resolution, and deletion. These operations are grouped because they enforce the same ownership and scheduling rules in one component.
    - **Interfaces**:
-     1. `Itinerary createItinerary(String userId, ItineraryDetails details)`
+     1. `createItinerary(userId: string, itinerary: CreateItineraryInput): Promise<Itinerary>`
         - **Purpose [3.4.2.1]**: Creates a saved itinerary for a user.
-     2. `Itinerary[] getItineraries(String userId, ItineraryFilters filters)`
+     2. `getItineraries(userId: string, filters: ItineraryFilters = {}): Promise<Itinerary[]>`
         - **Purpose [3.4.2.2]**: Lists a user's saved itineraries.
-     3. `Itinerary getItinerary(String userId, String itineraryId)`
+     3. `getItineraryDetails(userId: string, itineraryId: string): Promise<ItineraryDetails>`
+        - **Purpose [3.4.2.2]**: Retrieves one saved itinerary's editable details.
+     4. `getItinerary(userId: string, itineraryId: string): Promise<Itinerary>`
         - **Purpose [3.4.2.2]**: Retrieves one saved itinerary.
-     4. `Itinerary updateItineraryDetails(String userId, String itineraryId, ItineraryDetailsUpdate details)`
+     5. `updateItineraryDetails(userId: string, itineraryId: string, details: ItineraryDetailsUpdate): Promise<Itinerary>`
         - **Purpose [3.4.2.3]**: Updates a saved itinerary's editable details.
-     5. `Activity addActivity(String userId, String itineraryId, ActivityInput activity, bool replaceConflicts)`
+     6. `addActivity(userId: string, itineraryId: string, activityInput: CreateActivityInput, replaceConflicts = false): Promise<ActivityItem>`
         - **Purpose [3.4.2.4]**: Adds an activity and optionally replaces conflicting items.
-     6. `TransportationSegment addTransportationSegment(String userId, String itineraryId, TransportationSegmentInput segment, bool replaceConflicts)`
+     7. `addTransportationSegment(userId: string, itineraryId: string, segmentInput: CreateTransportationInput, replaceConflicts = false): Promise<TransportationItem>`
         - **Purpose [3.4.2.5]**: Adds a transportation segment and optionally replaces conflicting items.
-     7. `bool removeActivity(String userId, String itineraryId, String activityId)`
+     8. `removeActivity(userId: string, itineraryId: string, activityId: string): Promise<boolean>`
         - **Purpose [3.4.2.6]**: Removes an activity.
-     8. `bool removeTransportationSegment(String userId, String itineraryId, String segmentId)`
+     9. `removeTransportationSegment(userId: string, itineraryId: string, segmentId: string): Promise<boolean>`
         - **Purpose [3.4.2.7]**: Removes a transportation segment.
-     9. `Itinerary reorderItineraryItems(String userId, String itineraryId, String[] orderedItemIds)`
-        - **Purpose [3.4.2.8]**: Reorders itinerary items while preserving their associations.
-     10. `Activity updateActivity(String userId, String itineraryId, String activityId, ActivityUpdate update, bool replaceConflicts)`
-         - **Purpose [3.4.2.9]**: Updates an activity and optionally replaces conflicts.
-     11. `TransportationSegment updateTransportationSegment(String userId, String itineraryId, String segmentId, TransportationSegmentUpdate update, bool replaceConflicts)`
-         - **Purpose [3.4.2.10]**: Updates a transportation segment and optionally replaces conflicts.
-     12. `bool deleteItinerary(String userId, String itineraryId)`
-         - **Purpose [3.4.2.11]**: Deletes a saved itinerary.
+     10. `updateActivity(userId: string, itineraryId: string, activityId: string, update: ActivityUpdate, replaceConflicts = false): Promise<ActivityItem>`
+         - **Purpose [3.4.2.8]**: Updates an activity and optionally replaces conflicts.
+     11. `updateTransportationSegment(userId: string, itineraryId: string, segmentId: string, update: TransportationSegmentUpdate, replaceConflicts = false): Promise<TransportationItem>`
+         - **Purpose [3.4.2.9]**: Updates a transportation segment and optionally replaces conflicts.
+     12. `deleteItinerary(userId: string, itineraryId: string): Promise<boolean>`
+         - **Purpose [3.4.2.10]**: Deletes a saved itinerary.
 2. **Users**
    - **Purpose and rationale**: Owns account identity, authentication state, profile fields, and personalization preferences. These concerns are grouped around the user lifecycle and share the same authorization boundary; centralizing them also gives `Recommendations` and `LiveEvents` one authoritative source for profile data.
    - **Interfaces**:
-     1. `User getUser(String userId)`
+     1. `getUser(userId: string): Promise<User>`
         - **Purpose [3.4.3.1, 3.4.3.2]**: Retrieves a user's complete profile and profile-creation state.
-     2. `User updateUser(String userId, UserUpdate update)`
+     2. `updateUser(userId: string, update: UserUpdate): Promise<User>`
         - **Purpose [3.4.3.1–3.4.3.5]**: Creates or updates editable profile fields and preferences and returns the complete user.
-     3. `AuthResult authenticateWithGoogle(String idToken)`
+     3. `authenticateWithGoogle(idToken: string): Promise<GoogleAuthResult>`
         - **Purpose [3.4.4.1, 3.4.4.2]**: Verifies a Google identity and returns the associated user and ExploreUBC session.
-     4. `SessionResult getCurrentSession(String sessionToken)`
+     4. `getCurrentSession(sessionToken: string): Promise<CurrentSessionResult>`
         - **Purpose [NFR1]**: Restores a valid authenticated session and refreshes its expiry.
-     5. `void logout(String sessionToken)`
+     5. `logout(sessionToken: string): Promise<void>`
         - **Purpose [3.4.4.3]**: Revokes the current session.
 3. **LiveEvents**
    - **Purpose and rationale**: Owns Ticketmaster synchronization, event normalization, nearby-event filtering, and personalized event ranking. This logic is isolated because it depends on an external provider and geospatial/time-based rules with a refresh cadence separate from saved-itinerary operations.
    - **Interfaces**:
-     1. `SyncResult syncEvents()`
+     1. `syncEvents(repository: EventRepository): Promise<{ pageCount: number; eventCount: number; matchedCount: number; modifiedCount: number; upsertedCount: number; expiredCount: number; staleCount: number }>`
         - **Purpose [3.4.6.1]**: Retrieves available Ticketmaster pages, maps the results, upserts events, and removes expired or stale events after a successful complete sync.
-     2. `RecommendedLiveEvent[] getRecommendedEvents(String userId, EventRecommendationOptions options)`
+     2. `getRecommendedEvents(userId: string, options: EventRecommendationOptions): Promise<RecommendedLiveEvent[]>`
         - **Purpose [3.4.6.1]**: Retrieves, scores, filters, sorts, and paginates personalized event recommendations.
 4. **Recommendations**
    - **Purpose and rationale**: Owns the recommendation pipeline from profile-aware generation through validation, ranking, and publication of the latest recommendation set. These steps are grouped because they form one consistency boundary: invalid or incomplete generated candidates must never replace the user's last valid recommendations.
    - **Interfaces**:
-     1. `RecommendationSet findLatestRecommendations(String userId)`
+     1. `findLatestRecommendations(userId: string): Promise<Itinerary[]>`
         - **Purpose [3.4.1.2]**: Retrieves the user's latest recommendation set.
-     2. `RecommendationSet generateRecommendations(String userId, TripRequest tripRequest)`
-        - **Purpose [3.4.1.1]**: Generates itinerary recommendations for a user.
+     2. `generateRecommendations(userId: string): Promise<Itinerary[]>`
+        - **Purpose [3.4.1.1]**: Generates itinerary recommendations using the user's stored profile.
 5. **Maps:**
    - **Purpose and rationale**: Owns map-specific translation of itinerary locations into markers and routes, plus cache reuse and invalidation. Geocoding, directions, and provider fallbacks are grouped here to shield the rest of the application from Google Maps details and to keep partial-location and unavailable-route behavior consistent.
    - **Interfaces**:
-     1. `ItineraryMap getItineraryMap(String userId, String itineraryId)`
+     1. `getItineraryMap(userId: string, itineraryId: string): Promise<ItineraryMap>`
         - **Purpose [3.4.5.1]**: Returns current cached map data or generates new markers and routes for an itinerary.
-     2. `AddressAutocompleteResult autocompleteAddresses(String query)`
+     2. `deleteItineraryMap(itineraryId: string): Promise<void>`
+        - **Purpose [3.4.2.10]**: Deletes cached map data after its itinerary is deleted.
+     3. `fun autocompleteAddresses(query: String): AddressAutocompleteResult`
         - **Purpose [3.4.5.1]**: Retrieves Google Places address suggestions for itinerary locations.
-     3. `PopularPlace[] browsePopularLocations(LatLng center)`
-        - **Purpose [3.4.5.3]**: Returns popular locations near the selected map region.
+     4. `fun fetchPopularPlaces(center: LatLng): List<PopularPlace>?`
+        - **Purpose [3.4.5.3]**: Returns popular locations near the selected map region, or `null` when unavailable.
 
 ### **4.2. Databases**
 

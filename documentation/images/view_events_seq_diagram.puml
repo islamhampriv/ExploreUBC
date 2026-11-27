@@ -1,86 +1,56 @@
 @startuml
 title Use Case 4: View Event Recommendations
-
-skinparam ArrowFontStyle plain
+hide footbox
 skinparam ParticipantStyle rectangle
 skinparam Shadowing false
-skinparam DefaultTextAlignment center
-skinparam SequenceMessageAlign center
-skinparam SequenceBoxFontSize 15
-skinparam SequenceBoxPadding 0
-skinparam FontName Arial
-skinparam NoteBackgroundColor white
-skinparam NoteBorderColor black
-hide footbox
 
 actor User
+participant "FrontEnd" as App
+participant "LiveEvents" as Events
+participant "Users" as Users
+database "MongoDB" as DB
 
-box "User Interface"
-participant ":ExploreUBCApp" as App
-end box
-
-box "Application Logic"
-participant ":EventRecommendation" as EventRecommendation
-end box
-
-box "Storage"
-participant "db:MongoDB" as DB
-end box
-
-note over EventRecommendation, DB
-Ticketmaster events have already been
-synchronized and stored in MongoDB.
+note over Events, DB
+Ticketmaster events were synchronized into MongoDB earlier.
 end note
 
 User -> App : Open Live Events
-activate App
-
-App -> EventRecommendation : getRecommendedEvents(userId: UserId, location: GeoPoint, page: int, limit: int): RecommendedLiveEvent[]
-activate EventRecommendation
-
-alt recommendations retrieved successfully
-    EventRecommendation -> DB : findPreferences(userId: UserId): UserPreferences
-    activate DB
-    DB --> EventRecommendation : preferences: UserPreferences
-    deactivate DB
-
-    EventRecommendation -> DB : findNearbyUpcomingEvents(query: NearbyEventQuery): LiveEventCandidate[]
-    activate DB
-    DB --> EventRecommendation : candidates: LiveEventCandidate[]
-    deactivate DB
-
-    note over EventRecommendation
-    Score, filter, sort, and paginate candidates.
-    end note
-
-    EventRecommendation --> App : recommendedEvents: RecommendedLiveEvent[]
-    deactivate EventRecommendation
-
+App -> Events : getRecommendedEvents(userId: string, options: EventRecommendationOptions): Promise<RecommendedLiveEvent[]>
+alt initial retrieval fails because of network or server error
+    Events --> App : retrieval error
+    App --> User : Keep existing cards and offer retry
+else recommendations retrieved
+    Events -> Users : UserRepository.findPreferences(userId): Promise<UserPreferences | null>
+    Users -> DB : findPreferences(userId)
+    DB --> Users : UserPreferences
+    Users --> Events : UserPreferences
+    Events -> DB : findNearbyUpcomingEvents(query)
+    DB --> Events : LiveEventCandidate[]
+    Events -> Events : Score, filter, sort, and paginate
+    Events --> App : RecommendedLiveEvent[]
     alt recommendations found
-        App --> User : Display event cards
-
-        opt User loads more recommendations
-            User -> App : Load more events
-            App -> EventRecommendation : getRecommendedEvents(userId: UserId, location: GeoPoint, nextPage: int, limit: int): RecommendedLiveEvent[]
-            activate EventRecommendation
-            alt next page retrieved
-                EventRecommendation --> App : additionalEvents: RecommendedLiveEvent[]
-                deactivate EventRecommendation
-                App --> User : Display additional event cards
-            else next page retrieval fails
-                EventRecommendation --> App : error: RetrievalError
-                deactivate EventRecommendation
+        App --> User : Display event cards and indicate whether more are available
+        User -> App : Review recommended events
+        opt user loads more
+            User -> App : Load next page
+            App -> Events : getRecommendedEvents(userId: string, options: EventRecommendationOptions): Promise<RecommendedLiveEvent[]>
+            alt next page fails to load
+                Events --> App : retrieval error
                 App --> User : Keep existing cards and offer retry
+            else next page retrieved
+                Events -> Users : UserRepository.findPreferences(userId): Promise<UserPreferences | null>
+                Users -> DB : findPreferences(userId)
+                DB --> Users : UserPreferences
+                Users --> Events : UserPreferences
+                Events -> DB : findNearbyUpcomingEvents(query)
+                DB --> Events : LiveEventCandidate[]
+                Events -> Events : Score, filter, sort, and paginate next page
+                Events --> App : RecommendedLiveEvent[]
+                App --> User : Append event cards
             end
         end
     else no recommendations
-        App --> User : Display no-events message
+        App --> User : Display no-matching-events message
     end
-else initial retrieval fails because of a network or server error
-    EventRecommendation --> App : error: RetrievalError
-    deactivate EventRecommendation
-    App --> User : Keep displayed recommendations and offer retry
 end
-
-deactivate App
 @enduml

@@ -1,81 +1,61 @@
 sequenceDiagram
     actor User
-    participant Frontend
+    participant App as FrontEnd
     participant Itineraries
-    participant MongoDB
+    participant DB as MongoDB
 
-    User->>Frontend: void openItinerary(String itineraryId)
-    Frontend->>Itineraries: Itinerary getItinerary(String userId, String itineraryId)
-    Itineraries->>MongoDB: Itinerary findItinerary(String userId, String itineraryId)
-    MongoDB-->>Itineraries: Itinerary
-    Itineraries-->>Frontend: Itinerary
-    Frontend-->>User: void displayItinerary(Itinerary itinerary)
+    User->>App: Open saved itinerary
+    App->>Itineraries: getItinerary(userId: string, itineraryId: string): Promise<Itinerary>
+    Itineraries->>DB: findItinerary(userId, itineraryId)
+    DB-->>Itineraries: Itinerary
+    Itineraries-->>App: Itinerary
+    App-->>User: Display itinerary
+    User->>App: Select activity
+    App-->>User: Display activity details
+    User->>App: Select Edit
+    App-->>User: Display activity editor
 
-    User->>Frontend: void selectActivity(String activityId)
-    Frontend->>Frontend: Activity findActivity(Itinerary itinerary, String activityId)
-    Frontend-->>User: void displayActivityDetails(Activity activity)
-
-    User->>Frontend: void openActivityEditor(String activityId)
-    Frontend-->>User: ActivityForm getActivityForm(Activity activity)
-
-    User->>Frontend: void updateActivityForm(ActivityUpdate update)
-    Frontend->>Frontend: ValidationResult validateActivityTime(ActivityUpdate update)
-
-    alt start or end time is invalid
-        Frontend-->>User: void disableSave()
-        Frontend-->>User: void displayValidationErrors(FieldError[] errors)
-
-    else activity time is valid
-        Frontend-->>User: void enableSave()
-        User->>Frontend: void saveActivity()
-
-        Frontend->>Itineraries: Conflict[] findScheduleConflicts(String itineraryId, String activityId, ActivityUpdate update)
-        Itineraries-->>Frontend: Conflict[] conflicts
-
-        alt conflicts.length > 0
-            Frontend-->>User: void displayConflicts(Conflict[] conflicts)
-            Frontend-->>User: ConflictChoice askKeepOrReplace()
-
-            alt user keeps existing schedule
-                User->>Frontend: void keepExistingSchedule()
-                Frontend-->>User: void displayActivityDetails(Activity originalActivity)
-
-            else user replaces conflicting items
-                User->>Frontend: void replaceConflictingItems()
-                Frontend->>Itineraries: Activity updateActivity(String userId, String itineraryId, String activityId, ActivityUpdate update, bool replaceConflicts)
-                Itineraries->>MongoDB: bool replaceConflictsAndUpdateActivity(String userId, String itineraryId, String activityId, ActivityUpdate update)
-
-                alt stored == true
-                    MongoDB-->>Itineraries: bool stored
-                    Itineraries-->>Frontend: Activity updatedActivity
-                    Frontend->>Frontend: void replaceActivity(Itinerary itinerary, Activity updatedActivity)
-                    Frontend-->>User: void displayActivityDetails(Activity updatedActivity)
-
-                else stored == false because of server or network error
-                    MongoDB-->>Itineraries: StorageError
-                    Note over Itineraries,MongoDB: Previously stored activity remains unchanged
-                    Itineraries-->>Frontend: StorageError
-                    Frontend-->>User: void displaySaveError(StorageError error)
-                    Frontend-->>User: void enableSaveRetry()
+    User->>App: Edit name, duration, location, or description
+    alt invalid start or end time
+        App-->>User: Disable Save and show invalid-time error message
+    else valid input
+        App-->>User: Enable Save
+        User->>App: Select Save
+        App->>Itineraries: updateActivity(userId: string, itineraryId: string, activityId: string, update: ActivityUpdate, replaceConflicts = false): Promise<ActivityItem>
+        Itineraries->>DB: findItinerary(userId, itineraryId)
+        DB-->>Itineraries: Itinerary
+        alt schedule conflict
+            Itineraries-->>App: ItineraryTimeConflictError(conflicts)
+            App-->>User: Display conflicting items and offer to keep or replace
+            alt keep existing schedule
+                User->>App: Keep existing schedule
+                App-->>User: Display original activity and end use case
+            else replace conflicts
+                User->>App: Confirm replacement
+                App->>Itineraries: updateActivity(userId: string, itineraryId: string, activityId: string, update: ActivityUpdate, replaceConflicts = true): Promise<ActivityItem>
+                Itineraries->>DB: replaceEmbeddedItems(userId, itineraryId, removedItemIds, activity)
+                alt replacement is stored
+                    DB-->>Itineraries: success
+                    Itineraries-->>App: ActivityItem
+                    App-->>User: Display updated activity
+                else storage or network error
+                    DB-->>Itineraries: error
+                    Note over Itineraries,DB: Previously stored activity remains unchanged.
+                    Itineraries-->>App: update error
+                    App-->>User: Show save error and allow retry
                 end
             end
-
-        else conflicts.length == 0
-            Frontend->>Itineraries: Activity updateActivity(String userId, String itineraryId, String activityId, ActivityUpdate update, bool replaceConflicts)
-            Itineraries->>MongoDB: bool updateEmbeddedActivity(String userId, String itineraryId, String activityId, ActivityUpdate update)
-
-            alt stored == true
-                MongoDB-->>Itineraries: bool stored
-                Itineraries-->>Frontend: Activity updatedActivity
-                Frontend->>Frontend: void replaceActivity(Itinerary itinerary, Activity updatedActivity)
-                Frontend-->>User: void displayActivityDetails(Activity updatedActivity)
-
-            else stored == false because of server or network error
-                MongoDB-->>Itineraries: StorageError
-                Note over Itineraries,MongoDB: Previously stored activity remains unchanged
-                Itineraries-->>Frontend: StorageError
-                Frontend-->>User: void displaySaveError(StorageError error)
-                Frontend-->>User: void enableSaveRetry()
+        else no conflict
+            Itineraries->>DB: updateEmbeddedActivity(userId, itineraryId, activityId, update)
+            alt update is stored
+                DB-->>Itineraries: success
+                Itineraries-->>App: ActivityItem
+                App-->>User: Display updated activity
+            else storage or network error
+                DB-->>Itineraries: error
+                Note over Itineraries,DB: Previously stored activity remains unchanged.
+                Itineraries-->>App: update error
+                App-->>User: Show save error and allow retry
             end
         end
     end

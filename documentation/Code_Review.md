@@ -4,6 +4,7 @@
 
 | **Change Date** | **Modified Sections** | **Rationale** |
 | --------------- | --------------------- | ------------- |
+| November 26, 2026 | 2.2 | Added the Codacy quality evolution screenshot as evidence for the reported issues status. |
 | November 20, 2026 | 2.1–2.4, 3.2, 3.3 | Recorded the latest main-branch commit, marked the remaining Codacy issues as N/A, and documented the received peer-review results and security changes. |
 
 ---
@@ -17,6 +18,10 @@
 ### 2.2. Unfixed Issues per Codacy Category
 
 N/A (no issues remaining)
+
+![Codacy quality evolution for ExploreUBC, with Issues shown as a green status and no issue count in the last seven days](https://raw.githubusercontent.com/islamhampriv/ExploreUBC/main/documentation/images/codacy-quality-evolution.png)
+
+The Codacy quality evolution view above shows the **Issues** no issue count.
 
 ### 2.3. Unfixed Issues per Codacy Code Pattern
 

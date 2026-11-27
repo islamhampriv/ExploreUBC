@@ -3,20 +3,21 @@ config:
   layout: elk
 ---
 flowchart LR
-    android[Android App]
+    frontEnd[FrontEnd]
 
     subgraph backend[Node.js Backend]
-        api[API Router]
-        auth[Auth / Session]
-
+        auth[Auth / Sessions]
         users[Users]
         itinerary[Itineraries]
         recommendation[Recommendations]
-        liveEvents[Live Events / Sync]
-        maps[Itinerary Maps]
+        liveEvents[LiveEvents]
+        maps[Maps]
 
-        api -->|Protected requests| auth
-        auth --> users & itinerary & recommendation & liveEvents & maps
+        auth --> users
+        recommendation --> users
+        liveEvents --> users
+        maps --> itinerary
+        itinerary -->|Delete cached map| maps
     end
 
     mongo[(MongoDB)]
@@ -30,8 +31,8 @@ flowchart LR
         eventApi[Ticketmaster API]
     end
 
-    android -->|REST| api
-    android -.-> googleAuth & mapsSdk & places
+    frontEnd -->|REST| auth & users & itinerary & recommendation & liveEvents & maps
+    frontEnd -.-> googleAuth & mapsSdk & places
 
     auth -.-> googleAuth
     backend --> mongo

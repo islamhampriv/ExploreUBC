@@ -30,7 +30,7 @@ rectangle " " as ActorsBox <<invis>> {
   actor "User" as Traveller
 }
 
-rectangle "UBC Exchange Travel Planner" as SystemBox {
+rectangle "ExploreUBC" as SystemBox {
   usecase "Sign up" as UC1 <<auth>>
   usecase "Sign in" as UC2 <<auth>>
   usecase "Sign out" as UC3 <<auth>>
@@ -54,7 +54,6 @@ rectangle "UBC Exchange Travel Planner" as SystemBox {
   usecase "Edit transportation segment" as UC30 <<itinerary>>
   usecase "Remove activity" as UC13 <<itinerary>>
   usecase "Remove transportation segment" as UC31 <<itinerary>>
-  usecase "Reorder itinerary items" as UC22 <<itinerary>>
   usecase "Delete itinerary" as UC23 <<itinerary>>
 
   usecase "View itinerary on map" as UC15 <<maps>>
@@ -96,7 +95,6 @@ Traveller -- UC12
 Traveller -- UC30
 Traveller -- UC13
 Traveller -- UC31
-Traveller -- UC22
 Traveller -- UC23
 Traveller -- UC15
 Traveller -- UC16
