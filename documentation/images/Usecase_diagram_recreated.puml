@@ -1,4 +1,4 @@
-@startuml Usecase_diagram_user
+@startuml Usecase_diagram_recreated
 !pragma layout smetana
 left to right direction
 skinparam packageStyle rectangle
@@ -106,6 +106,9 @@ Traveller -- UC26
 
 Traveller -- UC14
 UC9 <.left. UC20 : <<include>>
+UC27 .> UC6 : <<include>>
+UC27 .> UC7 : <<include>>
+UC27 .> UC8 : <<include>>
 SystemBox -[#FFFFFF]right-> ExternalBox
 
 UC1 -[norank]- ExtAuth

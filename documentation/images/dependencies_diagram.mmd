@@ -2,7 +2,9 @@
 config:
   layout: elk
 ---
+%%{init: {"themeCSS": "path.edge-pattern-dotted { stroke-dasharray: 2 2 !important; stroke-dashoffset: 0 !important; }"}}%%
 flowchart LR
+    %% Solid arrows: app/backend/database dependencies. Dashed arrows: external services and SDKs.
     frontEnd[FrontEnd]
 
     subgraph backend[Node.js Backend]

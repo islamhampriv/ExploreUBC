@@ -274,8 +274,6 @@ The features in this app will facilitate the entire trip planning process for UB
 
 ### **4.1. Main Components**
 
-Backend signatures use TypeScript notation; the two Android map-client signatures use Kotlin notation.
-
 1. **Itineraries**
    - **Purpose and rationale**: Owns the saved-itinerary aggregate, including itinerary details, activities, transportation segments, conflict resolution, and deletion. These operations are grouped because they enforce the same ownership and scheduling rules in one component.
    - **Interfaces**:

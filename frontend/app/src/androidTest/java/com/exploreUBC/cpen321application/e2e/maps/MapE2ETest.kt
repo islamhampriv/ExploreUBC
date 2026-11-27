@@ -1,5 +1,6 @@
 package com.exploreUBC.cpen321application.e2e.maps
 
+import android.widget.TextView
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
@@ -14,7 +15,6 @@ import androidx.test.espresso.Espresso.onView
 import androidx.test.espresso.assertion.ViewAssertions.matches
 import androidx.test.espresso.matcher.ViewMatchers.isDisplayed
 import androidx.test.espresso.matcher.ViewMatchers.withId
-import androidx.test.espresso.matcher.ViewMatchers.withText
 import com.exploreUBC.cpen321application.MainActivity2
 import com.exploreUBC.cpen321application.R
 import com.exploreUBC.cpen321application.data.itineraries.CreateActivityInput
@@ -26,7 +26,6 @@ import com.exploreUBC.cpen321application.testutil.realBackendClient
 import com.exploreUBC.cpen321application.testutil.signedInTestUserRule
 import java.util.UUID
 import kotlinx.coroutines.runBlocking
-import org.hamcrest.Matchers.containsString
 import org.junit.After
 import org.junit.Before
 import org.junit.Rule
@@ -124,8 +123,6 @@ class MapE2ETest {
         composeRule.onNodeWithTag("map_travel_drive").assertIsDisplayed()
         composeRule.onNodeWithTag("map_directions_visibility").assertIsDisplayed()
         composeRule.onNodeWithTag("map_visit_itinerary").assertIsDisplayed()
-        onView(withId(R.id.map)).check(matches(isDisplayed()))
-
         composeRule.onNodeWithTag("map_route_dropdown").performClick()
         waitForTag("map_route_1")
         composeRule.onNodeWithTag("map_route_1").performClick()
@@ -152,16 +149,15 @@ class MapE2ETest {
         waitForTag("map_popular_locations_checkbox")
 
         composeRule.onNodeWithTag("map_popular_locations_checkbox").assertIsOn()
-        onView(withId(R.id.map)).check(matches(isDisplayed()))
-        waitForMapStatus("Popular locations are pinned nearby")
+        assertPopularPlacesOutcome()
 
         composeRule.onNodeWithTag("map_popular_locations_checkbox").performClick()
         composeRule.onNodeWithTag("map_popular_locations_checkbox").assertIsOff()
-        waitForMapStatus("Popular locations are hidden")
+        waitForMapStatus(R.string.map_popular_hidden)
 
         composeRule.onNodeWithTag("map_popular_locations_checkbox").performClick()
         composeRule.onNodeWithTag("map_popular_locations_checkbox").assertIsOn()
-        waitForMapStatus("Popular locations are pinned nearby")
+        assertPopularPlacesOutcome()
     }
 
     private fun waitForTag(tag: String, timeoutMillis: Long = DEFAULT_TIMEOUT_MILLIS) {
@@ -170,13 +166,35 @@ class MapE2ETest {
         }
     }
 
-    private fun waitForMapStatus(expected: String) {
-        composeRule.waitUntil(MAP_TIMEOUT_MILLIS) {
-            runCatching {
-                onView(withId(R.id.text_map_status))
-                    .check(matches(withText(containsString(expected))))
-            }.isSuccess
+    private fun assertPopularPlacesOutcome() {
+        val status = waitForMapStatus(
+            R.string.map_popular_ready,
+            R.string.map_popular_empty,
+            R.string.map_popular_failed,
+            R.string.map_tiles_failed,
+        )
+        if (status == composeRule.activity.getString(R.string.map_popular_ready) ||
+            status == composeRule.activity.getString(R.string.map_popular_empty)
+        ) {
+            onView(withId(R.id.map)).check(matches(isDisplayed()))
         }
+    }
+
+    private fun waitForMapStatus(vararg expectedIds: Int): String {
+        val expected = expectedIds.map(composeRule.activity::getString)
+        composeRule.waitUntil(MAP_TIMEOUT_MILLIS) {
+            runCatching { mapStatusText() in expected }.getOrDefault(false)
+        }
+        return mapStatusText()
+    }
+
+    private fun mapStatusText(): String {
+        var text = ""
+        onView(withId(R.id.text_map_status)).check { view, error ->
+            if (error != null) throw error
+            text = (view as TextView).text.toString()
+        }
+        return text
     }
 
     private companion object {

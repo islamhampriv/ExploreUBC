@@ -4,6 +4,7 @@
 
 | **Change Date**   | **Modified Sections** | **Rationale** |
 | ----------------- | --------------------- | ------------- |
+| November 27, 2026 | 4.2–4.3 | Refreshed the frontend E2E execution log from the latest Android XML report and linked the new failure tests to their use cases. |
 | November 26, 2026 | 4.2–4.3 | Linked scenario steps to individual generated E2E test results. |
 | November 26, 2026 | 4.3 | Ran all frontend E2E classes and recorded the runner output and generated result for every test. |
 | November 26, 2026 | 2.1.2, 2.3–2.5 | Reran all three backend suites on the current backend commit and captured matching folder-level and file-level coverage screenshots from each fresh report. |
@@ -55,8 +56,6 @@
 #### 2.1.2. Commit Hash Where Tests Run
 
 `934a48e1316311b22c26edb0b47fec390cc2fe1b`
-
-All three runs used the backend source and tests at this commit. The documentation and screenshot updates are uncommitted working-tree changes.
 
 #### 2.1.3. Explanation on How to Run the Tests
 
@@ -245,10 +244,8 @@ The only uncovered area is:
 
 - **Use Case 3.4.3.1: Create Profile** (User)
 
-  - **Log:** [firstLoginCreatesProfileWithLocationAndPreferences](#e2e-firstlogincreatesprofilewithlocationandpreferences), [incompleteProfileCanLogOut](#e2e-incompleteprofilecanlogout).
+  - **Log:** [firstLoginCreatesProfileWithLocationAndPreferences](#e2e-firstlogincreatesprofilewithlocationandpreferences), [missingAndOverlongLocationDisableCreateProfile](#e2e-missingandoverlonglocationdisablecreateprofile), [failedSaveKeepsEnteredValuesAndAllowsRetry](#e2e-failedsavekeepsenteredvaluesandallowsretry).
   - **Failure tests:** [`CreateProfileFailureE2ETest.kt`](../frontend/app/src/androidTest/java/com/exploreUBC/cpen321application/e2e/users/CreateProfileFailureE2ETest.kt)
-
-  The logout control below is an alternate escape path from incomplete profile creation. It verifies that this screen returns to the login screen, but it is not complete frontend E2E coverage of Authentication use case 3.4.4.3.
 
   - **Expected Behaviors:**
     | **Scenario Steps** | **Test Case Steps** |
@@ -259,8 +256,6 @@ The only uncovered area is:
     | 4. The user enters `UBC Bus Exchange` and selects transit, balanced, and outdoors. | Enter the location and select each preference from its dropdown. |
     | 5. The user selects `Create profile`. | Check that the button is enabled, click it, and wait for completion. |
     | 6. The system saves the profile and finishes first-login setup. | Verify that onboarding is marked complete and that the repository contains the chosen location and preferences. |
-    | 2a. The user does not want to finish creating the profile. | Check that the `Log out` button is displayed at the bottom of the page and select it. |
-    | 2a1. The stored session is cleared. | Verify that the existing logout callback runs so the application returns to the login screen. |
     | 5a. The starting location is missing or exceeds the supported length. | Leave the location empty or enter a 501-character location. |
     | 5a1. The system disables `Create profile` and identifies the invalid field. | Check that `Create profile` is disabled.<br>For an overlong location, check that `Start location must be at most 500 characters.` is present. |
     | 6a. The profile cannot be saved because of a server or network error. | Select `Create profile` while the save request fails. |
@@ -461,7 +456,7 @@ The only uncovered area is:
 
 - **Use Case 3.4.1.1: Generate Itineraries** (Recommendation)
 
-  - **Log:** [generateFourRecommendedItineraries](#e2e-generatefourrecommendeditineraries).
+  - **Log:** [generateFourRecommendedItineraries](#e2e-generatefourrecommendeditineraries), [missingStartingLocationPreservesRecommendationsAndAllowsRetry](#e2e-missingstartinglocationpreservesrecommendationsandallowsretry), [missingUserPreservesRecommendationsAndAllowsRetry](#e2e-missinguserpreservesrecommendationsandallowsretry), [unavailableGenerationServicePreservesRecommendationsAndAllowsRetry](#e2e-unavailablegenerationservicepreservesrecommendationsandallowsretry), [invalidGeneratedItinerariesPreserveRecommendationsAndAllowRetry](#e2e-invalidgenerateditinerariespreserverecommendationsandallowretry), [rankingFailureReportsErrorAndAllowsRetry](#e2e-rankingfailurereportserrorandallowsretry), [storageFailureReportsErrorAndAllowsRetry](#e2e-storagefailurereportserrorandallowsretry).
   - **Failure tests:** [`RecommendationFailureE2ETest.kt`](../frontend/app/src/androidTest/java/com/exploreUBC/cpen321application/e2e/recommendation/RecommendationFailureE2ETest.kt)
 
   - **Expected Behaviors:**
@@ -587,37 +582,45 @@ The only uncovered area is:
 
 ### 4.3. Frontend E2E Test Execution Log
 
-Run on November 26, 2026 (Pacific time) with `FRONTEND_TESTS_REQUIRE_SIGN_IN=0 ./scripts/run-frontend-e2e-tests.sh` on the Pixel 9 API 36 emulator. The script recreated the isolated E2E MongoDB, started the local backend, installed the app, and ran all discovered E2E classes. The tests supplied their seeded authenticated sessions. Gradle reported **27 tests completed, 0 failures, 0 errors, and 0 skipped**.
+Run on November 27, 2026 (Pacific time) with `FRONTEND_TESTS_REQUIRE_SIGN_IN=0 ./scripts/run-frontend-e2e-tests.sh` on the Pixel 9 API 36 emulator. The script recreated the isolated E2E MongoDB, started the local backend, installed the app, and ran all discovered E2E classes. The tests supplied their seeded authenticated sessions. Gradle reported **34 tests completed, 0 failures, 0 errors, and 0 skipped**.
 
-**Runner output** (from the completed run):
+**Runner output** (captured from the completed 34-test run):
 
 ```text
 > Task :app:connectedDebugAndroidTest
-Starting 27 tests on Pixel_9(AVD) - 16
+Starting 34 tests on Pixel_9(AVD) - 16
 
-Pixel_9(AVD) - 16 Tests 5/27 completed. (0 skipped) (0 failed)
-Pixel_9(AVD) - 16 Tests 9/27 completed. (0 skipped) (0 failed)
-Pixel_9(AVD) - 16 Tests 10/27 completed. (0 skipped) (0 failed)
-Pixel_9(AVD) - 16 Tests 12/27 completed. (0 skipped) (0 failed)
-Pixel_9(AVD) - 16 Tests 17/27 completed. (0 skipped) (0 failed)
-Pixel_9(AVD) - 16 Tests 19/27 completed. (0 skipped) (0 failed)
-Pixel_9(AVD) - 16 Tests 21/27 completed. (0 skipped) (0 failed)
-Pixel_9(AVD) - 16 Tests 22/27 completed. (0 skipped) (0 failed)
-Pixel_9(AVD) - 16 Tests 25/27 completed. (0 skipped) (0 failed)
-Finished 27 tests on Pixel_9(AVD) - 16
+Pixel_9(AVD) - 16 Tests 5/34 completed. (0 skipped) (0 failed)
+Pixel_9(AVD) - 16 Tests 9/34 completed. (0 skipped) (0 failed)
+Pixel_9(AVD) - 16 Tests 10/34 completed. (0 skipped) (0 failed)
+Pixel_9(AVD) - 16 Tests 12/34 completed. (0 skipped) (0 failed)
+Pixel_9(AVD) - 16 Tests 13/34 completed. (0 skipped) (0 failed)
+Pixel_9(AVD) - 16 Tests 15/34 completed. (0 skipped) (0 failed)
+Pixel_9(AVD) - 16 Tests 16/34 completed. (0 skipped) (0 failed)
+Pixel_9(AVD) - 16 Tests 18/34 completed. (0 skipped) (0 failed)
+Pixel_9(AVD) - 16 Tests 19/34 completed. (0 skipped) (0 failed)
+Pixel_9(AVD) - 16 Tests 20/34 completed. (0 skipped) (0 failed)
+Pixel_9(AVD) - 16 Tests 21/34 completed. (0 skipped) (0 failed)
+Pixel_9(AVD) - 16 Tests 22/34 completed. (0 skipped) (0 failed)
+Pixel_9(AVD) - 16 Tests 24/34 completed. (0 skipped) (0 failed)
+Pixel_9(AVD) - 16 Tests 27/34 completed. (0 skipped) (0 failed)
+Pixel_9(AVD) - 16 Tests 29/34 completed. (0 skipped) (0 failed)
+Pixel_9(AVD) - 16 Tests 31/34 completed. (0 skipped) (0 failed)
+Pixel_9(AVD) - 16 Tests 33/34 completed. (0 skipped) (0 failed)
+Finished 34 tests on Pixel_9(AVD) - 16
 
-BUILD SUCCESSFUL in 6m 42s
+BUILD SUCCESSFUL in 7m 50s
 75 actionable tasks: 1 executed, 74 up-to-date
 ==> Frontend E2E tests finished.
 ```
 
-**Generated per-test result lines** (from `frontend/app/build/outputs/androidTest-results/connected/debug/TEST-Pixel_9(AVD) - 16-_app-.xml`; all 27 tests passed). Each header links back to the matching Section 4.2 test steps.
+**Generated per-test result lines** (from `frontend/app/build/outputs/androidTest-results/connected/debug/TEST-Pixel_9(AVD) - 16-_app-.xml`; all 34 tests passed). Each header links back to the matching Section 4.2 test steps.
 
 The generated report begins with this suite header and device metadata:
 
 ```xml
 <?xml version='1.0' encoding='UTF-8' ?>
-<testsuite name="com.exploreUBC.cpen321application.e2e.events.EventItineraryE2ETest" tests="27" failures="0" errors="0" skipped="0" time="395.722" timestamp="2026-11-27T05:37:39" hostname="localhost">
+<testsuite name="com.exploreUBC.cpen321application.e2e.events.EventItineraryE2ETest" tests="34" failures="0" errors="0" skipped="0" time="463.496" timestamp="2026-11-27T11:45:19" hostname="localhost">
   <properties>
     <property name="device" value="Pixel_9(AVD) - 16" />
     <property name="flavor" value="" />
@@ -630,7 +633,7 @@ The generated report begins with this suite header and device metadata:
 #### [EventItineraryE2ETest.addsNonOverlappingEventToExistingItinerary](#e2e-steps-17)
 
 ```xml
-<testcase name="addsNonOverlappingEventToExistingItinerary" classname="com.exploreUBC.cpen321application.e2e.events.EventItineraryE2ETest" time="2.464" />
+<testcase name="addsNonOverlappingEventToExistingItinerary" classname="com.exploreUBC.cpen321application.e2e.events.EventItineraryE2ETest" time="2.69" />
 ```
 
 <a id="e2e-replacesconflictingitemontimeconflict"></a>
@@ -638,7 +641,7 @@ The generated report begins with this suite header and device metadata:
 #### [EventItineraryE2ETest.replacesConflictingItemOnTimeConflict](#e2e-steps-17)
 
 ```xml
-<testcase name="replacesConflictingItemOnTimeConflict" classname="com.exploreUBC.cpen321application.e2e.events.EventItineraryE2ETest" time="1.202" />
+<testcase name="replacesConflictingItemOnTimeConflict" classname="com.exploreUBC.cpen321application.e2e.events.EventItineraryE2ETest" time="1.186" />
 ```
 
 <a id="e2e-keepsexistingscheduleontimeconflict"></a>
@@ -646,7 +649,7 @@ The generated report begins with this suite header and device metadata:
 #### [EventItineraryE2ETest.keepsExistingScheduleOnTimeConflict](#e2e-steps-17)
 
 ```xml
-<testcase name="keepsExistingScheduleOnTimeConflict" classname="com.exploreUBC.cpen321application.e2e.events.EventItineraryE2ETest" time="2.288" />
+<testcase name="keepsExistingScheduleOnTimeConflict" classname="com.exploreUBC.cpen321application.e2e.events.EventItineraryE2ETest" time="1.195" />
 ```
 
 <a id="e2e-createsitinerarywhenuserhasnone"></a>
@@ -654,7 +657,7 @@ The generated report begins with this suite header and device metadata:
 #### [EventItineraryE2ETest.createsItineraryWhenUserHasNone](#e2e-steps-17)
 
 ```xml
-<testcase name="createsItineraryWhenUserHasNone" classname="com.exploreUBC.cpen321application.e2e.events.EventItineraryE2ETest" time="1.503" />
+<testcase name="createsItineraryWhenUserHasNone" classname="com.exploreUBC.cpen321application.e2e.events.EventItineraryE2ETest" time="1.628" />
 ```
 
 <a id="e2e-rejectsendtimenotaftereventstart"></a>
@@ -662,7 +665,7 @@ The generated report begins with this suite header and device metadata:
 #### [EventItineraryE2ETest.rejectsEndTimeNotAfterEventStart](#e2e-steps-17)
 
 ```xml
-<testcase name="rejectsEndTimeNotAfterEventStart" classname="com.exploreUBC.cpen321application.e2e.events.EventItineraryE2ETest" time="1.641" />
+<testcase name="rejectsEndTimeNotAfterEventStart" classname="com.exploreUBC.cpen321application.e2e.events.EventItineraryE2ETest" time="1.64" />
 ```
 
 <a id="e2e-loadmoreappendsthelasteventandhidesthebutton"></a>
@@ -670,7 +673,7 @@ The generated report begins with this suite header and device metadata:
 #### [LiveEventsE2ETest.loadMoreAppendsTheLastEventAndHidesTheButton](#e2e-steps-16)
 
 ```xml
-<testcase name="loadMoreAppendsTheLastEventAndHidesTheButton" classname="com.exploreUBC.cpen321application.e2e.events.LiveEventsE2ETest" time="1.639" />
+<testcase name="loadMoreAppendsTheLastEventAndHidesTheButton" classname="com.exploreUBC.cpen321application.e2e.events.LiveEventsE2ETest" time="1.916" />
 ```
 
 <a id="e2e-changinginterestshowssnackbarandlinkstonewevents"></a>
@@ -678,7 +681,7 @@ The generated report begins with this suite header and device metadata:
 #### [LiveEventsE2ETest.changingInterestShowsSnackbarAndLinksToNewEvents](#e2e-steps-18)
 
 ```xml
-<testcase name="changingInterestShowsSnackbarAndLinksToNewEvents" classname="com.exploreUBC.cpen321application.e2e.events.LiveEventsE2ETest" time="1.52" />
+<testcase name="changingInterestShowsSnackbarAndLinksToNewEvents" classname="com.exploreUBC.cpen321application.e2e.events.LiveEventsE2ETest" time="1.768" />
 ```
 
 <a id="e2e-vieweventrecommendationsshowsrankedseededevents"></a>
@@ -686,7 +689,7 @@ The generated report begins with this suite header and device metadata:
 #### [LiveEventsE2ETest.viewEventRecommendationsShowsRankedSeededEvents](#e2e-steps-16)
 
 ```xml
-<testcase name="viewEventRecommendationsShowsRankedSeededEvents" classname="com.exploreUBC.cpen321application.e2e.events.LiveEventsE2ETest" time="0.718" />
+<testcase name="viewEventRecommendationsShowsRankedSeededEvents" classname="com.exploreUBC.cpen321application.e2e.events.LiveEventsE2ETest" time="0.813" />
 ```
 
 <a id="e2e-showsnoeventsmessagewhennothingmatches"></a>
@@ -694,7 +697,7 @@ The generated report begins with this suite header and device metadata:
 #### [LiveEventsEmptyStateE2ETest.showsNoEventsMessageWhenNothingMatches](#e2e-steps-16)
 
 ```xml
-<testcase name="showsNoEventsMessageWhenNothingMatches" classname="com.exploreUBC.cpen321application.e2e.events.LiveEventsEmptyStateE2ETest" time="0.867" />
+<testcase name="showsNoEventsMessageWhenNothingMatches" classname="com.exploreUBC.cpen321application.e2e.events.LiveEventsEmptyStateE2ETest" time="0.833" />
 ```
 
 <a id="e2e-movingfarawayreplacestheeventsandmovingbackrestoresthem"></a>
@@ -702,7 +705,7 @@ The generated report begins with this suite header and device metadata:
 #### [LiveEventsLocationChangeE2ETest.movingFarAwayReplacesTheEventsAndMovingBackRestoresThem](#e2e-steps-19)
 
 ```xml
-<testcase name="movingFarAwayReplacesTheEventsAndMovingBackRestoresThem" classname="com.exploreUBC.cpen321application.e2e.events.LiveEventsLocationChangeE2ETest" time="113.194" />
+<testcase name="movingFarAwayReplacesTheEventsAndMovingBackRestoresThem" classname="com.exploreUBC.cpen321application.e2e.events.LiveEventsLocationChangeE2ETest" time="114.724" />
 ```
 
 <a id="e2e-movinglessthantenkilometresdoesnotrefresh"></a>
@@ -710,7 +713,7 @@ The generated report begins with this suite header and device metadata:
 #### [LiveEventsLocationChangeE2ETest.movingLessThanTenKilometresDoesNotRefresh](#e2e-steps-19)
 
 ```xml
-<testcase name="movingLessThanTenKilometresDoesNotRefresh" classname="com.exploreUBC.cpen321application.e2e.events.LiveEventsLocationChangeE2ETest" time="75.874" />
+<testcase name="movingLessThanTenKilometresDoesNotRefresh" classname="com.exploreUBC.cpen321application.e2e.events.LiveEventsLocationChangeE2ETest" time="77.032" />
 ```
 
 <a id="e2e-applaunchesoneventsscreenandshowsseededeventfrombackend"></a>
@@ -718,7 +721,7 @@ The generated report begins with this suite header and device metadata:
 #### [LiveEventsSmokeE2ETest.appLaunchesOnEventsScreenAndShowsSeededEventFromBackend](#e2e-steps-16)
 
 ```xml
-<testcase name="appLaunchesOnEventsScreenAndShowsSeededEventFromBackend" classname="com.exploreUBC.cpen321application.e2e.events.LiveEventsSmokeE2ETest" time="3.352" />
+<testcase name="appLaunchesOnEventsScreenAndShowsSeededEventFromBackend" classname="com.exploreUBC.cpen321application.e2e.events.LiveEventsSmokeE2ETest" time="4.199" />
 ```
 
 <a id="e2e-addtransportationwithfrontendfailurescenarios"></a>
@@ -726,7 +729,7 @@ The generated report begins with this suite header and device metadata:
 #### [ItineraryE2ETest.addTransportationWithFrontendFailureScenarios](#e2e-steps-06)
 
 ```xml
-<testcase name="addTransportationWithFrontendFailureScenarios" classname="com.exploreUBC.cpen321application.e2e.itineraries.ItineraryE2ETest" time="4.939" />
+<testcase name="addTransportationWithFrontendFailureScenarios" classname="com.exploreUBC.cpen321application.e2e.itineraries.ItineraryE2ETest" time="19.735" />
 ```
 
 <a id="e2e-deleteitineraryrequiresconfirmation"></a>
@@ -734,7 +737,7 @@ The generated report begins with this suite header and device metadata:
 #### [ItineraryE2ETest.deleteItineraryRequiresConfirmation](#e2e-steps-11)
 
 ```xml
-<testcase name="deleteItineraryRequiresConfirmation" classname="com.exploreUBC.cpen321application.e2e.itineraries.ItineraryE2ETest" time="1.33" />
+<testcase name="deleteItineraryRequiresConfirmation" classname="com.exploreUBC.cpen321application.e2e.itineraries.ItineraryE2ETest" time="4.486" />
 ```
 
 <a id="e2e-createitineraryfromtripslist"></a>
@@ -742,7 +745,7 @@ The generated report begins with this suite header and device metadata:
 #### [ItineraryE2ETest.createItineraryFromTripsList](#e2e-steps-03)
 
 ```xml
-<testcase name="createItineraryFromTripsList" classname="com.exploreUBC.cpen321application.e2e.itineraries.ItineraryE2ETest" time="2.076" />
+<testcase name="createItineraryFromTripsList" classname="com.exploreUBC.cpen321application.e2e.itineraries.ItineraryE2ETest" time="2.37" />
 ```
 
 <a id="e2e-modifyitineraryandvalidatemaximumlength"></a>
@@ -750,35 +753,35 @@ The generated report begins with this suite header and device metadata:
 #### [ItineraryE2ETest.modifyItineraryAndValidateMaximumLength](#e2e-steps-04)
 
 ```xml
-<testcase name="modifyItineraryAndValidateMaximumLength" classname="com.exploreUBC.cpen321application.e2e.itineraries.ItineraryE2ETest" time="2.004" />
+<testcase name="modifyItineraryAndValidateMaximumLength" classname="com.exploreUBC.cpen321application.e2e.itineraries.ItineraryE2ETest" time="5.445" />
 ```
 
 <a id="e2e-modifyandremovetransportation"></a>
 
 #### [ItineraryE2ETest.modifyAndRemoveTransportation](#e2e-steps-08)
 
-Also covers [Use Case 3.4.2.7: Remove a Transportation Segment ((Itineraries))](#e2e-steps-10).
-
 ```xml
-<testcase name="modifyAndRemoveTransportation" classname="com.exploreUBC.cpen321application.e2e.itineraries.ItineraryE2ETest" time="2.531" />
+<testcase name="modifyAndRemoveTransportation" classname="com.exploreUBC.cpen321application.e2e.itineraries.ItineraryE2ETest" time="8.434" />
 ```
+
+Also covers [Use Case 3.4.2.7: Remove a Transportation Segment](#e2e-steps-10).
 
 <a id="e2e-modifyandremoveactivity"></a>
 
 #### [ItineraryE2ETest.modifyAndRemoveActivity](#e2e-steps-07)
 
-Also covers [Use Case 3.4.2.6: Remove an Activity ((Itineraries))](#e2e-steps-09).
-
 ```xml
-<testcase name="modifyAndRemoveActivity" classname="com.exploreUBC.cpen321application.e2e.itineraries.ItineraryE2ETest" time="2.116" />
+<testcase name="modifyAndRemoveActivity" classname="com.exploreUBC.cpen321application.e2e.itineraries.ItineraryE2ETest" time="7.918" />
 ```
+
+Also covers [Use Case 3.4.2.6: Remove an Activity](#e2e-steps-09).
 
 <a id="e2e-addactivitywithfrontendfailurescenarios"></a>
 
 #### [ItineraryE2ETest.addActivityWithFrontendFailureScenarios](#e2e-steps-05)
 
 ```xml
-<testcase name="addActivityWithFrontendFailureScenarios" classname="com.exploreUBC.cpen321application.e2e.itineraries.ItineraryE2ETest" time="3.572" />
+<testcase name="addActivityWithFrontendFailureScenarios" classname="com.exploreUBC.cpen321application.e2e.itineraries.ItineraryE2ETest" time="14.776" />
 ```
 
 <a id="e2e-browseandtogglepopularlocationsfrommainapp"></a>
@@ -786,7 +789,7 @@ Also covers [Use Case 3.4.2.6: Remove an Activity ((Itineraries))](#e2e-steps-09
 #### [MapE2ETest.browseAndTogglePopularLocationsFromMainApp](#e2e-steps-13)
 
 ```xml
-<testcase name="browseAndTogglePopularLocationsFromMainApp" classname="com.exploreUBC.cpen321application.e2e.maps.MapE2ETest" time="5.672" />
+<testcase name="browseAndTogglePopularLocationsFromMainApp" classname="com.exploreUBC.cpen321application.e2e.maps.MapE2ETest" time="10.937" />
 ```
 
 <a id="e2e-viewsaveditineraryroutesanddirectionsfrommainapp"></a>
@@ -794,7 +797,7 @@ Also covers [Use Case 3.4.2.6: Remove an Activity ((Itineraries))](#e2e-steps-09
 #### [MapE2ETest.viewSavedItineraryRoutesAndDirectionsFromMainApp](#e2e-steps-12)
 
 ```xml
-<testcase name="viewSavedItineraryRoutesAndDirectionsFromMainApp" classname="com.exploreUBC.cpen321application.e2e.maps.MapE2ETest" time="3.833" />
+<testcase name="viewSavedItineraryRoutesAndDirectionsFromMainApp" classname="com.exploreUBC.cpen321application.e2e.maps.MapE2ETest" time="11.386" />
 ```
 
 <a id="e2e-generatefourrecommendeditineraries"></a>
@@ -802,7 +805,7 @@ Also covers [Use Case 3.4.2.6: Remove an Activity ((Itineraries))](#e2e-steps-09
 #### [RecommendationE2ETest.generateFourRecommendedItineraries](#e2e-steps-14)
 
 ```xml
-<testcase name="generateFourRecommendedItineraries" classname="com.exploreUBC.cpen321application.e2e.recommendation.RecommendationE2ETest" time="92.425" />
+<testcase name="generateFourRecommendedItineraries" classname="com.exploreUBC.cpen321application.e2e.recommendation.RecommendationE2ETest" time="61.321" />
 ```
 
 <a id="e2e-saverecommendeditineraryenableseditingactions"></a>
@@ -810,7 +813,55 @@ Also covers [Use Case 3.4.2.6: Remove an Activity ((Itineraries))](#e2e-steps-09
 #### [RecommendationE2ETest.saveRecommendedItineraryEnablesEditingActions](#e2e-steps-15)
 
 ```xml
-<testcase name="saveRecommendedItineraryEnablesEditingActions" classname="com.exploreUBC.cpen321application.e2e.recommendation.RecommendationE2ETest" time="59.56" />
+<testcase name="saveRecommendedItineraryEnablesEditingActions" classname="com.exploreUBC.cpen321application.e2e.recommendation.RecommendationE2ETest" time="57.808" />
+```
+
+<a id="e2e-storagefailurereportserrorandallowsretry"></a>
+
+#### [RecommendationFailureE2ETest.storageFailureReportsErrorAndAllowsRetry](#e2e-steps-14)
+
+```xml
+<testcase name="storageFailureReportsErrorAndAllowsRetry" classname="com.exploreUBC.cpen321application.e2e.recommendation.RecommendationFailureE2ETest" time="3.68" />
+```
+
+<a id="e2e-missinguserpreservesrecommendationsandallowsretry"></a>
+
+#### [RecommendationFailureE2ETest.missingUserPreservesRecommendationsAndAllowsRetry](#e2e-steps-14)
+
+```xml
+<testcase name="missingUserPreservesRecommendationsAndAllowsRetry" classname="com.exploreUBC.cpen321application.e2e.recommendation.RecommendationFailureE2ETest" time="3.636" />
+```
+
+<a id="e2e-missingstartinglocationpreservesrecommendationsandallowsretry"></a>
+
+#### [RecommendationFailureE2ETest.missingStartingLocationPreservesRecommendationsAndAllowsRetry](#e2e-steps-14)
+
+```xml
+<testcase name="missingStartingLocationPreservesRecommendationsAndAllowsRetry" classname="com.exploreUBC.cpen321application.e2e.recommendation.RecommendationFailureE2ETest" time="3.899" />
+```
+
+<a id="e2e-invalidgenerateditinerariespreserverecommendationsandallowretry"></a>
+
+#### [RecommendationFailureE2ETest.invalidGeneratedItinerariesPreserveRecommendationsAndAllowRetry](#e2e-steps-14)
+
+```xml
+<testcase name="invalidGeneratedItinerariesPreserveRecommendationsAndAllowRetry" classname="com.exploreUBC.cpen321application.e2e.recommendation.RecommendationFailureE2ETest" time="3.781" />
+```
+
+<a id="e2e-rankingfailurereportserrorandallowsretry"></a>
+
+#### [RecommendationFailureE2ETest.rankingFailureReportsErrorAndAllowsRetry](#e2e-steps-14)
+
+```xml
+<testcase name="rankingFailureReportsErrorAndAllowsRetry" classname="com.exploreUBC.cpen321application.e2e.recommendation.RecommendationFailureE2ETest" time="3.582" />
+```
+
+<a id="e2e-unavailablegenerationservicepreservesrecommendationsandallowsretry"></a>
+
+#### [RecommendationFailureE2ETest.unavailableGenerationServicePreservesRecommendationsAndAllowsRetry](#e2e-steps-14)
+
+```xml
+<testcase name="unavailableGenerationServicePreservesRecommendationsAndAllowsRetry" classname="com.exploreUBC.cpen321application.e2e.recommendation.RecommendationFailureE2ETest" time="3.948" />
 ```
 
 <a id="e2e-firstlogincreatesprofilewithlocationandpreferences"></a>
@@ -818,15 +869,23 @@ Also covers [Use Case 3.4.2.6: Remove an Activity ((Itineraries))](#e2e-steps-09
 #### [CreateProfileE2ETest.firstLoginCreatesProfileWithLocationAndPreferences](#e2e-steps-01)
 
 ```xml
-<testcase name="firstLoginCreatesProfileWithLocationAndPreferences" classname="com.exploreUBC.cpen321application.e2e.users.CreateProfileE2ETest" time="1.709" />
+<testcase name="firstLoginCreatesProfileWithLocationAndPreferences" classname="com.exploreUBC.cpen321application.e2e.users.CreateProfileE2ETest" time="4.89" />
 ```
 
-<a id="e2e-incompleteprofilecanlogout"></a>
+<a id="e2e-missingandoverlonglocationdisablecreateprofile"></a>
 
-#### [CreateProfileLogoutE2ETest.incompleteProfileCanLogOut](#e2e-steps-01)
+#### [CreateProfileFailureE2ETest.missingAndOverlongLocationDisableCreateProfile](#e2e-steps-01)
 
 ```xml
-<testcase name="incompleteProfileCanLogOut" classname="com.exploreUBC.cpen321application.e2e.users.CreateProfileLogoutE2ETest" time="1.417" />
+<testcase name="missingAndOverlongLocationDisableCreateProfile" classname="com.exploreUBC.cpen321application.e2e.users.CreateProfileFailureE2ETest" time="3.499" />
+```
+
+<a id="e2e-failedsavekeepsenteredvaluesandallowsretry"></a>
+
+#### [CreateProfileFailureE2ETest.failedSaveKeepsEnteredValuesAndAllowsRetry](#e2e-steps-01)
+
+```xml
+<testcase name="failedSaveKeepsEnteredValuesAndAllowsRetry" classname="com.exploreUBC.cpen321application.e2e.users.CreateProfileFailureE2ETest" time="5.997" />
 ```
 
 <a id="e2e-updatedisplaynameandstartinglocationandvalidatemaximumlength"></a>
@@ -834,7 +893,7 @@ Also covers [Use Case 3.4.2.6: Remove an Activity ((Itineraries))](#e2e-steps-09
 #### [UserProfileE2ETest.updateDisplayNameAndStartingLocationAndValidateMaximumLength](#e2e-steps-02)
 
 ```xml
-<testcase name="updateDisplayNameAndStartingLocationAndValidateMaximumLength" classname="com.exploreUBC.cpen321application.e2e.users.UserProfileE2ETest" time="1.664" />
+<testcase name="updateDisplayNameAndStartingLocationAndValidateMaximumLength" classname="com.exploreUBC.cpen321application.e2e.users.UserProfileE2ETest" time="4.484" />
 ```
 
 <a id="e2e-updatetransportationbudgetandinterestpreferences"></a>
@@ -842,8 +901,7 @@ Also covers [Use Case 3.4.2.6: Remove an Activity ((Itineraries))](#e2e-steps-09
 #### [UserProfileE2ETest.updateTransportationBudgetAndInterestPreferences](#e2e-steps-02)
 
 ```xml
-<testcase name="updateTransportationBudgetAndInterestPreferences" classname="com.exploreUBC.cpen321application.e2e.users.UserProfileE2ETest" time="2.498" />
+<testcase name="updateTransportationBudgetAndInterestPreferences" classname="com.exploreUBC.cpen321application.e2e.users.UserProfileE2ETest" time="5.213" />
 ```
 
 The generated report ends with `</testsuite>`.
-
