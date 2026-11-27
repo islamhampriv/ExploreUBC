@@ -5,8 +5,8 @@ sequenceDiagram
     participant DB as MongoDB
 
     User->>App: Open saved itinerary
-    App->>Itineraries: getItinerary(userId: string, itineraryId: string): Promise<Itinerary>
-    Itineraries->>DB: findItinerary(userId, itineraryId)
+    App->>Itineraries: getItinerary(userId: string from session, itineraryId: string from selected itinerary): Promise<Itinerary>
+    Itineraries->>DB: findItinerary(userId: string, itineraryId: string): Promise<Itinerary | null>
     DB-->>Itineraries: Itinerary
     Itineraries-->>App: Itinerary
     App-->>User: Display itinerary
@@ -21,19 +21,19 @@ sequenceDiagram
     else valid input
         App-->>User: Enable Save
         User->>App: Select Save
-        App->>Itineraries: updateActivity(userId: string, itineraryId: string, activityId: string, update: ActivityUpdate, replaceConflicts = false): Promise<ActivityItem>
-        Itineraries->>DB: findItinerary(userId, itineraryId)
+        App->>Itineraries: updateActivity(userId: string from session, itineraryId: string from opened itinerary, activityId: string from selected activity, update: ActivityUpdate from edited fields, replaceConflicts: boolean = false): Promise<ActivityItem>
+        Itineraries->>DB: findItinerary(userId: string, itineraryId: string): Promise<Itinerary | null>
         DB-->>Itineraries: Itinerary
         alt schedule conflict
-            Itineraries-->>App: ItineraryTimeConflictError(conflicts)
+        Itineraries-->>App: ItineraryTimeConflictError(conflicts: ActivityItem[] derived from loaded Itinerary)
             App-->>User: Display conflicting items and offer to keep or replace
             alt keep existing schedule
                 User->>App: Keep existing schedule
                 App-->>User: Display original activity and end use case
             else replace conflicts
                 User->>App: Confirm replacement
-                App->>Itineraries: updateActivity(userId: string, itineraryId: string, activityId: string, update: ActivityUpdate, replaceConflicts = true): Promise<ActivityItem>
-                Itineraries->>DB: replaceEmbeddedItems(userId, itineraryId, removedItemIds, activity)
+                App->>Itineraries: updateActivity(userId: string from session, itineraryId: string from opened itinerary, activityId: string from selected activity, update: ActivityUpdate from edited fields, replaceConflicts: boolean = true): Promise<ActivityItem>
+                Itineraries->>DB: replaceEmbeddedItems(userId: string, itineraryId: string, removedItemIds: Itinerary.conflictingItemIds, activity: ActivityItem): Promise<boolean>
                 alt replacement is stored
                     DB-->>Itineraries: success
                     Itineraries-->>App: ActivityItem
@@ -46,7 +46,7 @@ sequenceDiagram
                 end
             end
         else no conflict
-            Itineraries->>DB: updateEmbeddedActivity(userId, itineraryId, activityId, update)
+            Itineraries->>DB: updateEmbeddedActivity(userId: string, itineraryId: string, activityId: string, update: ActivityUpdate): Promise<boolean>
             alt update is stored
                 DB-->>Itineraries: success
                 Itineraries-->>App: ActivityItem

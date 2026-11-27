@@ -63,7 +63,7 @@ frontend/app/release/baselineProfiles/1/app-release.dm
 frontend/app/release/baselineProfiles/0/app-release.dm
 
 
-#Ignore vscode AI rules
+# Ignore VS Code AI rules
 .github/instructions/codacy.instructions.md
 AGENTS.md
 ExploreUBC.pem

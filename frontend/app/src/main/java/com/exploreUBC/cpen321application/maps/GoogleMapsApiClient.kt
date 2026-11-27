@@ -106,6 +106,7 @@ class GoogleMapsApiClient(
             .build()
 
         val json = getJson(uri) ?: return null
+        if (json.optString("status") == "ZERO_RESULTS") return emptyList()
         if (json.optString("status") != "OK") return null
 
         val results = json.optJSONArray("results") ?: return emptyList()

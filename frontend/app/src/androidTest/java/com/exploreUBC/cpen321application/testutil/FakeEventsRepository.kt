@@ -32,25 +32,21 @@ internal class FakeEventsRepository(
     }
 }
 
-@Suppress("LongParameterList")
 internal fun testEvent(
     id: String,
     title: String = "Event $id",
     description: String? = "Description of $id",
-    startDateTime: String = "2026-12-05T03:00:00.000Z",
-    endDateTime: String? = "2026-12-05T05:00:00.000Z",
     priceMin: Double? = 30.0,
     priceMax: Double? = 60.0,
     currency: String? = "CAD",
-    distanceKm: Double = 2.5,
     ticketUrl: String = "https://example.com/tickets/$id",
 ) = Event(
     id = id,
     title = title,
     description = description,
     imageUrl = "https://example.com/$id.jpg",
-    startDateTime = startDateTime,
-    endDateTime = endDateTime,
+    startDateTime = "2026-12-05T03:00:00.000Z",
+    endDateTime = "2026-12-05T05:00:00.000Z",
     venueName = "Venue $id",
     city = "Vancouver",
     category = "Music",
@@ -58,7 +54,7 @@ internal fun testEvent(
     priceMin = priceMin,
     priceMax = priceMax,
     currency = currency,
-    distanceKm = distanceKm,
+    distanceKm = 2.5,
 )
 
 internal fun testEvents(count: Int, idPrefix: String = "event"): List<Event> =

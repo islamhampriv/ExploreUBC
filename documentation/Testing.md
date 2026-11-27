@@ -221,9 +221,13 @@ The only uncovered area is:
 
 - Itinerary scenarios: [`frontend/app/src/androidTest/java/com/exploreUBC/cpen321application/e2e/itineraries/ItineraryE2ETest.kt`](../frontend/app/src/androidTest/java/com/exploreUBC/cpen321application/e2e/itineraries/ItineraryE2ETest.kt)
 - Map scenarios: [`frontend/app/src/androidTest/java/com/exploreUBC/cpen321application/e2e/maps/MapE2ETest.kt`](../frontend/app/src/androidTest/java/com/exploreUBC/cpen321application/e2e/maps/MapE2ETest.kt)
-- Recommendation scenarios: [`frontend/app/src/androidTest/java/com/exploreUBC/cpen321application/e2e/recommendation/RecommendationE2ETest.kt`](../frontend/app/src/androidTest/java/com/exploreUBC/cpen321application/e2e/recommendation/RecommendationE2ETest.kt)
+- Recommendation scenarios:
+  - Success: [`frontend/app/src/androidTest/java/com/exploreUBC/cpen321application/e2e/recommendation/RecommendationE2ETest.kt`](../frontend/app/src/androidTest/java/com/exploreUBC/cpen321application/e2e/recommendation/RecommendationE2ETest.kt)
+  - Failure: [`frontend/app/src/androidTest/java/com/exploreUBC/cpen321application/e2e/recommendation/RecommendationFailureE2ETest.kt`](../frontend/app/src/androidTest/java/com/exploreUBC/cpen321application/e2e/recommendation/RecommendationFailureE2ETest.kt)
 - User profile scenarios: [`frontend/app/src/androidTest/java/com/exploreUBC/cpen321application/e2e/users/UserProfileE2ETest.kt`](../frontend/app/src/androidTest/java/com/exploreUBC/cpen321application/e2e/users/UserProfileE2ETest.kt)
-- First-login profile scenario: [`frontend/app/src/androidTest/java/com/exploreUBC/cpen321application/e2e/users/CreateProfileE2ETest.kt`](../frontend/app/src/androidTest/java/com/exploreUBC/cpen321application/e2e/users/CreateProfileE2ETest.kt)
+- First-login profile scenarios:
+  - Success: [`frontend/app/src/androidTest/java/com/exploreUBC/cpen321application/e2e/users/CreateProfileE2ETest.kt`](../frontend/app/src/androidTest/java/com/exploreUBC/cpen321application/e2e/users/CreateProfileE2ETest.kt)
+  - Failure: [`frontend/app/src/androidTest/java/com/exploreUBC/cpen321application/e2e/users/CreateProfileFailureE2ETest.kt`](../frontend/app/src/androidTest/java/com/exploreUBC/cpen321application/e2e/users/CreateProfileFailureE2ETest.kt)
 - Live Events scenarios:
   - Recommendations, Load more, and preference changes: [`frontend/app/src/androidTest/java/com/exploreUBC/cpen321application/e2e/events/LiveEventsE2ETest.kt`](../frontend/app/src/androidTest/java/com/exploreUBC/cpen321application/e2e/events/LiveEventsE2ETest.kt)
   - Location change: [`frontend/app/src/androidTest/java/com/exploreUBC/cpen321application/e2e/events/LiveEventsLocationChangeE2ETest.kt`](../frontend/app/src/androidTest/java/com/exploreUBC/cpen321application/e2e/events/LiveEventsLocationChangeE2ETest.kt)
@@ -242,6 +246,7 @@ The only uncovered area is:
 - **Use Case 3.4.3.1: Create Profile** (User)
 
   - **Log:** [firstLoginCreatesProfileWithLocationAndPreferences](#e2e-firstlogincreatesprofilewithlocationandpreferences), [incompleteProfileCanLogOut](#e2e-incompleteprofilecanlogout).
+  - **Failure tests:** [`CreateProfileFailureE2ETest.kt`](../frontend/app/src/androidTest/java/com/exploreUBC/cpen321application/e2e/users/CreateProfileFailureE2ETest.kt)
 
   The logout control below is an alternate escape path from incomplete profile creation. It verifies that this screen returns to the login screen, but it is not complete frontend E2E coverage of Authentication use case 3.4.4.3.
 
@@ -256,6 +261,10 @@ The only uncovered area is:
     | 6. The system saves the profile and finishes first-login setup. | Verify that onboarding is marked complete and that the repository contains the chosen location and preferences. |
     | 2a. The user does not want to finish creating the profile. | Check that the `Log out` button is displayed at the bottom of the page and select it. |
     | 2a1. The stored session is cleared. | Verify that the existing logout callback runs so the application returns to the login screen. |
+    | 5a. The starting location is missing or exceeds the supported length. | Leave the location empty or enter a 501-character location. |
+    | 5a1. The system disables `Create profile` and identifies the invalid field. | Check that `Create profile` is disabled.<br>For an overlong location, check that `Start location must be at most 500 characters.` is present. |
+    | 6a. The profile cannot be saved because of a server or network error. | Select `Create profile` while the save request fails. |
+    | 6a1. The system keeps the entered values and allows another attempt. | Check that the location and preferences remain selected, an error is shown, and `Create profile` is available again. |
 
 <a id="e2e-steps-02"></a>
 
@@ -453,6 +462,7 @@ The only uncovered area is:
 - **Use Case 3.4.1.1: Generate Itineraries** (Recommendation)
 
   - **Log:** [generateFourRecommendedItineraries](#e2e-generatefourrecommendeditineraries).
+  - **Failure tests:** [`RecommendationFailureE2ETest.kt`](../frontend/app/src/androidTest/java/com/exploreUBC/cpen321application/e2e/recommendation/RecommendationFailureE2ETest.kt)
 
   - **Expected Behaviors:**
     | **Scenario Steps** | **Test Case Steps** |
@@ -461,6 +471,16 @@ The only uncovered area is:
     | 2. The user clicks the 'Generate' button  | Check that a dialog with a message "Generate new recommendations?" is present.  |
     | 3. The user clicks the 'confirm' button from the dialog | Check that button with a loading indicator and the message "Generating" is present.|
     | 4. The system shows 4 new recommended itineraries | Check that a new list of 4 recommended itineraries are present|
+    | 3a. The profile has no starting location or the user is missing. | Confirm generation with an incomplete or missing profile. |
+    | 3a1. Previous recommendations remain unchanged. | Check that the previous recommendations are still present. |
+    | 3a2. The system reports the profile error. | Check that `A starting location is required before generating recommendations.` or `The requested user profile was not found.` is shown and `Generate` is available again. |
+    | 3b. The generation service fails or returns invalid itineraries. | Confirm generation with a failed or invalid provider response. |
+    | 3b1. Previous recommendations remain unchanged. | Check that the previous recommendations are still present. |
+    | 3b2. The system reports the generation failure. | Check that `Recommendations could not be generated. Please try again.` is shown and `Generate` is available again. |
+    | 4a. Ranking or storage fails. | Confirm generation with a ranking or storage failure. |
+    | 4a1. The system reports the failure. | Check that `An unexpected error occurred.` is shown and `Generate` is available again. |
+
+  The failure tests keep a previous recommendation set in place, inject each documented failure at the repository boundary, and retry through the full application UI.
 
 <a id="e2e-steps-15"></a>
 

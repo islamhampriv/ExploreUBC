@@ -1,15 +1,34 @@
 package com.exploreUBC.cpen321application.ui.map
 
+import android.Manifest
 import android.content.Context
+import android.content.pm.PackageManager
 import android.view.View
 import androidx.core.content.ContextCompat
 import com.example.cpen321application.maps.PolylineDecoder
 import com.exploreUBC.cpen321application.R
 import com.exploreUBC.cpen321application.data.itineraries.MapRoute
+import com.exploreUBC.cpen321application.databinding.ActivityMapsBinding
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.LatLngBounds
+
+internal fun Context.hasMapLocationPermission(): Boolean {
+    val fine = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
+    val coarse = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION)
+    return fine == PackageManager.PERMISSION_GRANTED || coarse == PackageManager.PERMISSION_GRANTED
+}
+
+internal fun ActivityMapsBinding.updateTravelLegend(travelMode: TripTravelMode) {
+    textLegend.setText(
+        if (travelMode == TripTravelMode.WALKING) {
+            R.string.map_legend_walking
+        } else {
+            R.string.map_legend_driving
+        },
+    )
+}
 
 internal fun routePolylinePoints(route: MapRoute, travelMode: TripTravelMode): List<LatLng> {
     val selectedRoute = when (travelMode) {

@@ -9,7 +9,10 @@ participant "FrontEnd" as App
 participant "Users" as Users
 database "MongoDB" as DB
 
-App -> App : Check onboardingCompletedAt
+note over App,Users : userId comes from the authenticated session; update is assembled from the values entered on this page.
+App -> App : getCurrentUser(): User
+
+App -> App : checkOnboardingCompletedAt(user: User): boolean
 App --> User : Show Create Profile page with location, transportation, budget, and interest controls
 User -> App : Enter starting location
 User -> App : Select transportation, budget, and interest preferences
@@ -18,8 +21,8 @@ alt starting location is missing or exceeds supported length
 else valid profile input
     User -> App : Select Create profile
     App -> Users : updateUser(userId: string, update: UserUpdate): Promise<User>
-    Users -> DB : findOneAndUpdate({ _id: objectId }, { $set: fields }, { returnDocument: 'after' })
-    note right of DB : Complete profile sets onboardingCompletedAt.
+    Users -> DB : findOneAndUpdate(filter: { _id: userId }, update: { $set: update }, options: { returnDocument: 'after' }): Promise<User | null>
+    note over Users, DB : Complete profile sets onboardingCompletedAt.
     alt profile saved
         DB --> Users : User
         Users --> App : User
