@@ -4,7 +4,6 @@ import android.Manifest
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Looper
 import android.view.View
@@ -13,7 +12,6 @@ import androidx.core.content.ContextCompat
 import com.example.cpen321application.maps.GoogleMapsApiClient
 import com.example.cpen321application.maps.PolylineDecoder
 import com.example.cpen321application.maps.PopularPlace
-import com.example.cpen321application.maps.SampleMapData
 import com.exploreUBC.cpen321application.BuildConfig
 import com.exploreUBC.cpen321application.R
 import com.exploreUBC.cpen321application.data.itineraries.ItineraryMap
@@ -30,8 +28,7 @@ import com.google.android.gms.maps.model.Marker
 import com.google.android.gms.maps.model.MarkerOptions
 import com.google.android.gms.maps.model.Polyline
 import com.google.android.gms.maps.model.PolylineOptions
-import java.net.HttpURLConnection
-import java.net.URL
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -64,6 +61,9 @@ class CampusMapController(
         placesApiKey = BuildConfig.PLACES_API_KEY,
     )
     private var mapTilesLoaded = false
+    private var mapTilesTimedOut = false
+    private var popularPlacesFailed = false
+    private var popularPlacesCount: Int? = null
     private var showMyLocation = false
     private var pendingItineraryMap: ItineraryMap? = null
     private var pendingOverlayTitle: String = ""
@@ -76,6 +76,7 @@ class CampusMapController(
     private var popularPlacesEnabled = true
     private var popularPlacesJob: Job? = null
     private var onMapClick: () -> Unit = {}
+    private val campusCenter = LatLng(49.2606, -123.2460)
 
     fun start() = onMainThread {
         MapsInitializer.initialize(context.applicationContext)
@@ -131,13 +132,24 @@ class CampusMapController(
             popularPlacesEnabled = enabled
             if (::map.isInitialized) {
                 if (enabled) {
+                    binding.textMapStatus.setText(R.string.map_loading_popular)
+                    binding.textMapStatus.visibility = View.VISIBLE
                     popularPlacesJob = scope.launch { loadPopularPlaces() }
                 } else {
                     popularPlacesJob?.cancel()
+                    popularPlacesFailed = false
                     popularMarkers.forEach { it.remove() }
                     popularMarkers.clear()
                     if (mode == MapLayerMode.POPULAR_PLACES) {
+                        if (mapTilesLoaded) binding.map.visibility = View.VISIBLE
                         binding.textMapStatus.setText(R.string.map_popular_hidden)
+                        binding.textMapStatus.setOnClickListener {
+                            binding.textMapStatus.visibility = View.GONE
+                        }
+                    } else {
+                        binding.textMapStatus.text = pendingItineraryMap?.let {
+                            MapItineraryText.statusMessage(context, it)
+                        } ?: context.getString(R.string.map_loading_trips)
                     }
                 }
             }
@@ -183,13 +195,32 @@ class CampusMapController(
         map.uiSettings.isZoomControlsEnabled = true
         map.uiSettings.isCompassEnabled = true
         map.uiSettings.isMapToolbarEnabled = true
-        map.moveCamera(CameraUpdateFactory.newLatLngZoom(SampleMapData.ubcCampus, 14.5f))
+        map.moveCamera(CameraUpdateFactory.newLatLngZoom(campusCenter, 14.5f))
         if (showMyLocation || hasLocationPermission()) {
             map.isMyLocationEnabled = true
         }
 
         map.setOnMapLoadedCallback {
             mapTilesLoaded = true
+            if (mapTilesTimedOut) {
+                mapTilesTimedOut = false
+                if (!popularPlacesFailed || mode == MapLayerMode.TRIP_ROUTES) {
+                    binding.map.visibility = View.VISIBLE
+                }
+                if (mode == MapLayerMode.POPULAR_PLACES && !popularPlacesFailed) {
+                    binding.textMapStatus.setText(
+                        when (popularPlacesCount) {
+                            null -> R.string.map_loading_popular
+                            0 -> R.string.map_popular_empty
+                            else -> R.string.map_popular_ready
+                        },
+                    )
+                } else if (mode == MapLayerMode.TRIP_ROUTES && !popularPlacesFailed) {
+                    binding.textMapStatus.text = pendingItineraryMap?.let {
+                        MapItineraryText.statusMessage(context, it)
+                    } ?: context.getString(R.string.map_loading_trips)
+                }
+            }
             if (renderedPoints.isNotEmpty()) {
                 fitMapCamera(map, renderedPoints, binding.map)
             }
@@ -198,7 +229,13 @@ class CampusMapController(
         scope.launch {
             delay(4_000)
             if (!mapTilesLoaded) {
-                showStaticMapFallback(renderedPoints)
+                mapTilesTimedOut = true
+                if (!popularPlacesFailed || mode == MapLayerMode.TRIP_ROUTES) {
+                    binding.textMapStatus.setText(R.string.map_tiles_failed)
+                    binding.textMapStatus.visibility = View.VISIBLE
+                    binding.textMapStatus.setOnClickListener { }
+                }
+                binding.map.visibility = View.INVISIBLE
             }
         }
 
@@ -326,10 +363,36 @@ class CampusMapController(
             popularMarkers.clear()
         }
 
-        val center = SampleMapData.ubcCampus
-        val remotePlaces = withContext(Dispatchers.IO) { mapsApi.fetchPopularPlaces(center) }
-        val places = remotePlaces.takeUnless { it.isNullOrEmpty() } ?: SampleMapData.fallbackPopularPlaces
+        val places = try {
+            withContext(Dispatchers.IO) { mapsApi.fetchPopularPlaces(campusCenter) }
+        } catch (error: CancellationException) {
+            throw error
+        } catch (_: Exception) {
+            null
+        }
         withContext(Dispatchers.Main.immediate) {
+            if (places == null) {
+                popularPlacesFailed = true
+                popularPlacesCount = null
+                if (mode == MapLayerMode.POPULAR_PLACES) {
+                    binding.map.visibility = View.INVISIBLE
+                }
+                binding.textMapStatus.setText(R.string.map_popular_failed)
+                binding.textMapStatus.visibility = View.VISIBLE
+                binding.textMapStatus.setOnClickListener {
+                    binding.textMapStatus.setText(R.string.map_loading_popular)
+                    popularPlacesJob = scope.launch { loadPopularPlaces() }
+                }
+                return@withContext
+            }
+            popularPlacesFailed = false
+            popularPlacesCount = places.size
+            if (mapTilesLoaded) binding.map.visibility = View.VISIBLE
+            if (mode == MapLayerMode.POPULAR_PLACES) {
+                binding.textMapStatus.setOnClickListener {
+                    binding.textMapStatus.visibility = View.GONE
+                }
+            }
             places.forEach { place ->
                 val marker = map.addMarker(
                     MarkerOptions()
@@ -342,55 +405,21 @@ class CampusMapController(
                 if (marker != null) popularMarkers.add(marker)
             }
 
-            if (renderedPoints.isEmpty()) {
+            if (renderedPoints.isEmpty() && places.isNotEmpty()) {
                 fitMapCamera(map, places.map { it.location }, binding.map)
             }
-            binding.textMapStatus.setText(R.string.map_popular_ready)
-        }
-    }
-
-    private suspend fun showStaticMapFallback(points: List<LatLng>) {
-        val key = BuildConfig.MAPS_API_KEY
-        if (key.isBlank() || key == "YOUR_API_KEY") {
-            withContext(Dispatchers.Main.immediate) {
-                binding.textMapStatus.text =
-                    "Map tiles did not load. Add MAPS_API_KEY and enable Maps SDK for Android."
-            }
-            return
-        }
-
-        val markers = points.take(5).joinToString("&") { point ->
-            "markers=color:0x0055B7|${point.latitude},${point.longitude}"
-        }
-        val url =
-            "https://maps.googleapis.com/maps/api/staticmap?center=49.2606,-123.2460&zoom=14&size=600x900&scale=2&maptype=roadmap&$markers&key=$key"
-
-        val bitmap = withContext(Dispatchers.IO) {
-            val connection = (URL(url).openConnection() as HttpURLConnection).apply {
-                connectTimeout = 8_000
-                readTimeout = 8_000
-            }
-            try {
-                if (connection.responseCode == HttpURLConnection.HTTP_OK) {
-                    connection.inputStream.use { BitmapFactory.decodeStream(it) }
-                } else {
-                    null
-                }
-            } catch (_: Exception) {
-                null
-            } finally {
-                connection.disconnect()
-            }
-        }
-
-        withContext(Dispatchers.Main.immediate) {
-            if (bitmap != null) {
-                binding.mapFallback.setImageBitmap(bitmap)
-                binding.mapFallback.visibility = View.VISIBLE
-                binding.textMapStatus.text =
-                    "Showing a static campus map. Enable Maps SDK for Android on this API key for the interactive map."
-            } else {
-                binding.textMapStatus.text = "Map tiles did not load. Enable Maps SDK for Android."
+            if (mapTilesTimedOut) {
+                binding.textMapStatus.setText(R.string.map_tiles_failed)
+                binding.textMapStatus.visibility = View.VISIBLE
+                binding.textMapStatus.setOnClickListener { }
+            } else if (mode == MapLayerMode.POPULAR_PLACES) {
+                binding.textMapStatus.setText(
+                    if (places.isEmpty()) R.string.map_popular_empty else R.string.map_popular_ready,
+                )
+            } else if (mode == MapLayerMode.TRIP_ROUTES) {
+                binding.textMapStatus.text = pendingItineraryMap?.let {
+                    MapItineraryText.statusMessage(context, it)
+                } ?: context.getString(R.string.map_loading_trips)
             }
         }
     }

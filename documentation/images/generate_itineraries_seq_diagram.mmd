@@ -6,13 +6,15 @@ sequenceDiagram
     participant DB as MongoDB
     participant LLM as LLM Service
 
+    Note over App,Recommendations: userId comes from the authenticated session. Profile fields and preferences are read from the returned User.
+
     User->>App: Open Trips
     User->>App: Select Generate recommendations
     App-->>User: Confirm replacement of current recommendations
     User->>App: Confirm generation
     App->>Recommendations: generateRecommendations(userId: string): Promise<Itinerary[]>
-    Recommendations->>Users: UserRepository.findUser(userId): Promise<User | null>
-    Users->>DB: findUser(userId)
+    Recommendations->>Users: UserRepository.findUser(userId: string): Promise<User | null>
+    Users->>DB: findUser(userId: string): Promise<User | null>
     DB-->>Users: User or null
     Users-->>Recommendations: User or null
     alt user missing or starting location blank
@@ -20,26 +22,26 @@ sequenceDiagram
         Recommendations-->>App: UserNotFoundError or RecommendationProfileIncompleteError
         App-->>User: Show profile error and offer profile completion or retry
     else profile complete
-        Recommendations->>LLM: generateItineraries({start_location, preferences})
+        Recommendations->>LLM: generateItineraries(startLocation: User.start_location, preferences: User.preferences): Promise<ItineraryDraft[]>
         alt generation service unavailable
             LLM-->>Recommendations: generation error
             Note over Recommendations,DB: Previous recommendations remain stored.
             Recommendations-->>App: generation error
             App-->>User: Show error and allow retry
         else generation service responds
-            LLM-->>Recommendations: itineraryJson
-            Recommendations->>Recommendations: parseItineraries(itineraryJson)
+            LLM-->>Recommendations: itineraryJson: unknown
+            Recommendations->>Recommendations: parseItineraries(itineraryJson: unknown): Itinerary[]
             alt response does not contain exactly four valid itineraries
                 Note over Recommendations,DB: Previous recommendations remain stored.
                 Recommendations-->>App: invalid response error
                 App-->>User: Show generation error and allow retry
             else response is valid
-                Recommendations->>Recommendations: rankItineraries(itineraries, interest)
+                Recommendations->>Recommendations: rankItineraries(itineraries: Itinerary[], interest: User.preferences.interest): Itinerary[]
                 alt ranking fails
                     Recommendations-->>App: ranking error
                     App-->>User: Show error and allow retry
                 else ranking succeeds
-                    Recommendations->>DB: replaceLatestRecommendations(userId, rankedItineraries)
+                    Recommendations->>DB: replaceLatestRecommendations(userId: string, rankedItineraries: Itinerary[]): Promise<Itinerary[]>
                     alt storage fails
                         DB-->>Recommendations: storage error
                         Recommendations-->>App: storage error

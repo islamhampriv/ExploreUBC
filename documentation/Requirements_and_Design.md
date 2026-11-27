@@ -7,7 +7,7 @@
 | November 26, 2026 | 2, 3.1–3.5, 4.1, 4.6 | Removed an unsupported itinerary operation from the requirements and diagram; aligned recommendation inputs, behavior, interface signatures, and sequence diagrams with the implementation and dependency components. |
 | November 20, 2026 | 3.1, 3.4, 3.7, 4.1, 4.7 | Separated functional Google Authentication from the Security NFR and aligned the Security design with session restoration, renewal, hash-only persistence, and ownership enforcement. |
 | October 1, 2026  | 3.3, 3.4, 3.5         | Added actors, use case descriptions, and formal use case specifications for Feature Sets 2 and 3.                                                                    |
-| October 14, 2026 | 4.1, 4.3, 4.4         | Added main components and interfaces from the View Itinerary on Map and Browse Popular Locations sequence diagrams, plus the Google Maps API and project frameworks. |
+| October 14, 2026 | 4.1, 4.3, 4.4         | Added main components and interfaces from the View Itinerary on Map sequence diagram, plus the Google Maps API and project frameworks. |
 | November 19, 2026 | 3.4, 3.5             | Added the Create Profile first-login use case and its formal specification.                                                                                           |
 
 ---
@@ -108,9 +108,8 @@ The features in this app will facilitate the entire trip planning process for UB
 **Primary actor(s)**: User
 
 **Main success scenario**:
-
 1. The user opens Trips, where their saved profile provides the starting location and preferences.
-2. The user selects **Generate recommendations** and confirms that the current recommendations will be replaced.
+2. The user selects **Generate recommendations** and confirms replacement of the current recommendations in a confirmation dialog.
 3. The system loads the user's saved profile and generates four candidate itineraries.
 4. The system validates, ranks, and saves the four itineraries as the latest recommendations.
 5. The system displays the recommendations with their activities, transportation segments, and rankings.
@@ -450,7 +449,7 @@ Backend signatures use TypeScript notation; the two Android map-client signature
    - **Purpose**: Supplies upcoming event listings for the configured city, province, and country. The backend retrieves paginated results, retries temporary failures, and converts provider responses into the internal `LiveEvent` format.
 
 2. **Google Maps API**
-   - **Purpose**: External mapping service used by ExploreUBC for the Feature Set 2 map view. The Android Maps SDK draws the interactive map, activity pins, popular-location pins, and routes. The same API key also supports Directions (walking routes between itinerary stops), Places Nearby Search (popular locations), and Static Maps (fallback image if live tiles do not load).
+   - **Purpose**: External mapping service used by ExploreUBC for the Feature Set 2 map view. The Android Maps SDK draws the interactive map, activity pins, popular-location pins, and routes. The API keys also support Directions (walking routes between itinerary stops) and Places Nearby Search (popular locations). When Maps or Places fails, the map view displays an error instead of sample locations or a substitute image.
 
 ### **4.4. Frameworks and Libraries**
 

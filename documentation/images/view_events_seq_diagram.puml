@@ -10,6 +10,12 @@ participant "LiveEvents" as Events
 participant "Users" as Users
 database "MongoDB" as DB
 
+note over App,Events
+userId comes from the authenticated session. options comes from the event-list UI.
+Later-page options are derived from the previous response's next-page cursor.
+Preferences loaded below are reused for pagination.
+end note
+
 note over Events, DB
 Ticketmaster events were synchronized into MongoDB earlier.
 end note
@@ -20,13 +26,13 @@ alt initial retrieval fails because of network or server error
     Events --> App : retrieval error
     App --> User : Keep existing cards and offer retry
 else recommendations retrieved
-    Events -> Users : UserRepository.findPreferences(userId): Promise<UserPreferences | null>
-    Users -> DB : findPreferences(userId)
+    Events -> Users : UserRepository.findPreferences(userId: string): Promise<UserPreferences | null>
+    Users -> DB : findPreferences(userId: string): Promise<UserPreferences | null>
     DB --> Users : UserPreferences
     Users --> Events : UserPreferences
-    Events -> DB : findNearbyUpcomingEvents(query)
+    Events -> DB : findNearbyUpcomingEvents(query: EventQuery): Promise<LiveEventCandidate[]>
     DB --> Events : LiveEventCandidate[]
-    Events -> Events : Score, filter, sort, and paginate
+    Events -> Events : scoreAndPaginate(candidates: LiveEventCandidate[], preferences: UserPreferences, options: EventRecommendationOptions): RecommendedLiveEvent[]
     Events --> App : RecommendedLiveEvent[]
     alt recommendations found
         App --> User : Display event cards and indicate whether more are available
@@ -38,13 +44,9 @@ else recommendations retrieved
                 Events --> App : retrieval error
                 App --> User : Keep existing cards and offer retry
             else next page retrieved
-                Events -> Users : UserRepository.findPreferences(userId): Promise<UserPreferences | null>
-                Users -> DB : findPreferences(userId)
-                DB --> Users : UserPreferences
-                Users --> Events : UserPreferences
-                Events -> DB : findNearbyUpcomingEvents(query)
+                Events -> DB : findNearbyUpcomingEvents(query: EventQuery): Promise<LiveEventCandidate[]>
                 DB --> Events : LiveEventCandidate[]
-                Events -> Events : Score, filter, sort, and paginate next page
+                Events -> Events : scoreAndPaginate(candidates: LiveEventCandidate[], preferences: UserPreferences from initial retrieval, options: EventRecommendationOptions): RecommendedLiveEvent[]
                 Events --> App : RecommendedLiveEvent[]
                 App --> User : Append event cards
             end

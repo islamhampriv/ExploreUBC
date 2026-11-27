@@ -12,9 +12,11 @@ database "MongoDB" as DB
 participant "Google Geocoding / Routes APIs" as GoogleAPI
 participant "Google Maps SDK" as MapsSDK
 
+note over App,Maps : userId comes from the authenticated session. filters come from the itinerary-list UI (default {}). itineraryId is selected from the returned Itinerary[].
+
 User -> App : Open saved itineraries
 App -> Itineraries : getItineraries(userId: string, filters: ItineraryFilters = {}): Promise<Itinerary[]>
-Itineraries -> DB : findItineraries(userId, filters)
+Itineraries -> DB : findItineraries(userId: string, filters: ItineraryFilters): Promise<Itinerary[]>
 DB --> Itineraries : Itinerary[]
 Itineraries --> App : Itinerary[]
 alt no saved itineraries
@@ -27,8 +29,8 @@ else saved itineraries available
         App --> User : Show nothing-to-plot message
     else itinerary contains activities
         App -> Maps : getItineraryMap(userId: string, itineraryId: string): Promise<ItineraryMap>
-        Maps -> Itineraries : ItineraryRepository.findItinerary(userId, itineraryId): Promise<Itinerary | null>
-        Itineraries -> DB : findItinerary(userId, itineraryId)
+        Maps -> Itineraries : ItineraryRepository.findItinerary(userId: string, itineraryId: string): Promise<Itinerary | null>
+        Itineraries -> DB : findItinerary(userId: string, itineraryId: string): Promise<Itinerary | null>
         alt itinerary load fails because of network or database error
             DB --> Itineraries : load error
             Itineraries --> Maps : load error
@@ -36,8 +38,8 @@ else saved itineraries available
             App --> User : Show load error and offer retry
             User -> App : Retry loading map
             App -> Maps : getItineraryMap(userId: string, itineraryId: string): Promise<ItineraryMap>
-            Maps -> Itineraries : ItineraryRepository.findItinerary(userId, itineraryId): Promise<Itinerary | null>
-            Itineraries -> DB : findItinerary(userId, itineraryId)
+            Maps -> Itineraries : ItineraryRepository.findItinerary(userId: string, itineraryId: string): Promise<Itinerary | null>
+            Itineraries -> DB : findItinerary(userId: string, itineraryId: string): Promise<Itinerary | null>
             alt retry fails
                 DB --> Itineraries : load error
                 Itineraries --> Maps : load error
@@ -57,13 +59,13 @@ else saved itineraries available
             Load scheduled activities (type, name, start/end time, location) and
             transportation segments (type, start/end time, pick-up/drop-off location, distance).
         end note
-        Maps -> DB : findByItineraryId(itineraryId)
+        Maps -> DB : findByItineraryId(itineraryId: string): Promise<ItineraryMap | null>
         DB --> Maps : cachedMap or null
         alt cache is current
             note over Maps : Reuse stored markers and routes.
         else cache is missing or outdated
             loop starting location and each activity address
-                Maps -> GoogleAPI : geocodeAddress(address): Promise<GeocodedLocation | null>
+                Maps -> GoogleAPI : geocodeAddress(address: ItineraryStop.location): Promise<GeocodedLocation | null>
                 alt location is valid
                     GoogleAPI --> Maps : GeocodedLocation
                 else location is missing or invalid
@@ -75,20 +77,20 @@ else saved itineraries available
                 alt either stop is unmapped
                     note over Maps : Omit this leg and continue.
                 else both stops are mapped
-                    Maps -> GoogleAPI : getRoute(origin, destination, walking): Promise<TravelOption | null>
+                    Maps -> GoogleAPI : getRoute(origin: GeocodedLocation, destination: GeocodedLocation, mode: 'walking'): Promise<TravelOption | null>
                     GoogleAPI --> Maps : walking route or null
-                    Maps -> GoogleAPI : getRoute(origin, destination, driving): Promise<TravelOption | null>
+                    Maps -> GoogleAPI : getRoute(origin: GeocodedLocation, destination: GeocodedLocation, mode: 'driving'): Promise<TravelOption | null>
                     GoogleAPI --> Maps : driving route or null
                     alt no route is available
                         note over Maps : Keep both pins, omit this leg, and continue.
                     end
                 end
             end
-            Maps -> DB : upsertMapData(mapData)
+            Maps -> DB : upsertMapData(mapData: ItineraryMap): Promise<ItineraryMap>
             DB --> Maps : saved
         end
         Maps --> App : ItineraryMap
-        App -> MapsSDK : Render markers and available route polylines
+        App -> MapsSDK : renderMap(mapData: ItineraryMap): MapRenderResult
         alt map is displayed
             MapsSDK --> App : interactive map
             App --> User : Show pins and routes in chronological order
@@ -99,7 +101,7 @@ else saved itineraries available
                 App --> User : Warn that some route legs are unavailable
             end
             User -> App : Select route leg
-            App -> MapsSDK : Highlight selected route
+            App -> MapsSDK : highlightRoute(route: ItineraryMap.routes[selectedRouteIndex]): void
             App --> User : Display route directions
         else map cannot be displayed
             MapsSDK --> App : map unavailable
